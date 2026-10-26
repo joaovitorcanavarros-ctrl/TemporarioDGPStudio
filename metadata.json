@@ -1,0 +1,8 @@
+{
+  "name": "CBMMT · Gestão de Temporários",
+  "description": "Sistema de Gerenciamento de Bombeiros Militares Temporários do CBMMT — efetivo, contratos, desligamentos e relatórios.",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ],
+  "permissions": []
+}
