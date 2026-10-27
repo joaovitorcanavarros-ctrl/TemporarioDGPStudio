@@ -1,6 +1,6 @@
 {
-  "summary":  "Plano detalhado para criação do PRD completo do Sistema de Gestão de Militares Temporários (CBMMT/DGP), contendo especificação funcional completa, matriz de controle de acesso (RBAC), contratos de endpoints e rotas, regras de negócio e validação, vetores de vulnerabilidades e testes automatizados de segurança (OWASP Top 10, autenticação, injeção, CSRF/XSS, integridade de auditoria), além de rota e visualizador dedicado no app com opção de download do arquivo Markdown.",
-  "updatedAt":  "2026-10-27T11:58:11.559351795Z",
+  "summary":  "Plano arquitetural e de implementação para sincronização multiusuário em tempo real com Google Cloud Firestore, autenticação unificada (Google e E-mail/Senha) e controle de permissões por Administradores.",
+  "updatedAt":  "2026-10-27T17:27:36.015721047Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

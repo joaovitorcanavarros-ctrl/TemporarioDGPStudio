@@ -1,4 +1,7 @@
 import initialData from "./seedData.json";
+import { doc, setDoc, onSnapshot } from "firebase/firestore";
+import { db } from "./firebase";
+import { queryClient } from "./queryClient";
 import type {
   AuditoriaPage,
   Catalogos,
@@ -159,9 +162,6 @@ async function syncToFirestore(dataToSave: StoredData) {
     await setDoc(docRef, payload, { merge: true });
   } catch (err) {
     console.error("Erro ao salvar dados corporativos no Firestore:", err);
-    try {
-      handleFirestoreError(err, OperationType.WRITE, "corporacao/dados");
-    } catch {}
   } finally {
     isSavingToFirestore = false;
     if (pendingSave) {
@@ -174,6 +174,7 @@ async function syncToFirestore(dataToSave: StoredData) {
 
 function saveStore() {
   try {
+    store.alteracoes = (store.alteracoes || []).slice(0, 300);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
   } catch (e) {
     console.warn("Failed to persist store to localStorage", e);
@@ -214,9 +215,6 @@ export function initFirestoreSync() {
       },
       (error) => {
         console.error("Firestore onSnapshot error:", error);
-        try {
-          handleFirestoreError(error, OperationType.GET, "corporacao/dados");
-        } catch {}
       }
     );
   } catch (e) {

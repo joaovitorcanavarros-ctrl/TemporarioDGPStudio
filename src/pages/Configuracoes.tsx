@@ -279,8 +279,16 @@ export default function Configuracoes() {
             display={[{ key: "nome", label: "Motivo" }, ativoCol]} />
         </TabsContent>
         {admin && (
-          <TabsContent value="usuarios" className="mt-4">
-            <CrudTab title="Usuários" testId="usuarios" endpoint="/usuarios" invalidateKey="usuarios" canEdit
+          <TabsContent value="usuarios" className="mt-4 space-y-4">
+            <div className="rounded-xl border border-blue-500/30 bg-blue-950/20 p-4">
+              <h4 className="text-sm font-bold text-blue-200">Gestão Multiusuário e Controle de Acessos</h4>
+              <p className="mt-1 text-xs text-slate-300 leading-relaxed">
+                • <strong>Novos Usuários:</strong> Qualquer pessoa que criar uma conta ou entrar pelo Google recebe automaticamente a permissão <span className="font-semibold text-amber-300">Consulta</span> (visualização de quadros, filtros e relatórios).<br />
+                • <strong>Aprovação de Administrador:</strong> Para conceder permissão de edição ou gestão a um colega, clique no botão <span className="font-semibold text-blue-300">Editar</span> na linha do usuário e altere o Perfil para <span className="font-semibold text-emerald-300">Administrador</span> ou <span className="font-semibold text-blue-300">Gestor de Pessoal</span>.<br />
+                • <strong>Sincronização em Tempo Real:</strong> Todas as alterações nos cadastros e permissões são salvas na nuvem e propagadas instantaneamente para todos os dispositivos conectados.
+              </p>
+            </div>
+            <CrudTab title="Usuários Cadastrados" testId="usuarios" endpoint="/usuarios" invalidateKey="usuarios" canEdit
               rows={(usuarios.data ?? []) as unknown as Row[]}
               fields={[
                 { key: "nome", label: "Nome", type: "text" }, { key: "email", label: "E-mail", type: "text" },
