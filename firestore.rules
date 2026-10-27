@@ -19,8 +19,14 @@ service cloud.firestore {
       );
     }
 
-    // Central corporate data: militares, editais, cargos, lotações e auditoria
+    // Central corporate metadata: editais, cargos, lotações e auditoria
     match /corporacao/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Granular military records collection (1 document per military modified/created)
+    match /militares/{militarId} {
       allow read: if true;
       allow write: if true;
     }

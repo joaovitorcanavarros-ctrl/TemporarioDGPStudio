@@ -47,7 +47,7 @@ interface Props { params: Params; variant?: "geral" | "desligados"; compact?: bo
 export default function MilitaresTable({ params, variant = "geral", compact, testId = "militares-table", resetKey }: Props) {
   const me = useMe();
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(compact ? 10 : 25);
+  const [pageSize, setPageSize] = useState(compact ? 10 : 20);
   const [sort, setSort] = useState(variant === "desligados" ? "data_desligamento" : "nome_completo");
   const [direction, setDirection] = useState<"asc" | "desc">(variant === "desligados" ? "desc" : "asc");
   const [desligar, setDesligar] = useState<Militar | null>(null);
@@ -195,7 +195,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
         <div className="flex items-center gap-2">
           <span>Itens por página</span>
           <FieldSelect testId="page-size-select" className="w-20" value={String(pageSize)} onChange={(v) => { setPageSize(Number(v)); setPage(1); }}
-            options={["10", "25", "50", "100"].map((v) => ({ value: v, label: v }))} />
+            options={["10", "20", "30"].map((v) => ({ value: v, label: v }))} />
         </div>
         <div className="flex items-center gap-2">
           <span data-testid="pagination-info">Página <span className="num text-white">{page}</span> de <span className="num">{pages}</span></span>

@@ -1,6 +1,6 @@
 {
-  "summary":  "Plano arquitetural e de implementação para sincronização multiusuário em tempo real com Google Cloud Firestore, autenticação unificada (Google e E-mail/Senha) e controle de permissões por Administradores.",
-  "updatedAt":  "2026-10-27T17:27:36.015721047Z",
+  "summary":  "Plano detalhado para revisao completa da arquitetura do Firestore: remocao de listeners onSnapshot contínuos, substituicao por buscas pontuais (getDoc/getDocs), gravacao granular exclusiva mediante acao explicita do usuario ('Salvar'/'Atualizar'), eliminacao de loops e limites nas listagens.",
+  "updatedAt":  "2026-10-27T23:05:53.830805760Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

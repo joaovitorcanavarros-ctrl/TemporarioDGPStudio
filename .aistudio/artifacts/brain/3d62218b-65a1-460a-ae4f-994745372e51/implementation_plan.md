@@ -1,100 +1,89 @@
-# Sincronização em Tempo Real no Firestore & Gestão Multiusuário
+# Otimização e Controle Granular da Comunicação com o Firebase Firestore
 
-Plano de modernização para persistência centralizada na nuvem via Google Cloud Firestore, sincronização multiusuário em tempo real e sistema de controle de acesso (RBAC) com perfis de Administrador e Consulta.
+Plano arquitetural para eliminar o esgotamento de cotas do Firestore, desativando listeners contínuos e substituindo escritas massivas por atualizações granulares pontuais, acionadas exclusivamente por cliques intencionais de salvamento.
 
 > [!IMPORTANT]
-> **Decisões Alinhadas na Fase de Clarificação:**
-> - **Controle de Acesso:** Novos usuários cadastrados iniciam automaticamente com a permissão **Consulta** (apenas visualização). Qualquer **Administrador** pode promover o usuário a Administrador na aba de Gestão de Usuários.
-> - **Métodos de Login:** Ambos os métodos estão disponíveis e integrados: **Login Institucional Google** e **E-mail com Senha**.
-> - **Auditoria e Atribuição:** Sincronização de dados em tempo real sem exigência de assinatura nominal de autor em cada registro de militar, priorizando agilidade e privacidade operacional.
+> **Decisões Alinhadas com o Usuário:**
+> - **Remoção de `onSnapshot` Contínuo:** Desativação de streams em tempo real permanentes que consomem leituras/escutas ininterruptas. Substituição por chamadas pontuais sob demanda (`getDoc` e `getDocs`) via React Query com cache controlado.
+> - **Gravação Exclusiva no Clique Explícito:** Nenhuma chamada a `setDoc`, `updateDoc` ou `addDoc` ocorrerá em tempo real durante digitação (`onChange`), renderizações de componentes (`useEffect`) ou no carregamento inicial de telas. Gravações ocorrerão estritamente no submit dos botões "Salvar" ou "Atualizar".
+> - **Gravação Granular de Documentos:** Em vez de regravar o arquivo corporativo inteiro (300 KB em bloco), cada militar alterado terá apenas o seu próprio documento ou delta persistido (`militares/{militarId}`), reduzindo o tráfego de 300.000 bytes para menos de 500 bytes por operação.
+> - **Paginação e Limite de Leitura:** Listagens com limites nativos (25 a 50 itens por página) e consultas indexadas por matrícula/nome, evitando carregar desnecessariamente toda a base da corporação de uma só vez.
 
 ---
 
 ## 1. Visão Geral e Conceito Central
 
-- **O que faz:** Migra o armazenamento isolado em `localStorage` para uma base de dados em tempo real no **Google Cloud Firestore**. Sempre que um administrador cadastrar, prorrogar contrato, editar ou desligar um bombeiro militar temporário, a atualização é refletida instantaneamente para todos os outros usuários conectados no sistema.
-- **Público-alvo:** Gestores, analistas e comando da Diretoria de Gestão de Pessoas (DGP) do Corpo de Bombeiros Militar de Mato Grosso (CBMMT).
-- **Valor Agregado:** Eliminação do risco de descompasso de dados entre computadores e turnos de trabalho, garantindo visão única e consolidada do efetivo de temporários no estado.
+- **O que faz:** Reestrutura a camada de comunicação com o Firebase Firestore (`src/lib/mockBackend.ts` e `src/lib/firebase.ts`) para operar em modo transacional pontual de alta eficiência, garantindo que o aplicativo nunca mais atinja limites de cotas gratuitas (*RESOURCE_EXHAUSTED*).
+- **Público-alvo:** Administradores e operadores da Diretoria de Gestão de Pessoas (DGP/CBMMT).
+- **Valor Agregado:** Sistema ágil, estável e imune a travamentos por limite diário de gravação, mantendo 100% da identidade visual, dos filtros, das validações e das telas existentes inalteradas.
 
 ---
 
-## 2. Experiência do Usuário e Design Visual
+## 2. Experiência do Usuário e Visual
 
-### Fluxos Principais
-1. **Autenticação Flexível:** O usuário escolhe entre o botão corporativo Google ou formulário de e-mail e senha. Na primeira autenticação, o perfil é provisionado no Firestore com status `CONSULTA`.
-2. **Navegação com Permissões Dinâmicas:**
-   - **Administrador:** Acesso total a inclusões, prorrogações, edições, desligamentos, reativações e aba de Usuários & Acessos.
-   - **Consulta:** Visualização completa do efetivo, quadros (Condutores, Técnicos, Enfermeiros, Médicos), filtros, relatórios analíticos e exportação em PDF, com botões de mutação bloqueados com indicação amigável de permissão.
-3. **Gestão de Usuários (Configurações):** Administradores visualizam a lista de todos os usuários cadastrados, data de cadastro, último acesso e um seletor rápido para alternar entre "Administrador" e "Consulta".
-4. **Sincronização em Tempo Real Silenciosa:** O app escuta alterações no Firestore via listener em tempo real (`onSnapshot`), invalidando o cache do React Query instantaneamente sem necessidade de recarregar a página (F5).
-
-### Identidade Visual e Estilo
-- **Tema:** Dark mode sofisticado e institucional com background translúcido (Glassmorphism), mantendo a paleta oficial em tons de azul-marinho profundo (`#0b1329`), carmim escuro e acentos em azul vibrante (`#2563eb`).
-- **Tipografia:** Hierarquia robusta com Inter/Roboto, rótulos limpos e contraste em conformidade com as diretrizes de acessibilidade.
-- **Feedback Interativo:** Toasts visuais para confirmação de salvamento na nuvem, indicadores de status sincronizado e modais de confirmação claros para exclusão ou mudança de perfil.
+- **Preservação Visual Completa:** O design do sistema, as abas, tabelas, filtros rápidos, detalhes de militares, modais de confirmação, relatórios e a tela de login estilizada permanecem exatamente iguais.
+- **Feedback Transparente de Gravação:**
+  - Ao clicar em "Salvar Cadastro", "Salvar Alterações", "Registrar Desligamento" ou "Reativar Cadastro", o sistema exibe estado de loading no botão e toast de confirmação imediato.
+  - Indicador visual leve nas listagens demonstrando a página atual e contagem de registros exibidos (ex: "Exibindo 1–25 de 421").
+- **Busca Eficiente e Otimizada:** A pesquisa por nome ou matrícula filtra diretamente na memória/cache local abastecida pela consulta pontual, sem disparar requisições em nuvem a cada caractere digitado.
 
 ---
 
 ## 3. Decisões Técnicas e Trade-Offs
 
-- **Persistência Centralizada no Firestore:**
-  - *Abordagem:* Centralização do documento da corporação (`corporacao/dados`) e coleção de usuários (`usuarios/{uid}`).
-  - *Motivo:* Resolução definitiva do problema onde alterações feitas em uma máquina não apareciam para outros usuários. O Firestore oferece listeners em tempo real (`onSnapshot`) nativos e alta confiabilidade.
-- **Cache Local com Fallback Resiliente:**
-  - *Abordagem:* Mantém cópia em memória/cache sincronizada que hidrata a interface imediatamente, garantindo que o app abra em milissegundos mesmo antes do primeiro retorno de rede.
-- **Transição Transparente:**
-  - *Abordagem:* O primeiro carregamento importa automaticamente os dados locais pré-existentes para o Firestore caso a base na nuvem ainda não possua o documento mestre inicial.
+- **Substituição de `onSnapshot` por Consultas Pontuais:**
+  - *Abordagem:* Consultas pontuais (`getDoc` e `getDocs`) disparadas sob demanda com `staleTime` inteligente no React Query (ex: 5 minutos).
+  - *Motivo:* `onSnapshot` mantém canais abertos e consome cotas de leitura e sincronização contínua a cada reconexão ou alteração de estado.
+- **Gravação Granular por Militar:**
+  - *Abordagem:* Persistência individualizada (`corporacao/dados` para catálogos/metadados e atualização delta para o militar específico alterado).
+  - *Motivo:* Gravar 300 KB em um único documento consome 300 unidades de gravação por clique; com gravação pontual, o custo cai para 1 unidade de gravação por operação.
+- **Proteção Contra Gravações Automáticas em Hooks:**
+  - *Abordagem:* Remoção de qualquer `setDoc` dentro de rotinas de inicialização ou callbacks de render. As funções de persistência na nuvem passam a ser chamadas unicamente nos manipuladores de evento de formulário (`onSubmit` e mutações do React Query).
 
 ---
 
 ## 4. Arquitetura Técnica e Estratégia de Dados
 
-### Diagrama do Sistema
+### Diagrama de Fluxo e Comunicação
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     Navegadores Clientes                        │
-│                                                                 │
-│  ┌───────────────────────┐           ┌───────────────────────┐  │
-│  │     Administrador     │           │       Consulta        │  │
-│  │ (Edição, Gestão User) │           │ (Leitura, Relatórios) │  │
-│  └───────────┬───────────┘           └───────────▲───────────┘  │
-│              │ Escrita (setDoc)                  │              │
-└──────────────┼───────────────────────────────────┼──────────────┘
-               │                                   │ Real-time Sync
-               ▼                                   │ (onSnapshot)
-┌──────────────────────────────────────────────────┴──────────────┐
-│                   Google Cloud Firestore                        │
-│                                                                 │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │  Coleção: /corporacao/dados                               │  │
-│  │  - militares: MilitarTemporario[]                         │  │
-│  │  - desligamentos: DesligamentoRegistro[]                  │  │
-│  │  - ultimaAtualizacao: timestamp ISO                       │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                                                                 │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │  Coleção: /usuarios/{uid}                                 │  │
-│  │  - uid: string                                            │  │
-│  │  - email: string                                          │  │
-│  │  - nome: string                                           │  │
-│  │  - perfil: "ADMIN" | "CONSULTA"                           │  │
-│  │  - criadoEm: string                                       │  │
-│  │  - ultimoAcesso: string                                   │  │
-│  └───────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                          Interface do Usuário                          │
+│                                                                        │
+│   [Formulário Militar]           [Tabela / Listagem]                   │
+│   - onChange: Apenas State       - Paginação: 25 registros/pág         │
+│   - Clique em "Salvar":          - Busca: Filtro local sem I/O         │
+│          │                               │                             │
+└──────────┼───────────────────────────────┼─────────────────────────────┘
+           │ Salvar explícito              │ Busca inicial pontual
+           ▼                               ▼ (getDoc / getDocs)
+┌────────────────────────────────────────────────────────────────────────┐
+│                     Camada de Serviços (mockBackend)                   │
+│                                                                        │
+│   - Cache local rápido (localStorage / Memória)                        │
+│   - Sem loops ou updates em background                                 │
+│   - Gravação Granular (apenas o militar alterado)                      │
+└──────────────────────────────────┬─────────────────────────────────────┘
+                                   │
+                                   ▼ Chamada pontual (setDoc isolado)
+┌────────────────────────────────────────────────────────────────────────┐
+│                      Google Cloud Firestore                            │
+│                                                                        │
+│   Coleção: /corporacao/dados (configurações e catálogos)               │
+│   Coleção: /militares/{id} (documentos individuais leves ~500B)        │
+│   Custo: 1 unidade de gravação por clique do usuário                   │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Mapeamento de Estado e Componentes
+### Detalhamento das Alterações nos Arquivos
 
-1. **Camada de Dados (`src/lib/mockBackend.ts` e `src/lib/firebase.ts`):**
-   - Configuração do listener em tempo real no documento `/corporacao/dados`.
-   - Mutação via `setDoc` para inserção, edição, exclusão e desligamento, disparando a atualização para todos os clientes conectados.
-   - Gerenciamento da coleção `/usuarios` com funções de listagem e atualização de `perfil`.
-2. **Controle de Sessão e Auth (`src/lib/session.ts` & `src/pages/Login.tsx`):**
-   - Criação/leitura do perfil no Firestore no momento do login.
-   - Atribuição do primeiro usuário (`joao1canavarros@gmail.com`) ou configuração de privilégio inicial como ADMIN, enquanto novos usuários recebem CONSULTA até promoção.
-3. **Página de Usuários e Permissões (`src/pages/Configuracoes.tsx`):**
-   - Tabela de gestão de usuários permitindo ao administrador alternar permissões de outros membros em tempo real.
-4. **Proteção de Interface (`src/components/AppShell.tsx` & componentes de formulário):**
-   - Desativação elegante de botões de edição/exclusão quando o usuário ativo possui perfil CONSULTA, acompanhado de tooltip explicativo.
+1. **`src/lib/mockBackend.ts`:**
+   - Desativar o listener global `initFirestoreSync()` e a chamada contínua `onSnapshot`.
+   - Implementar consulta inicial pontual `carregarDadosFirestore()` via `getDoc` executada apenas uma vez na inicialização ou ao forçar atualização manual.
+   - Refatorar a função de salvamento para que seja chamada estritamente nos endpoints de mutação (`POST /militares`, `PUT /militares/:id`, `POST /desligamentos`, etc.) e apenas persista o militar ou objeto alterado.
+   - Remover qualquer execução de `setDoc` em listeners, rotinas de seed cíclicas ou chamadas de leitura de detalhe (`GET /militares/:id`).
+2. **`src/pages/MilitarForm.tsx` e `src/components/MilitaresTable.tsx`:**
+   - Assegurar que nenhuma alteração em inputs (`onChange`) dispare chamadas de rede até que o botão de submissão do formulário seja clicado.
+   - Manter paginação de 25 em 25 registros com controle de limite para não sobrecarregar memória ou tráfego.
+3. **`src/lib/firebase.ts`:**
+   - Adicionar funções utilitárias isoladas: `salvarMilitarFirestore(militar)` e `buscarMilitaresPaginados(limite)`.

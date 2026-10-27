@@ -1,6 +1,11 @@
 import initialData from "./seedData.json";
-import { doc, setDoc, onSnapshot } from "firebase/firestore";
-import { db } from "./firebase";
+import {
+  salvarMilitarFirestore,
+  buscarMilitarFirestore,
+  buscarMilitaresLimitadosFirestore,
+  salvarMetadadosFirestore,
+  buscarMetadadosFirestore,
+} from "./firebase";
 import { queryClient } from "./queryClient";
 import type {
   AuditoriaPage,
@@ -147,83 +152,109 @@ function getInitialStore(): StoredData {
 
 let store: StoredData = getInitialStore();
 
-let isSavingToFirestore = false;
-let pendingSave: StoredData | null = null;
-
-async function syncToFirestore(dataToSave: StoredData) {
-  if (isSavingToFirestore) {
-    pendingSave = dataToSave;
-    return;
-  }
-  isSavingToFirestore = true;
+function saveLocalOnly() {
   try {
-    const docRef = doc(db, "corporacao", "dados");
-    const payload = JSON.parse(JSON.stringify(dataToSave));
-    await setDoc(docRef, payload, { merge: true });
-  } catch (err) {
-    console.error("Erro ao salvar dados corporativos no Firestore:", err);
-  } finally {
-    isSavingToFirestore = false;
-    if (pendingSave) {
-      const next = pendingSave;
-      pendingSave = null;
-      syncToFirestore(next);
-    }
-  }
-}
-
-function saveStore() {
-  try {
-    store.alteracoes = (store.alteracoes || []).slice(0, 300);
+    store.alteracoes = (store.alteracoes || []).slice(0, 100);
+    store.situacoes = (store.situacoes || []).slice(0, 100);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
   } catch (e) {
     console.warn("Failed to persist store to localStorage", e);
   }
-  // Persist to Cloud Firestore so all users and devices immediately get the update
-  syncToFirestore(store);
 }
 
-let firestoreInitialized = false;
+/**
+ * Gravação granular de um único militar no Firestore.
+ * Executada EXCLUSIVAMENTE quando o administrador clica em Salvar / Atualizar / Confirmar.
+ */
+async function persistMilitarExplicitly(militar: StoredData["militares"][number]) {
+  saveLocalOnly();
+  await salvarMilitarFirestore(militar);
+  await salvarMetadadosFirestore({
+    alteracoes: store.alteracoes.slice(0, 40),
+    situacoes: store.situacoes.slice(0, 40),
+  });
+}
 
-export function initFirestoreSync() {
-  if (firestoreInitialized || typeof window === "undefined") return;
-  firestoreInitialized = true;
-
-  try {
-    const docRef = doc(db, "corporacao", "dados");
-    onSnapshot(
-      docRef,
-      (snapshot) => {
-        if (snapshot.exists()) {
-          const cloudData = snapshot.data() as StoredData;
-          if (cloudData && Array.isArray(cloudData.militares) && cloudData.militares.length > 0) {
-            store = cleanAvnm(cloudData);
-            try {
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-            } catch {}
-            // Invalidate queries so every connected user gets updated data in real time
-            queryClient.invalidateQueries();
-          }
-        } else {
-          // Document does not exist yet in Firestore: seed initial CBMMT dataset
-          console.log("Realizando seed inicial dos dados oficiais do CBMMT no Firestore...");
-          const initialPayload = JSON.parse(JSON.stringify(store));
-          setDoc(docRef, initialPayload, { merge: true }).catch((err) => {
-            console.error("Erro no seed inicial do Firestore:", err);
-          });
-        }
-      },
-      (error) => {
-        console.error("Firestore onSnapshot error:", error);
-      }
-    );
-  } catch (e) {
-    console.warn("Falha ao inicializar listener de sincronização em tempo real do Firestore:", e);
+/**
+ * Gravação leve apenas de metadados/catálogos/usuários alterados.
+ * Executada EXCLUSIVAMENTE após clique explícito de salvamento.
+ */
+async function persistMetadadosExplicitly(keys: Array<keyof Omit<StoredData, "militares">>) {
+  saveLocalOnly();
+  const partial: Record<string, any> = {
+    alteracoes: store.alteracoes.slice(0, 40),
+  };
+  for (const k of keys) {
+    partial[k] = store[k];
   }
+  await salvarMetadadosFirestore(partial);
 }
 
-if (typeof window !== "undefined") {
-  initFirestoreSync();
+let lastCloudFetchAt = 0;
+let cloudFetchPromise: Promise<void> | null = null;
+const CLOUD_FETCH_COOLDOWN_MS = 60_000;
+
+/**
+ * Consulta pontual (getDoc / getDocs com limite de 30 registros) sob demanda ao abrir páginas.
+ * Não mantém listener onSnapshot ativo e NUNCA executa gravações automáticas após carregar.
+ */
+export async function carregarDadosPontuaisFirestore(force = false): Promise<void> {
+  if (typeof window === "undefined") return;
+  const now = Date.now();
+  if (!force && now - lastCloudFetchAt < CLOUD_FETCH_COOLDOWN_MS) return;
+  if (cloudFetchPromise) return cloudFetchPromise;
+
+  lastCloudFetchAt = now;
+  cloudFetchPromise = (async () => {
+    try {
+      const [metaSnap, militaresCloud] = await Promise.all([
+        buscarMetadadosFirestore(),
+        buscarMilitaresLimitadosFirestore(30),
+      ]);
+
+      let changed = false;
+
+      if (metaSnap) {
+        const cleanedMeta = cleanAvnm(metaSnap);
+        if (cleanedMeta.config) { store.config = cleanedMeta.config; changed = true; }
+        if (Array.isArray(cleanedMeta.categorias) && cleanedMeta.categorias.length > 0) { store.categorias = cleanedMeta.categorias; changed = true; }
+        if (Array.isArray(cleanedMeta.cargos) && cleanedMeta.cargos.length > 0) { store.cargos = cleanedMeta.cargos; changed = true; }
+        if (Array.isArray(cleanedMeta.lotacoes) && cleanedMeta.lotacoes.length > 0) { store.lotacoes = cleanedMeta.lotacoes; changed = true; }
+        if (Array.isArray(cleanedMeta.editais) && cleanedMeta.editais.length > 0) { store.editais = cleanedMeta.editais; changed = true; }
+        if (Array.isArray(cleanedMeta.motivos) && cleanedMeta.motivos.length > 0) { store.motivos = cleanedMeta.motivos; changed = true; }
+        if (Array.isArray(cleanedMeta.usuarios) && cleanedMeta.usuarios.length > 0) { store.usuarios = cleanedMeta.usuarios; changed = true; }
+        if (Array.isArray(cleanedMeta.alteracoes) && cleanedMeta.alteracoes.length > 0) { store.alteracoes = cleanedMeta.alteracoes; changed = true; }
+        if (Array.isArray(cleanedMeta.situacoes) && cleanedMeta.situacoes.length > 0) { store.situacoes = cleanedMeta.situacoes; changed = true; }
+      }
+
+      if (Array.isArray(militaresCloud) && militaresCloud.length > 0) {
+        const byId = new Map(store.militares.map((m, idx) => [m.id, idx]));
+        for (const rawMil of militaresCloud) {
+          const mil = cleanAvnm(rawMil) as StoredData["militares"][number];
+          if (!mil?.id) continue;
+          const existingIdx = byId.get(mil.id);
+          if (existingIdx !== undefined) {
+            store.militares[existingIdx] = { ...store.militares[existingIdx], ...mil };
+          } else {
+            store.militares.unshift(mil);
+            byId.set(mil.id, 0);
+          }
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        saveLocalOnly();
+        queryClient.invalidateQueries();
+      }
+    } catch (e) {
+      console.warn("Aviso ao executar busca pontual no Firestore:", e);
+    } finally {
+      cloudFetchPromise = null;
+    }
+  })();
+
+  return cloudFetchPromise;
 }
 
 export function getCurrentUser(): UserOut | null {
@@ -448,7 +479,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       ativo: true,
     };
     store.usuarios.push(newUser);
-    saveStore();
+    await persistMetadadosExplicitly(["usuarios"]);
 
     const userOut: UserOut = { id: newUser.id, nome: newUser.nome, email: newUser.email, perfil: newUser.perfil, ativo: newUser.ativo };
     setCurrentUser(userOut);
@@ -475,11 +506,14 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         ativo: true,
       };
       store.usuarios.push(user);
-      saveStore();
+      await persistMetadadosExplicitly(["usuarios"]);
     } else {
-      if (!user.nome) user.nome = nome;
-      if (isSystemAdmin) user.perfil = "ADMIN";
-      saveStore();
+      let userModified = false;
+      if (!user.nome && nome) { user.nome = nome; userModified = true; }
+      if (isSystemAdmin && user.perfil !== "ADMIN") { user.perfil = "ADMIN"; userModified = true; }
+      if (userModified) {
+        await persistMetadadosExplicitly(["usuarios"]);
+      }
     }
 
     const userOut: UserOut = { id: user.id, nome: user.nome, email: user.email, perfil: user.perfil, ativo: user.ativo };
@@ -528,7 +562,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       antes: { "Prazo de alerta (dias)": oldAlerta },
       depois: { "Prazo de alerta (dias)": newAlerta },
     });
-    saveStore();
+    await persistMetadadosExplicitly(["config"]);
     return store.config as T;
   }
 
@@ -548,7 +582,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         antes: null,
         depois: { Nome: item.nome || item.codigo, ...item },
       });
-      saveStore();
+      await persistMetadadosExplicitly([coll]);
       return item as T;
     }
     if (method === "PUT" && itemId) {
@@ -563,7 +597,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
           antes: oldItem,
           depois: store[coll][idx],
         });
-        saveStore();
+        await persistMetadadosExplicitly([coll]);
         return store[coll][idx] as T;
       }
     }
@@ -624,7 +658,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
           antes: { Nome: oldItem.nome || oldItem.codigo, ...oldItem },
           depois: null,
         });
-        saveStore();
+        await persistMetadadosExplicitly([coll]);
         return { ok: true, removed } as T;
       }
       throw { status: 404, body: { detail: "Registro não encontrado" } };
@@ -819,6 +853,9 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   }
 
   if (pathname === "/militares" && method === "GET") {
+    // Busca pontual controlada (getDocs com limite de 30 e cooldown, sem escrita automática)
+    await carregarDadosPontuaisFirestore();
+
     let list = store.militares.map((m) => enrichMilitar(m, hoje, alertaDias));
 
     // Filters
@@ -894,7 +931,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     });
 
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-    const pageSize = Math.max(1, parseInt(searchParams.get("page_size") || "25", 10));
+    // Limite máximo de resultados por página (entre 10 e 30) para evitar leitura excessiva
+    const pageSize = Math.min(30, Math.max(1, parseInt(searchParams.get("page_size") || "25", 10)));
     const total = list.length;
     const start = (page - 1) * pageSize;
     const items = list.slice(start, start + pageSize);
@@ -966,7 +1004,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         "Situação": newDoc.status,
       },
     });
-    saveStore();
+    await persistMilitarExplicitly(newDoc);
     return enrichMilitar(newDoc, hoje, alertaDias) as T;
   }
 
@@ -974,12 +1012,27 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   const milDetailMatch = pathname.match(/^\/militares\/([^/]+)$/);
   if (milDetailMatch) {
     const id = milDetailMatch[1];
-    const doc = store.militares.find((m) => m.id === id);
-    if (!doc) throw { status: 404, body: { detail: "Militar não encontrado" } };
 
     if (method === "GET") {
+      // Consulta pontual (getDoc) apenas ao abrir o cadastro do militar; NUNCA dispara escrita automática
+      const cloudMil = await buscarMilitarFirestore(id);
+      if (cloudMil && cloudMil.id) {
+        const cleaned = cleanAvnm(cloudMil) as StoredData["militares"][number];
+        const existingIdx = store.militares.findIndex((m) => m.id === id);
+        if (existingIdx >= 0) {
+          store.militares[existingIdx] = { ...store.militares[existingIdx], ...cleaned };
+        } else {
+          store.militares.unshift(cleaned);
+        }
+        saveLocalOnly();
+      }
+      const doc = store.militares.find((m) => m.id === id);
+      if (!doc) throw { status: 404, body: { detail: "Militar não encontrado" } };
       return enrichMilitar(doc, hoje, alertaDias) as T;
     }
+
+    const doc = store.militares.find((m) => m.id === id);
+    if (!doc) throw { status: 404, body: { detail: "Militar não encontrado" } };
 
     if (method === "PUT") {
       const b = body as MilitarIn;
@@ -1049,7 +1102,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         depois: Object.keys(depois).length > 0 ? depois : { "Militar": doc.nome_completo },
       });
 
-      saveStore();
+      await persistMilitarExplicitly(doc);
       return enrichMilitar(doc, hoje, alertaDias) as T;
     }
   }
@@ -1104,7 +1157,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       depois: Object.keys(depois).length > 0 ? depois : { "Militar": doc.nome_completo },
     });
 
-    saveStore();
+    await persistMilitarExplicitly(doc);
     return enrichMilitar(doc, hoje, alertaDias) as T;
   }
 
@@ -1157,7 +1210,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       },
     });
 
-    saveStore();
+    await persistMilitarExplicitly(doc);
     return enrichMilitar(doc, hoje, alertaDias) as T;
   }
 
@@ -1210,7 +1263,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       },
     });
 
-    saveStore();
+    await persistMilitarExplicitly(doc);
     return enrichMilitar(doc, hoje, alertaDias) as T;
   }
 
@@ -1515,7 +1568,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       antes: null,
       depois: { Nome: user.nome, "E-mail": user.email, Perfil: user.perfil, Ativo: user.ativo ? "Sim" : "Não" },
     });
-    saveStore();
+    await persistMetadadosExplicitly(["usuarios"]);
     const { senha_hash, ...out } = user;
     return out as T;
   }
@@ -1537,7 +1590,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       antes: oldU,
       depois: { Nome: user.nome, "E-mail": user.email, Perfil: user.perfil, Ativo: user.ativo ? "Sim" : "Não" },
     });
-    saveStore();
+    await persistMetadadosExplicitly(["usuarios"]);
     const { senha_hash, ...out } = user;
     return out as T;
   }
@@ -1701,6 +1754,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   if (pathname === "/importacao/aplicar" && method === "POST") {
     const validacao = body?.validacao as ImportValidacao;
     let inseridos = 0;
+    const novosDocs: Array<StoredData["militares"][number]> = [];
     const user = getCurrentUser() || DEFAULT_USERS[0];
 
     if (validacao && validacao.linhas) {
@@ -1732,6 +1786,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
             atualizado_por: user.id,
           };
           store.militares.push(newDoc);
+          novosDocs.push(newDoc);
           inseridos++;
         }
       }
@@ -1744,7 +1799,10 @@ export async function handleBackendRequest<T>(method: string, path: string, body
           depois: { "Militares importados": inseridos },
         });
       }
-      saveStore();
+      saveLocalOnly();
+      for (const docToSave of novosDocs.slice(0, 20)) {
+        await salvarMilitarFirestore(docToSave);
+      }
     }
 
     const resultado: ImportResultado = {

@@ -1,8 +1,8 @@
 {
   "entities": {
-    "CorporacaoDados": {
-      "title": "CorporacaoDados",
-      "description": "Dados corporativos centralizados de militares, editais, cargos e lotações",
+    "CorporacaoMetadados": {
+      "title": "CorporacaoMetadados",
+      "description": "Metadados leves da corporação: configurações, catálogos, usuários e histórico recente",
       "type": "object",
       "properties": {
         "config": { "type": "object" },
@@ -11,11 +11,38 @@
         "lotacoes": { "type": "array" },
         "editais": { "type": "array" },
         "motivos": { "type": "array" },
-        "militares": { "type": "array" },
+        "usuarios": { "type": "array" },
         "alteracoes": { "type": "array" },
         "situacoes": { "type": "array" },
         "ultima_atualizacao": { "type": "string" }
       }
+    },
+    "MilitarRecord": {
+      "title": "MilitarRecord",
+      "description": "Cadastro individual de Bombeiro Militar Temporário",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "matricula": { "type": "string" },
+        "nome_completo": { "type": "string" },
+        "cargo_id": { "type": "string" },
+        "lotacao_id": { "type": "string" },
+        "edital_id": { "type": "string" },
+        "data_inclusao": { "type": "string" },
+        "data_vencimento_contrato": { "type": "string" },
+        "status": { "type": "string", "enum": ["ATIVO", "DESLIGADO"] },
+        "observacoes": { "type": "string" },
+        "doe_incorporacao": { "type": "string" },
+        "sub_judice": { "type": "boolean" },
+        "data_desligamento": { "type": "string" },
+        "motivo_desligamento_id": { "type": "string" },
+        "documento_desligamento": { "type": "string" },
+        "criado_em": { "type": "string" },
+        "atualizado_em": { "type": "string" },
+        "criado_por": { "type": "string" },
+        "atualizado_por": { "type": "string" }
+      },
+      "required": ["id", "matricula", "nome_completo", "status"]
     },
     "UserProfile": {
       "title": "UserProfile",
@@ -35,8 +62,12 @@
   },
   "firestore": {
     "/corporacao/{docId}": {
-      "schema": "CorporacaoDados",
-      "description": "Central corporate data store for militares, catalogs, and logs"
+      "schema": "CorporacaoMetadados",
+      "description": "Corporate metadata, catalogs, and recent logs"
+    },
+    "/militares/{militarId}": {
+      "schema": "MilitarRecord",
+      "description": "Individual military personnel records for granular reads and writes"
     },
     "/users/{userId}": {
       "schema": "UserProfile",
