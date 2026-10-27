@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import { motion } from "motion/react";
 import { useMutation } from "@tanstack/react-query";
 import { AlertCircle, Eye, EyeOff, HelpCircle, Lock, ShieldCheck, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -117,66 +118,111 @@ export default function Login() {
   const isPending = loginMut.isPending || signupMut.isPending || googleMut.isPending || googleLoading;
 
   return (
-    <div className="relative grid min-h-screen lg:grid-cols-[1.15fr_1fr] bg-gradient-to-br from-[#061024] via-[#0A1322] to-[#1A0A10] overflow-hidden">
+    <div className="relative grid min-h-screen lg:grid-cols-[1.15fr_1fr] bg-gradient-to-br from-[#0B132B] via-[#0A1428] to-[#1F080C] overflow-hidden">
       {/* Global ambient radial gradients extending seamlessly across both sides */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(37,99,235,0.30),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(220,38,38,0.24),transparent_50%),radial-gradient(ellipse_at_bottom_left,rgba(30,58,138,0.22),transparent_55%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(37,99,235,0.25),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(185,28,28,0.30),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(30,58,138,0.22),transparent_55%)]" />
 
-      {/* 1. LADO ESQUERDO: Apresentação e Identidade Institucional */}
-      <section className="relative hidden overflow-hidden border-r border-white/5 lg:flex lg:flex-col lg:justify-between p-12 xl:p-16">
-        {/* Background photo with subtle overlay/blend (without grid lines) */}
-        <div className="absolute inset-0 z-0 overflow-hidden">
+      {/* 1. LADO ESQUERDO: Apresentação e Identidade Institucional com máxima fidelidade técnica */}
+      <section className="relative hidden overflow-hidden border-r border-white/5 lg:flex lg:flex-col lg:justify-between p-12 xl:p-16 bg-[#0B132B]">
+        {/* Background photo com sobreposições dramáticas azul-marinho e vermelho escuro */}
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
           <img
-            src="/assets/aistudio/plano_de_fundo.temporario_365e2cd0.jpg"
+            src="/assets/aistudio/download_7723d736.jpg"
             alt="Bombeiro Militar do CBMMT em ação operacional"
-            className="size-full object-cover opacity-25 mix-blend-luminosity filter contrast-125 brightness-95"
+            className="size-full object-cover object-center opacity-42 mix-blend-luminosity filter contrast-125 brightness-105"
           />
-          {/* Subtle vignette and dark wash to guarantee high text contrast and seamless blend */}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#061024]/90 via-[#0A1322]/80 to-[#0A1322]/60" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#061024]/90 via-transparent to-[#061024]/60" />
+          {/* Tonalidade e Filtros: Azul marinho profundo (#0B132B / #0A1428) no alto-esquerdo, transicionando para vermelho escuro (#1F080C / #300A10) na base direita */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#0B132B]/85 via-[#0A1428]/75 to-[#1F080C]/70" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_85%_75%,rgba(85,14,26,0.60),transparent_65%)]" />
+          
+          {/* Gradiente de opacidade: escurecimento em direção ao centro da tela para transição com a área de login */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#0A1428]/40 to-[#061024]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#061024]/85 via-transparent to-[#0B132B]/75" />
+
+          {/* Pontos de luz (flare/glow) vermelhos pontuais no topo */}
+          <div className="absolute -top-10 right-20 size-48 rounded-full bg-red-600/30 blur-3xl" />
+          <div className="absolute top-10 right-4 size-32 rounded-full bg-rose-600/35 blur-2xl" />
         </div>
 
-        {/* Top Header: CBMMT Official Logo */}
-        <div className="relative z-10 flex items-center gap-4">
+        {/* Top Header: Logo CBMMT com fade-in e slide-up suave */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+          className="relative z-10 flex w-full items-center justify-center gap-4 sm:gap-5"
+        >
           <img
             src="/cbmmt-logo.png"
             alt="Emblema do Corpo de Bombeiros Militar de Mato Grosso"
-            className="size-16 shrink-0 drop-shadow-[0_4px_18px_rgba(220,38,38,0.45)]"
+            className="size-16 sm:size-20 shrink-0 drop-shadow-[0_6px_22px_rgba(220,38,38,0.6)] transition-transform duration-200"
             data-testid="login-logo"
           />
-          <div>
-            <p className="font-heading text-lg font-black tracking-wider text-white">CBMMT</p>
-            <p className="text-xs font-medium tracking-wide text-slate-400">
-              Corpo de Bombeiros Militar de Mato Grosso
-            </p>
+          <span className="font-heading text-3xl sm:text-4xl font-black tracking-wider text-white">
+            CBMMT
+          </span>
+          <div className="h-10 sm:h-12 w-px bg-white/40 self-center" />
+          <div className="leading-tight text-white/95 text-left">
+            <p className="text-xs sm:text-sm font-normal tracking-wide">Corpo de Bombeiros</p>
+            <p className="text-xs sm:text-sm font-normal tracking-wide">Militar de Mato Grosso</p>
           </div>
-        </div>
+        </motion.div>
 
-        {/* Central Content: Typographic Hierarchy */}
-        <div className="relative z-10 max-w-xl animate-rise py-10">
-          <p className="mb-3 text-xs font-bold uppercase tracking-[0.25em] text-blue-400">
-            DIRETORIA DE GESTÃO DE PESSOAS
-          </p>
-          <h1 className="font-heading text-4xl font-extrabold leading-[1.15] tracking-tight text-white sm:text-5xl">
-            Gerenciamento de Bombeiros Militares Temporários
-          </h1>
-          <p className="mt-5 text-sm sm:text-base leading-relaxed text-slate-300/90 max-w-lg">
+        {/* Central Content: Hierarquia Tipográfica com Animações Escalonadas */}
+        <div className="relative z-10 max-w-lg py-6 sm:py-8">
+          <motion.p
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
+            className="mb-2.5 sm:mb-3 text-sm sm:text-base font-semibold tracking-wide text-[#3B82F6]"
+          >
+            Diretoria de Gestão de Pessoas
+          </motion.p>
+          <motion.h1
+            initial={{ opacity: 0, y: 22 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="font-heading text-3xl sm:text-4xl lg:text-[2.65rem] font-extrabold leading-[1.12] tracking-tight text-white"
+          >
+            Gerenciamento de<br />
+            Bombeiros Militares<br />
+            Temporários
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.34, ease: [0.16, 1, 0.3, 1] }}
+            className="mt-4 sm:mt-5 text-xs sm:text-sm leading-relaxed text-slate-300/85 max-w-md font-normal"
+          >
             Efetivo, contratos, desligamentos e relatórios em um único sistema, com indicadores calculados a partir dos registros oficiais.
-          </p>
+          </motion.p>
         </div>
 
-        {/* Bottom Footer: Security and Audit Badge */}
-        <div className="relative z-10">
-          <div className="inline-flex items-center gap-2.5 rounded-full border border-emerald-500/25 bg-emerald-950/35 px-4 py-1.5 text-xs font-medium text-emerald-300 backdrop-blur-md shadow-sm">
-            <ShieldCheck className="size-4 text-emerald-400 shrink-0" />
-            <span>Acesso seguro com auditoria de operações</span>
+        {/* Bottom Footer: Selo de Segurança com Fade-in e Slide-up Suave */}
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.46, ease: [0.16, 1, 0.3, 1] }}
+          className="relative z-10"
+        >
+          <div className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-950/50 px-3 py-1.5 text-[11px] sm:text-xs text-emerald-300 backdrop-blur-md shadow-sm">
+            <ShieldCheck className="size-3.5 shrink-0 text-emerald-400" />
+            <span className="font-normal tracking-wide text-emerald-200/90">
+              Acesso seguro com auditoria de operações
+            </span>
           </div>
-        </div>
+        </motion.div>
       </section>
 
-      {/* 2. LADO DIREITO: Painel de Login com Efeito Glassmorphism */}
-      <section className="relative flex items-center justify-center p-6 sm:p-10 overflow-y-auto">
+      {/* 2. LADO DIREITO: Painel de Login com o mesmo jogo de cores gradientes do lado esquerdo */}
+      <section className="relative flex items-center justify-center p-6 sm:p-10 overflow-y-auto bg-gradient-to-br from-[#0B132B] via-[#0A1428] to-[#1F080C]">
+        {/* Camadas de iluminação e gradientes atmosféricos idênticos aos do lado esquerdo */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_85%_75%,rgba(85,14,26,0.60),transparent_65%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#061024]/85 via-transparent to-[#0B132B]/75" />
+        <div className="pointer-events-none absolute -top-10 right-20 size-48 rounded-full bg-red-600/25 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-10 left-10 size-48 rounded-full bg-blue-600/20 blur-3xl" />
+
         <div
-          className="relative z-10 w-full max-w-md animate-rise space-y-6 rounded-2xl border border-white/10 bg-[#0E1726]/80 p-8 sm:p-9 shadow-[0_25px_60px_rgba(0,0,0,0.7)] backdrop-blur-xl ring-1 ring-white/5"
+          className="relative z-10 w-full max-w-md animate-rise space-y-6 rounded-2xl border border-white/12 bg-gradient-to-br from-[#0E1726]/85 via-[#0C1527]/80 to-[#180B12]/85 p-8 sm:p-9 shadow-[0_25px_60px_rgba(0,0,0,0.7)] backdrop-blur-xl ring-1 ring-white/10"
           data-testid="login-form"
         >
           {/* Card Header */}
