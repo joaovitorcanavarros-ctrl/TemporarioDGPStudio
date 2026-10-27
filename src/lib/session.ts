@@ -1,7 +1,6 @@
-// Session boundary: auth is an httpOnly cookie the backend owns; the frontend's one
-// duty is wiping the react-query cache so one account's data never renders for the next.
 import { queryClient } from "./queryClient";
 import { apiPost } from "./api";
+import { logoutFirebase } from "./firebase";
 
 // Call after every successful login/signup.
 export function beginSession(): void {
@@ -12,8 +11,16 @@ export function beginSession(): void {
 export async function endSession(redirectTo: string = "/login"): Promise<void> {
   try {
     await apiPost("/auth/logout");
+  } catch (e) {
+    console.warn("api logout error", e);
+  }
+  try {
+    await logoutFirebase();
+  } catch (e) {
+    console.warn("firebase logout error", e);
   } finally {
     queryClient.clear();
-    window.location.assign(redirectTo);
+    window.location.href = redirectTo;
   }
 }
+

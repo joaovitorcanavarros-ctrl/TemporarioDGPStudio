@@ -4,6 +4,7 @@ import {
   Activity, Briefcase, ChevronsLeft, ChevronsRight, FileSpreadsheet, FileText, HeartPulse,
   LayoutDashboard, LogOut, Menu, Settings, Shield, Stethoscope, Truck, UserPlus, Users, UserX,
 } from "lucide-react";
+
 import type { LucideIcon } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -76,6 +77,7 @@ function SidebarBody({ collapsed, onNavigate }: { collapsed: boolean; onNavigate
     { to: "/relatorios", label: "Relatórios", icon: FileText, id: "relatorios" },
     { to: "/configuracoes", label: "Configurações e Usuários", icon: Settings, id: "configuracoes" },
   ];
+
   return (
     <nav className="flex-1 overflow-y-auto px-3 pb-6">
       <NavGroup title="Principal" items={principal} collapsed={collapsed} onNavigate={onNavigate} />
@@ -106,7 +108,20 @@ export default function AppShell() {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("cbmmt.sidebar") === "1");
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  if (me.error instanceof ApiError && me.error.status === 401) return <Navigate to="/login" replace />;
+  if (me.isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0B111A]">
+        <div className="flex flex-col items-center gap-3">
+          <img src="/cbmmt-logo.png" alt="CBMMT" className="size-12 animate-pulse drop-shadow-[0_4px_10px_rgba(220,38,38,0.35)]" />
+          <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Carregando sistema...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (me.isError || (me.error instanceof ApiError && me.error.status === 401) || !me.data) {
+    return <Navigate to="/login" replace />;
+  }
 
   const toggle = () => {
     setCollapsed((c) => {

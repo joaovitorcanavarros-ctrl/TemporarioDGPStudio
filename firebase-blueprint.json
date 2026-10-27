@@ -1,0 +1,25 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with role-based access control and system metadata",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "User ID matching auth.uid" },
+        "nome": { "type": "string", "description": "Full name of the user", "maxLength": 160 },
+        "email": { "type": "string", "description": "Email address of the user", "maxLength": 160 },
+        "perfil": { "type": "string", "enum": ["ADMIN", "GESTOR", "CONSULTA"], "description": "Access profile" },
+        "ativo": { "type": "boolean", "description": "Whether the user account is active" },
+        "photoURL": { "type": "string", "description": "Optional avatar URL" },
+        "criado_em": { "type": "string", "description": "Account creation timestamp" }
+      },
+      "required": ["id", "nome", "email", "perfil", "ativo"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User account and permission profiles"
+    }
+  }
+}

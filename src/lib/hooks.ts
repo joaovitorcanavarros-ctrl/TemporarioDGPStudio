@@ -29,4 +29,5 @@ export const PERFIL_LABEL: Record<string, string> = {
 };
 
 // keys whose data changes after any write to militares
-export const MILITAR_KEYS = [["militares"], ["dashboard"], ["meta"], ["relatorio"], ["militar"], ["situacao"]];
+export const MILITAR_KEYS = [["militares"], ["dashboard"], ["meta"], ["relatorio"], ["militar"], ["situacao"], ["auditoria"]];
+

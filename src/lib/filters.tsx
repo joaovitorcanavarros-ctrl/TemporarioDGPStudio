@@ -1,5 +1,5 @@
 /* oxlint-disable react/only-export-components -- context + hook live together */
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 export interface GlobalFilters {
   ano: string;
@@ -33,18 +33,28 @@ export function FiltersProvider({ children }: { children: ReactNode }) {
       return EMPTY_FILTERS;
     }
   });
+
   useEffect(() => {
     sessionStorage.setItem(KEY, JSON.stringify(filters));
   }, [filters]);
-  const setFilter = (k: keyof GlobalFilters, v: string) =>
+
+  const setFilter = useCallback((k: keyof GlobalFilters, v: string) => {
     setFilters((f) => {
       const n = { ...f, [k]: v };
       if (k === "ano" && v) { n.data_inicio = ""; n.data_fim = ""; }
       if ((k === "data_inicio" || k === "data_fim") && v) n.ano = "";
       return n;
     });
+  }, []);
+
+  const reset = useCallback(() => {
+    setFilters(EMPTY_FILTERS);
+  }, []);
+
+  const ctxValue = useMemo(() => ({ filters, setFilter, reset }), [filters, setFilter, reset]);
+
   return (
-    <FiltersCtx.Provider value={{ filters, setFilter, reset: () => setFilters(EMPTY_FILTERS) }}>
+    <FiltersCtx.Provider value={ctxValue}>
       {children}
     </FiltersCtx.Provider>
   );

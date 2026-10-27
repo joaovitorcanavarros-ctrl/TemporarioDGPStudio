@@ -89,4 +89,6 @@ export interface Coluna { key: string; label: string }
 export interface Relatorio {
   tipo: string; titulo: string; descricao: string; colunas: Coluna[];
   linhas: Record<string, string | number | null>[]; gerado_em: string; filtros: string;
+  militar?: Militar;
 }
+

@@ -9,6 +9,7 @@ import MilitarDetalhe from "@/pages/MilitarDetalhe";
 import MilitarForm from "@/pages/MilitarForm";
 import Relatorios from "@/pages/Relatorios";
 import Temporarios from "@/pages/Temporarios";
+import PrdTestes from "@/pages/PrdTestes";
 
 // One <Route> per page in src/pages; BrowserRouter already wraps this in main.tsx.
 export default function App() {
@@ -25,8 +26,11 @@ export default function App() {
         <Route path="/desligamentos" element={<Desligamentos />} />
         <Route path="/importacao" element={<Importacao />} />
         <Route path="/relatorios" element={<Relatorios />} />
+        <Route path="/prd-testes" element={<PrdTestes />} />
+        <Route path="/auditoria" element={<Navigate to="/configuracoes?tab=auditoria" replace />} />
         <Route path="/configuracoes" element={<Configuracoes />} />
       </Route>
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

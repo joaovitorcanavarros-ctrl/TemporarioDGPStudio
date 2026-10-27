@@ -78,13 +78,30 @@ const DEFAULT_USERS: StoredData["usuarios"] = [
   { id: "usr_consulta", nome: "Usuário Consulta", email: "consulta@cbmmt.mt.gov.br", perfil: "CONSULTA", ativo: true },
 ];
 
+function cleanAvnm<T>(obj: T): T {
+  if (typeof obj === "string") {
+    return obj.replace(/\s*\(AVNM\)/gi, "").replace(/\bAVNM\b/gi, "Bombeiro Temporário") as unknown as T;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(cleanAvnm) as unknown as T;
+  }
+  if (obj && typeof obj === "object") {
+    const res: Record<string, any> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      res[k] = cleanAvnm(v);
+    }
+    return res as unknown as T;
+  }
+  return obj;
+}
+
 function getInitialStore(): StoredData {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed.militares && parsed.militares.length > 0) {
-        return parsed;
+        return cleanAvnm(parsed);
       }
     }
   } catch (e) {
@@ -135,7 +152,7 @@ function saveStore() {
   }
 }
 
-export function getCurrentUser(): UserOut {
+export function getCurrentUser(): UserOut | null {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
     if (raw) {
@@ -148,9 +165,8 @@ export function getCurrentUser(): UserOut {
   } catch (e) {
     console.warn("Failed to get current user session", e);
   }
-  // Default to Admin
-  const admin = store.usuarios.find((u) => u.perfil === "ADMIN") || DEFAULT_USERS[0];
-  return { id: admin.id, nome: admin.nome, email: admin.email, perfil: admin.perfil, ativo: admin.ativo };
+  // If the user has not logged in or logged out, return null so unauthenticated state is respected
+  return null;
 }
 
 export function setCurrentUser(user: UserOut | null) {
@@ -159,6 +175,12 @@ export function setCurrentUser(user: UserOut | null) {
   } else {
     localStorage.setItem(SESSION_KEY, JSON.stringify(user));
   }
+}
+
+function fmtDateLocal(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = iso.slice(0, 10);
+  return `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
 }
 
 // Today date in Mato Grosso / Cuiaba (YYYY-MM-DD)
@@ -211,6 +233,37 @@ function normMatricula(s: string): string {
   return (s || "").replace(/\s+/g, "").toUpperCase();
 }
 
+function cleanAlphanumeric(s: string): string {
+  return (s || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+}
+
+function getBaseMatricula(s: string): string {
+  return (s || "").split(/[\/\-]/)[0].replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+}
+
+function matchMatriculaFlexible(inputQuery: string, targetMatricula: string): boolean {
+  if (!inputQuery || !targetMatricula) return false;
+  const qNorm = normMatricula(inputQuery);
+  const tNorm = normMatricula(targetMatricula);
+  if (qNorm === tNorm) return true;
+
+  const qClean = cleanAlphanumeric(inputQuery);
+  const tClean = cleanAlphanumeric(targetMatricula);
+  if (qClean && tClean) {
+    if (qClean === tClean) return true;
+    if (tClean.includes(qClean) || (qClean.length >= 4 && tClean.startsWith(qClean))) return true;
+  }
+
+  const qBase = getBaseMatricula(inputQuery);
+  const tBase = getBaseMatricula(targetMatricula);
+  if (qBase && tBase) {
+    if (qBase === tBase) return true;
+    if (qBase.length >= 4 && (tBase.startsWith(qBase) || qBase.startsWith(tBase))) return true;
+  }
+
+  return false;
+}
+
 function enrichMilitar(m: StoredData["militares"][number], hoje: string, alertaDias: number): Militar {
   const cargo = store.cargos.find((c) => c.id === m.cargo_id);
   const cat = cargo?.categoria || "OUTROS";
@@ -237,10 +290,42 @@ function enrichMilitar(m: StoredData["militares"][number], hoje: string, alertaD
   };
 }
 
+export function logAudit(entry: {
+  entidade: string;
+  entidade_id?: string | null;
+  matricula?: string | null;
+  operacao: string;
+  usuario_nome?: string;
+  antes?: Record<string, unknown> | null;
+  depois?: Record<string, unknown> | null;
+}): HistoricoAlteracao {
+  const user = getCurrentUser() || DEFAULT_USERS[0];
+  const item: HistoricoAlteracao = {
+    id: `alt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    entidade: entry.entidade,
+    entidade_id: entry.entidade_id ?? null,
+    matricula: entry.matricula ?? null,
+    operacao: entry.operacao,
+    usuario_nome: entry.usuario_nome || user.nome || "Sistema",
+    timestamp: new Date().toISOString(),
+    antes: entry.antes ?? null,
+    depois: entry.depois ?? null,
+  };
+  if (!store.alteracoes) {
+    store.alteracoes = [];
+  }
+  store.alteracoes.unshift(item);
+  if (store.alteracoes.length > 1000) {
+    store.alteracoes = store.alteracoes.slice(0, 1000);
+  }
+  return item;
+}
+
 // ----------------- BACKEND ENDPOINT IMPLEMENTATIONS -----------------
 
 export async function handleBackendRequest<T>(method: string, path: string, body?: any): Promise<T> {
   const url = new URL(path.startsWith("/") ? `http://localhost${path}` : `http://localhost/${path}`);
+
   const pathname = url.pathname.replace(/^\/api/, "");
   const searchParams = url.searchParams;
 
@@ -249,7 +334,11 @@ export async function handleBackendRequest<T>(method: string, path: string, body
 
   // 1. AUTH
   if (pathname === "/auth/me" && method === "GET") {
-    return getCurrentUser() as T;
+    const user = getCurrentUser();
+    if (!user) {
+      throw { status: 401, body: { detail: "Sessão expirada ou não autenticado" } };
+    }
+    return user as T;
   }
 
   if (pathname === "/auth/login" && method === "POST") {
@@ -258,6 +347,67 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     if (!user) {
       throw { status: 401, body: { detail: "E-mail ou senha inválidos" } };
     }
+    const userOut: UserOut = { id: user.id, nome: user.nome, email: user.email, perfil: user.perfil, ativo: user.ativo };
+    setCurrentUser(userOut);
+    return userOut as T;
+  }
+
+  if (pathname === "/auth/signup" && method === "POST") {
+    const email = (body?.email || "").trim().toLowerCase();
+    const nome = (body?.nome || "").trim();
+    const senha = (body?.senha || "").trim();
+
+    if (!email || !nome) {
+      throw { status: 400, body: { detail: "Preencha todos os campos obrigatórios." } };
+    }
+    const existing = store.usuarios.find((u) => u.email.toLowerCase() === email);
+    if (existing) {
+      throw { status: 409, body: { detail: "Já existe uma conta cadastrada com este e-mail." } };
+    }
+
+    const isSystemAdmin = email === "admin@cbmmt.mt.gov.br" || email === "joao1canavarros@gmail.com";
+    const newUser: StoredData["usuarios"][number] = {
+      id: `usr_${Date.now()}`,
+      nome,
+      email,
+      perfil: isSystemAdmin ? "ADMIN" : "CONSULTA",
+      ativo: true,
+    };
+    store.usuarios.push(newUser);
+    saveStore();
+
+    const userOut: UserOut = { id: newUser.id, nome: newUser.nome, email: newUser.email, perfil: newUser.perfil, ativo: newUser.ativo };
+    setCurrentUser(userOut);
+    return userOut as T;
+  }
+
+  if (pathname === "/auth/google" && method === "POST") {
+    const email = (body?.email || "").trim().toLowerCase();
+    const nome = (body?.nome || "").trim() || email.split("@")[0];
+
+    if (!email) {
+      throw { status: 400, body: { detail: "E-mail da conta Google não recebido." } };
+    }
+
+    let user = store.usuarios.find((u) => u.email.toLowerCase() === email);
+    const isSystemAdmin = email === "admin@cbmmt.mt.gov.br" || email === "joao1canavarros@gmail.com";
+
+    if (!user) {
+      user = {
+        id: `usr_g_${Date.now()}`,
+        nome,
+        email,
+        perfil: isSystemAdmin ? "ADMIN" : "CONSULTA",
+        ativo: true,
+      };
+      store.usuarios.push(user);
+      saveStore();
+    } else {
+      if (!user.nome) user.nome = nome;
+      if (isSystemAdmin) user.perfil = "ADMIN";
+      saveStore();
+    }
+
     const userOut: UserOut = { id: user.id, nome: user.nome, email: user.email, perfil: user.perfil, ativo: user.ativo };
     setCurrentUser(userOut);
     return userOut as T;
@@ -282,16 +432,28 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   }
 
   if (pathname === "/meta" && method === "GET") {
+    const ultimaAtualizacao =
+      store.alteracoes?.[0]?.timestamp ||
+      store.militares?.[0]?.atualizado_em ||
+      "2026-10-14T10:00:00Z";
     const res: Meta = {
       data_hoje: hoje,
-      ultima_atualizacao: store.militares[0]?.atualizado_em || "2026-10-14T10:00:00Z",
+      ultima_atualizacao: ultimaAtualizacao,
       total_registros: store.militares.length,
     };
     return res as T;
   }
 
   if (pathname === "/config" && method === "PUT") {
-    store.config = { alerta_dias: Number(body?.alerta_dias) || 30 };
+    const oldAlerta = store.config.alerta_dias;
+    const newAlerta = Number(body?.alerta_dias) || 30;
+    store.config = { alerta_dias: newAlerta };
+    logAudit({
+      entidade: "Configurações",
+      operacao: "ALTERACAO_CONFIGURACAO",
+      antes: { "Prazo de alerta (dias)": oldAlerta },
+      depois: { "Prazo de alerta (dias)": newAlerta },
+    });
     saveStore();
     return store.config as T;
   }
@@ -305,16 +467,93 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       const newId = `${coll.slice(0, 3)}_${Date.now()}`;
       const item = { id: newId, ...body, ativo: true };
       (store[coll] as any).push(item);
+      logAudit({
+        entidade: coll,
+        entidade_id: newId,
+        operacao: `INSERCAO_${coll.toUpperCase()}`,
+        antes: null,
+        depois: { Nome: item.nome || item.codigo, ...item },
+      });
       saveStore();
       return item as T;
     }
     if (method === "PUT" && itemId) {
       const idx = (store[coll] as any).findIndex((x: any) => x.id === itemId);
       if (idx >= 0) {
+        const oldItem = { ...store[coll][idx] };
         store[coll][idx] = { ...store[coll][idx], ...body, id: itemId };
+        logAudit({
+          entidade: coll,
+          entidade_id: itemId,
+          operacao: `EDICAO_${coll.toUpperCase()}`,
+          antes: oldItem,
+          depois: store[coll][idx],
+        });
         saveStore();
         return store[coll][idx] as T;
       }
+    }
+    if (method === "DELETE" && itemId) {
+      const idx = (store[coll] as any).findIndex((x: any) => x.id === itemId);
+      if (idx >= 0) {
+        if (coll === "categorias") {
+          const cat = store.categorias[idx];
+          const cargosUsando = store.cargos.filter((c) => c.categoria === cat.codigo);
+          if (cargosUsando.length > 0) {
+            throw {
+              status: 400,
+              body: {
+                detail: `Não é possível excluir a categoria "${cat.nome}" pois existem ${cargosUsando.length} cargo(s) vinculado(s) a ela. Desvincule ou exclua os cargos primeiro.`,
+              },
+            };
+          }
+        }
+        if (coll === "cargos") {
+          const milUsando = store.militares.filter((m) => m.cargo_id === itemId);
+          if (milUsando.length > 0) {
+            throw {
+              status: 400,
+              body: {
+                detail: `Não é possível excluir o cargo pois existem ${milUsando.length} militar(es) vinculado(s).`,
+              },
+            };
+          }
+        }
+        if (coll === "lotacoes") {
+          const milUsando = store.militares.filter((m) => m.lotacao_id === itemId);
+          if (milUsando.length > 0) {
+            throw {
+              status: 400,
+              body: {
+                detail: `Não é possível excluir a lotação pois existem ${milUsando.length} militar(es) vinculado(s).`,
+              },
+            };
+          }
+        }
+        if (coll === "editais") {
+          const milUsando = store.militares.filter((m) => m.edital_id === itemId);
+          if (milUsando.length > 0) {
+            throw {
+              status: 400,
+              body: {
+                detail: `Não é possível excluir o edital pois existem ${milUsando.length} militar(es) vinculado(s).`,
+              },
+            };
+          }
+        }
+        const oldItem = { ...store[coll][idx] };
+        const removed = store[coll].splice(idx, 1);
+        logAudit({
+          entidade: coll,
+          entidade_id: itemId,
+          operacao: `EXCLUSAO_${coll.toUpperCase()}`,
+          antes: { Nome: oldItem.nome || oldItem.codigo, ...oldItem },
+          depois: null,
+        });
+        saveStore();
+        return { ok: true, removed } as T;
+      }
+      throw { status: 404, body: { detail: "Registro não encontrado" } };
     }
   }
 
@@ -512,7 +751,13 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     const q = searchParams.get("q");
     if (q) {
       const qNorm = normKey(q);
-      list = list.filter((m) => normKey(m.nome_completo).includes(qNorm) || normMatricula(m.matricula).includes(qNorm));
+      const qClean = cleanAlphanumeric(q);
+      list = list.filter((m) =>
+        normKey(m.nome_completo).includes(qNorm) ||
+        normMatricula(m.matricula).includes(qNorm) ||
+        (qClean && cleanAlphanumeric(m.matricula).includes(qClean)) ||
+        matchMatriculaFlexible(q, m.matricula)
+      );
     }
     const categoria = searchParams.get("categoria");
     if (categoria) list = list.filter((m) => m.categoria === categoria);
@@ -537,6 +782,32 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     const sub_judice = searchParams.get("sub_judice");
     if (sub_judice === "true") list = list.filter((m) => m.sub_judice);
     else if (sub_judice === "false") list = list.filter((m) => !m.sub_judice);
+
+    const ativo_em = searchParams.get("ativo_em");
+    if (ativo_em) {
+      list = list.filter((m) => ativoEm(m, ativo_em, hoje));
+    }
+
+    const ano = searchParams.get("ano");
+    const data_inicio = searchParams.get("data_inicio");
+    const data_fim = searchParams.get("data_fim");
+
+    if (ano) {
+      list = list.filter((m) => {
+        const incAno = m.data_inclusao ? m.data_inclusao.slice(0, 4) : "";
+        const edital = store.editais.find((e) => e.id === m.edital_id);
+        const editalAno = edital?.ano ? String(edital.ano) : "";
+        const activeInYear = m.data_inclusao <= `${ano}-12-31` && (!m.data_desligamento || m.data_desligamento >= `${ano}-01-01`);
+        return incAno === ano || editalAno === ano || activeInYear;
+      });
+    } else {
+      if (data_inicio) {
+        list = list.filter((m) => m.data_inclusao >= data_inicio || (m.data_vencimento_contrato && m.data_vencimento_contrato >= data_inicio) || (!m.data_desligamento || m.data_desligamento >= data_inicio));
+      }
+      if (data_fim) {
+        list = list.filter((m) => m.data_inclusao <= data_fim);
+      }
+    }
 
     // Sorting
     const sort = searchParams.get("sort") || "nome_completo";
@@ -569,7 +840,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         body: { detail: { message: `Já existe cadastro para a matrícula ${b.matricula} (${exists.nome_completo}).`, militar_id: exists.id } },
       };
     }
-    const user = getCurrentUser();
+    const user = getCurrentUser() || DEFAULT_USERS[0];
     const newDoc: StoredData["militares"][number] = {
       id: `mil_${Date.now()}`,
       matricula: b.matricula.trim(),
@@ -606,6 +877,21 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       usuario_nome: user.nome,
       timestamp: new Date().toISOString(),
     });
+    logAudit({
+      entidade: "militar",
+      entidade_id: newDoc.id,
+      matricula: newDoc.matricula,
+      operacao: "NOVO_CADASTRO",
+      usuario_nome: user.nome,
+      antes: null,
+      depois: {
+        "Nome": newDoc.nome_completo,
+        "Matrícula": newDoc.matricula,
+        "Vencimento do contrato": newDoc.data_vencimento_contrato,
+        "Data de inclusão": newDoc.data_inclusao,
+        "Situação": newDoc.status,
+      },
+    });
     saveStore();
     return enrichMilitar(newDoc, hoje, alertaDias) as T;
   }
@@ -623,7 +909,43 @@ export async function handleBackendRequest<T>(method: string, path: string, body
 
     if (method === "PUT") {
       const b = body as MilitarIn;
-      const user = getCurrentUser();
+      const user = getCurrentUser() || DEFAULT_USERS[0];
+      const antes: Record<string, unknown> = {};
+      const depois: Record<string, unknown> = {};
+      let isVencChange = false;
+
+      const checkField = (label: string, oldVal: unknown, newVal: unknown) => {
+        if (oldVal !== newVal && (oldVal || newVal)) {
+          antes[label] = oldVal ?? "—";
+          depois[label] = newVal ?? "—";
+        }
+      };
+
+      checkField("Nome completo", doc.nome_completo, b.nome_completo?.trim().toUpperCase());
+      checkField("Matrícula", doc.matricula, b.matricula?.trim());
+      if (doc.cargo_id !== b.cargo_id) {
+        antes["Cargo"] = store.cargos.find((c) => c.id === doc.cargo_id)?.nome || doc.cargo_id;
+        depois["Cargo"] = store.cargos.find((c) => c.id === b.cargo_id)?.nome || b.cargo_id;
+      }
+      if (doc.lotacao_id !== b.lotacao_id) {
+        antes["Lotação/UBM"] = store.lotacoes.find((l) => l.id === doc.lotacao_id)?.nome || doc.lotacao_id;
+        depois["Lotação/UBM"] = store.lotacoes.find((l) => l.id === b.lotacao_id)?.nome || b.lotacao_id;
+      }
+      if (doc.edital_id !== b.edital_id) {
+        antes["Edital"] = store.editais.find((e) => e.id === doc.edital_id)?.nome || doc.edital_id;
+        depois["Edital"] = store.editais.find((e) => e.id === b.edital_id)?.nome || b.edital_id;
+      }
+      checkField("Data de inclusão", doc.data_inclusao, b.data_inclusao);
+      if (doc.data_vencimento_contrato !== b.data_vencimento_contrato) {
+        antes["Data de vencimento"] = doc.data_vencimento_contrato;
+        depois["Data de vencimento"] = b.data_vencimento_contrato;
+        isVencChange = true;
+      }
+      checkField("Situação", doc.status, b.status);
+      checkField("Sub judice", doc.sub_judice ? "Sim" : "Não", b.sub_judice ? "Sim" : "Não");
+      checkField("DOE Incorporação", doc.doe_incorporacao, b.doe_incorporacao);
+      checkField("Observações", doc.observacoes, b.observacoes);
+
       Object.assign(doc, {
         matricula: b.matricula.trim(),
         nome_completo: b.nome_completo.trim().toUpperCase(),
@@ -642,6 +964,17 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         atualizado_em: new Date().toISOString(),
         atualizado_por: user.id,
       });
+
+      logAudit({
+        entidade: "militar",
+        entidade_id: doc.id,
+        matricula: doc.matricula,
+        operacao: isVencChange ? "ALTERACAO_VENCIMENTO" : "EDICAO_CADASTRO",
+        usuario_nome: user.nome,
+        antes: Object.keys(antes).length > 0 ? antes : null,
+        depois: Object.keys(depois).length > 0 ? depois : { "Militar": doc.nome_completo },
+      });
+
       saveStore();
       return enrichMilitar(doc, hoje, alertaDias) as T;
     }
@@ -653,25 +986,64 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     const doc = store.militares.find((m) => m.id === id);
     if (!doc) throw { status: 404, body: { detail: "Militar não encontrado" } };
     const b = body as MilitarRapidoIn;
-    if (b.lotacao_id) doc.lotacao_id = b.lotacao_id;
-    if (b.edital_id) doc.edital_id = b.edital_id;
-    if (b.data_vencimento_contrato) doc.data_vencimento_contrato = b.data_vencimento_contrato;
-    if (b.observacoes !== undefined) doc.observacoes = b.observacoes;
+    const user = getCurrentUser() || DEFAULT_USERS[0];
+    const antes: Record<string, unknown> = {};
+    const depois: Record<string, unknown> = {};
+    let isVencChange = false;
+
+    if (b.data_vencimento_contrato && b.data_vencimento_contrato !== doc.data_vencimento_contrato) {
+      antes["Data de vencimento"] = doc.data_vencimento_contrato;
+      depois["Data de vencimento"] = b.data_vencimento_contrato;
+      doc.data_vencimento_contrato = b.data_vencimento_contrato;
+      isVencChange = true;
+    }
+    if (b.lotacao_id && b.lotacao_id !== doc.lotacao_id) {
+      const oldLot = store.lotacoes.find((l) => l.id === doc.lotacao_id)?.nome || doc.lotacao_id;
+      const newLot = store.lotacoes.find((l) => l.id === b.lotacao_id)?.nome || b.lotacao_id;
+      antes["Lotação/UBM"] = oldLot;
+      depois["Lotação/UBM"] = newLot;
+      doc.lotacao_id = b.lotacao_id;
+    }
+    if (b.edital_id && b.edital_id !== doc.edital_id) {
+      const oldEd = store.editais.find((e) => e.id === doc.edital_id)?.nome || doc.edital_id;
+      const newEd = store.editais.find((e) => e.id === b.edital_id)?.nome || b.edital_id;
+      antes["Edital"] = oldEd;
+      depois["Edital"] = newEd;
+      doc.edital_id = b.edital_id;
+    }
+    if (b.observacoes !== undefined && b.observacoes !== doc.observacoes) {
+      antes["Observações"] = doc.observacoes || "—";
+      depois["Observações"] = b.observacoes || "—";
+      doc.observacoes = b.observacoes;
+    }
+
     doc.atualizado_em = new Date().toISOString();
-    doc.atualizado_por = getCurrentUser().id;
+    doc.atualizado_por = user.id;
+
+    logAudit({
+      entidade: "militar",
+      entidade_id: doc.id,
+      matricula: doc.matricula,
+      operacao: isVencChange ? "ALTERACAO_VENCIMENTO" : "EDICAO_RAPIDA",
+      usuario_nome: user.nome,
+      antes: Object.keys(antes).length > 0 ? antes : null,
+      depois: Object.keys(depois).length > 0 ? depois : { "Militar": doc.nome_completo },
+    });
+
     saveStore();
     return enrichMilitar(doc, hoje, alertaDias) as T;
   }
 
-  const milDesligMatch = pathname.match(/^\/militares\/([^/]+)\/desligamento$/);
+  const milDesligMatch = pathname.match(/^\/militares\/([^/]+)\/(desligar|desligamento)$/);
   if (milDesligMatch && method === "POST") {
     const id = milDesligMatch[1];
     const doc = store.militares.find((m) => m.id === id);
     if (!doc) throw { status: 404, body: { detail: "Militar não encontrado" } };
     const b = body as DesligamentoIn;
-    const user = getCurrentUser();
+    const user = getCurrentUser() || DEFAULT_USERS[0];
     const motivo = store.motivos.find((mt) => mt.id === b.motivo_id);
 
+    const oldStatus = doc.status;
     doc.status = "DESLIGADO";
     doc.data_desligamento = b.data_desligamento;
     doc.motivo_desligamento_id = b.motivo_id;
@@ -694,18 +1066,37 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       usuario_nome: user.nome,
       timestamp: new Date().toISOString(),
     });
+
+    logAudit({
+      entidade: "militar",
+      entidade_id: doc.id,
+      matricula: doc.matricula,
+      operacao: "DESLIGAMENTO",
+      usuario_nome: user.nome,
+      antes: { "Situação": oldStatus },
+      depois: {
+        "Situação": "DESLIGADO",
+        "Data do desligamento": b.data_desligamento,
+        "Motivo": motivo?.nome || b.motivo_id,
+        "Documento": b.documento || "—",
+        "Observações": b.observacoes || "—",
+      },
+    });
+
     saveStore();
     return enrichMilitar(doc, hoje, alertaDias) as T;
   }
 
-  const milReativarMatch = pathname.match(/^\/militares\/([^/]+)\/reativacao$/);
+  const milReativarMatch = pathname.match(/^\/militares\/([^/]+)\/(reativar|reativacao)$/);
   if (milReativarMatch && method === "POST") {
     const id = milReativarMatch[1];
     const doc = store.militares.find((m) => m.id === id);
     if (!doc) throw { status: 404, body: { detail: "Militar não encontrado" } };
     const b = body as ReativacaoIn;
-    const user = getCurrentUser();
+    const user = getCurrentUser() || DEFAULT_USERS[0];
 
+    const oldStatus = doc.status;
+    const oldVenc = doc.data_vencimento_contrato;
     doc.status = "ATIVO";
     doc.data_desligamento = null;
     doc.motivo_desligamento_id = null;
@@ -728,6 +1119,23 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       usuario_nome: user.nome,
       timestamp: new Date().toISOString(),
     });
+
+    logAudit({
+      entidade: "militar",
+      entidade_id: doc.id,
+      matricula: doc.matricula,
+      operacao: "REATIVACAO",
+      usuario_nome: user.nome,
+      antes: { "Situação": oldStatus, "Data de vencimento": oldVenc },
+      depois: {
+        "Situação": "ATIVO",
+        "Data da reativação": hoje,
+        "Novo vencimento": doc.data_vencimento_contrato,
+        "Justificativa": b.justificativa,
+        "Documento": b.documento || "—",
+      },
+    });
+
     saveStore();
     return enrichMilitar(doc, hoje, alertaDias) as T;
   }
@@ -875,22 +1283,126 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         { key: "evento", label: "Evento" },
         { key: "data_efetiva", label: "Data efetiva" },
         { key: "detalhes", label: "Detalhes" },
-        { key: "usuario", label: "Usuário" },
+        { key: "usuario", label: "Usuário / Responsável" },
       ];
+      let militarEncontrado: StoredData["militares"][number] | null = null;
       if (matriculaParam) {
-        const mat = normMatricula(matriculaParam);
-        const m = store.militares.find((x) => normMatricula(x.matricula) === mat);
-        if (m) {
+        const queryRaw = matriculaParam.trim();
+        // 1. Try exact or flexible matching by matricula
+        militarEncontrado = store.militares.find((x) =>
+          normMatricula(x.matricula) === normMatricula(queryRaw) ||
+          cleanAlphanumeric(x.matricula) === cleanAlphanumeric(queryRaw) ||
+          matchMatriculaFlexible(queryRaw, x.matricula)
+        ) || null;
+
+        // 2. If still not found and query has at least 3 chars, search by name or partial clean matricula
+        if (!militarEncontrado && queryRaw.length >= 3) {
+          const qNorm = normKey(queryRaw);
+          const qClean = cleanAlphanumeric(queryRaw);
+          militarEncontrado = store.militares.find((x) =>
+            normKey(x.nome_completo).includes(qNorm) ||
+            (qClean && cleanAlphanumeric(x.matricula).includes(qClean))
+          ) || null;
+        }
+
+        if (militarEncontrado) {
+          const m = enrichMilitar(militarEncontrado, hoje, alertaDias);
+          titulo = `Histórico Funcional — ${m.nome_completo} (${m.matricula})`;
+          descricao = `Cargo/Posto: ${m.cargo_nome} · UBM/Lotação: ${m.lotacao_nome} · Situação: ${m.status}`;
+
+          const historyItems: { quando: string; evento: string; data_efetiva: string; detalhes: string; usuario: string }[] = [];
+
+          // 1. Evento de Inclusão / Admissão Oficial
+          const inclusaoDate = m.data_inclusao || "2025-04-29";
+          historyItems.push({
+            quando: m.criado_em || `${inclusaoDate}T08:00:00Z`,
+            evento: "INCLUSÃO / ADMISSÃO",
+            data_efetiva: inclusaoDate,
+            detalhes: `Inclusão no CBMMT como ${m.cargo_nome} · UBM: ${m.lotacao_nome} · Edital: ${m.edital_nome}${m.doe_incorporacao && m.doe_incorporacao !== "-" ? ` · DOE: ${m.doe_incorporacao}` : ""}`,
+            usuario: m.criado_por_nome || "DGP / CBMMT",
+          });
+
+          // 2. Vigência Contratual Prevista
+          if (m.data_vencimento_contrato) {
+            historyItems.push({
+              quando: m.criado_em || `${inclusaoDate}T08:00:00Z`,
+              evento: "VIGÊNCIA CONTRATUAL",
+              data_efetiva: m.data_vencimento_contrato,
+              detalhes: `Vigência do contrato de Bombeiro Temporário fixada para ${fmtDateLocal(m.data_vencimento_contrato)}.`,
+              usuario: "Sistema DGP",
+            });
+          }
+
+          // 3. Situações Funcionais Registradas (store.situacoes)
           const sits = store.situacoes.filter((s) => s.militar_id === m.id);
-          linhas = sits.map((s) => ({
-            quando: s.timestamp,
-            evento: s.tipo,
-            data_efetiva: s.data_efetiva,
-            detalhes: s.motivo_nome || s.justificativa || s.observacoes || "—",
-            usuario: s.usuario_nome,
-          }));
+          for (const s of sits) {
+            historyItems.push({
+              quando: s.timestamp,
+              evento: s.tipo,
+              data_efetiva: s.data_efetiva,
+              detalhes: [s.motivo_nome, s.documento, s.justificativa, s.observacoes].filter(Boolean).join(" · ") || "Situação funcional registrada",
+              usuario: s.usuario_nome,
+            });
+          }
+
+          // 4. Auditoria e Alterações Cadastrais (store.alteracoes)
+          const alts = store.alteracoes.filter((a) =>
+            a.entidade === "militar" &&
+            (a.entidade_id === m.id || a.matricula === m.matricula || matchMatriculaFlexible(a.matricula || "", m.matricula))
+          );
+          for (const a of alts) {
+            if (a.operacao === "IMPORTACAO_CSV" && !a.entidade_id) continue;
+            let det = "";
+            if (a.depois) {
+              const diffs = Object.entries(a.depois)
+                .map(([k, v]) => a.antes && a.antes[k] !== undefined ? `${k}: de "${a.antes[k]}" para "${v}"` : `${k}: ${v}`)
+                .join("; ");
+              det = diffs || a.operacao.replace(/_/g, " ");
+            } else {
+              det = a.operacao.replace(/_/g, " ");
+            }
+
+            historyItems.push({
+              quando: a.timestamp,
+              evento: a.operacao.replace(/_/g, " "),
+              data_efetiva: a.timestamp ? a.timestamp.slice(0, 10) : "",
+              detalhes: det,
+              usuario: a.usuario_nome,
+            });
+          }
+
+          // 5. Se estiver desligado e não constar em situações
+          if (m.status === "DESLIGADO" && m.data_desligamento && !sits.some((s) => s.tipo === "DESLIGAMENTO")) {
+            historyItems.push({
+              quando: m.atualizado_em || `${m.data_desligamento}T08:00:00Z`,
+              evento: "DESLIGAMENTO",
+              data_efetiva: m.data_desligamento,
+              detalhes: `Desligamento do serviço ativo · Motivo: ${m.motivo_desligamento_nome || "Término de Contrato"}${m.documento_desligamento ? ` · Boletim Geral/Doc: ${m.documento_desligamento}` : ""}`,
+              usuario: m.atualizado_por_nome || "DGP / CBMMT",
+            });
+          }
+
+          // Ordenar cronologicamente decrescente (mais recente primeiro)
+          historyItems.sort((a, b) => (b.data_efetiva || b.quando).localeCompare(a.data_efetiva || a.quando));
+
+          linhas = historyItems;
+        } else {
+          descricao = `Nenhum militar localizado para o critério "${queryRaw}". Verifique a matrícula ou selecione na lista.`;
         }
       }
+
+      const mFinal = militarEncontrado ? enrichMilitar(militarEncontrado, hoje, alertaDias) : undefined;
+      const relatorio: Relatorio = {
+        tipo,
+        titulo,
+        descricao,
+        colunas,
+        linhas,
+        gerado_em: new Date().toISOString(),
+        filtros: mFinal ? `Matrícula: ${mFinal.matricula} (${mFinal.nome_completo})` : (matriculaParam ? `Matrícula: ${matriculaParam}` : "Informe a matrícula"),
+        militar: mFinal,
+      };
+      return relatorio as T;
     }
 
     const relatorio: Relatorio = {
@@ -922,6 +1434,13 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       ativo: b.ativo,
     };
     store.usuarios.push(user);
+    logAudit({
+      entidade: "usuario",
+      entidade_id: user.id,
+      operacao: "CRIACAO_USUARIO",
+      antes: null,
+      depois: { Nome: user.nome, "E-mail": user.email, Perfil: user.perfil, Ativo: user.ativo ? "Sim" : "Não" },
+    });
     saveStore();
     const { senha_hash, ...out } = user;
     return out as T;
@@ -932,19 +1451,50 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     const b = body as UsuarioIn;
     const user = store.usuarios.find((u) => u.id === id);
     if (!user) throw { status: 404, body: { detail: "Usuário não encontrado" } };
+    const oldU = { Nome: user.nome, "E-mail": user.email, Perfil: user.perfil, Ativo: user.ativo ? "Sim" : "Não" };
     user.nome = b.nome.trim();
     user.email = b.email.trim().toLowerCase();
     user.perfil = b.perfil;
     user.ativo = b.ativo;
+    logAudit({
+      entidade: "usuario",
+      entidade_id: user.id,
+      operacao: "EDICAO_USUARIO",
+      antes: oldU,
+      depois: { Nome: user.nome, "E-mail": user.email, Perfil: user.perfil, Ativo: user.ativo ? "Sim" : "Não" },
+    });
     saveStore();
     const { senha_hash, ...out } = user;
     return out as T;
   }
 
   if (pathname === "/auditoria" && method === "GET") {
+    let items = [...(store.alteracoes || [])];
+    const q = searchParams.get("q");
+    if (q) {
+      const qN = normKey(q);
+      items = items.filter(
+        (a) =>
+          normKey(a.usuario_nome).includes(qN) ||
+          normKey(a.operacao).includes(qN) ||
+          normKey(a.entidade).includes(qN) ||
+          (a.matricula && normMatricula(a.matricula).includes(qN)) ||
+          JSON.stringify(a.depois || {}).toLowerCase().includes(q.toLowerCase()) ||
+          JSON.stringify(a.antes || {}).toLowerCase().includes(q.toLowerCase())
+      );
+    }
+    const entidade = searchParams.get("entidade");
+    if (entidade) {
+      items = items.filter((a) => a.entidade.toLowerCase() === entidade.toLowerCase());
+    }
+    const operacao = searchParams.get("operacao");
+    if (operacao) {
+      items = items.filter((a) => a.operacao.toLowerCase() === operacao.toLowerCase());
+    }
+    items.sort((a, b) => (b.timestamp || "").localeCompare(a.timestamp || ""));
     const res: AuditoriaPage = {
-      items: store.alteracoes,
-      total: store.alteracoes.length,
+      items,
+      total: items.length,
     };
     return res as T;
   }
@@ -1077,7 +1627,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   if (pathname === "/importacao/aplicar" && method === "POST") {
     const validacao = body?.validacao as ImportValidacao;
     let inseridos = 0;
-    const user = getCurrentUser();
+    const user = getCurrentUser() || DEFAULT_USERS[0];
 
     if (validacao && validacao.linhas) {
       for (const li of validacao.linhas) {
@@ -1110,6 +1660,15 @@ export async function handleBackendRequest<T>(method: string, path: string, body
           store.militares.push(newDoc);
           inseridos++;
         }
+      }
+      if (inseridos > 0) {
+        logAudit({
+          entidade: "militar",
+          operacao: "IMPORTACAO_CSV",
+          usuario_nome: user.nome,
+          antes: null,
+          depois: { "Militares importados": inseridos },
+        });
       }
       saveStore();
     }

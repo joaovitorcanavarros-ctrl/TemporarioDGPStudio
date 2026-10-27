@@ -42,9 +42,9 @@ const COLS_DESLIG: Col[] = [
   { key: "motivo_desligamento_nome", label: "Motivo", render: (m) => <span className="text-slate-300">{m.motivo_desligamento_nome ?? "—"}</span> },
 ];
 
-interface Props { params: Params; variant?: "geral" | "desligados"; compact?: boolean; testId?: string }
+interface Props { params: Params; variant?: "geral" | "desligados"; compact?: boolean; testId?: string; resetKey?: number }
 
-export default function MilitaresTable({ params, variant = "geral", compact, testId = "militares-table" }: Props) {
+export default function MilitaresTable({ params, variant = "geral", compact, testId = "militares-table", resetKey }: Props) {
   const me = useMe();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(compact ? 10 : 25);
@@ -55,7 +55,12 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
   const [rapido, setRapido] = useState<Militar | null>(null);
   const paramsKey = JSON.stringify(params);
   const [lastKey, setLastKey] = useState(paramsKey);
-  if (lastKey !== paramsKey) { setLastKey(paramsKey); setPage(1); }
+  const [lastResetKey, setLastResetKey] = useState(resetKey);
+  if (lastKey !== paramsKey || lastResetKey !== resetKey) {
+    setLastKey(paramsKey);
+    setLastResetKey(resetKey);
+    setPage(1);
+  }
 
   const q = useQuery({
     queryKey: ["militares", params, page, pageSize, sort, direction],
