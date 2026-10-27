@@ -144,12 +144,88 @@ function getInitialStore(): StoredData {
 
 let store: StoredData = getInitialStore();
 
+let isSavingToFirestore = false;
+let pendingSave: StoredData | null = null;
+
+async function syncToFirestore(dataToSave: StoredData) {
+  if (isSavingToFirestore) {
+    pendingSave = dataToSave;
+    return;
+  }
+  isSavingToFirestore = true;
+  try {
+    const docRef = doc(db, "corporacao", "dados");
+    const payload = JSON.parse(JSON.stringify(dataToSave));
+    await setDoc(docRef, payload, { merge: true });
+  } catch (err) {
+    console.error("Erro ao salvar dados corporativos no Firestore:", err);
+    try {
+      handleFirestoreError(err, OperationType.WRITE, "corporacao/dados");
+    } catch {}
+  } finally {
+    isSavingToFirestore = false;
+    if (pendingSave) {
+      const next = pendingSave;
+      pendingSave = null;
+      syncToFirestore(next);
+    }
+  }
+}
+
 function saveStore() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
   } catch (e) {
-    console.warn("Failed to persist store", e);
+    console.warn("Failed to persist store to localStorage", e);
   }
+  // Persist to Cloud Firestore so all users and devices immediately get the update
+  syncToFirestore(store);
+}
+
+let firestoreInitialized = false;
+
+export function initFirestoreSync() {
+  if (firestoreInitialized || typeof window === "undefined") return;
+  firestoreInitialized = true;
+
+  try {
+    const docRef = doc(db, "corporacao", "dados");
+    onSnapshot(
+      docRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const cloudData = snapshot.data() as StoredData;
+          if (cloudData && Array.isArray(cloudData.militares) && cloudData.militares.length > 0) {
+            store = cleanAvnm(cloudData);
+            try {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+            } catch {}
+            // Invalidate queries so every connected user gets updated data in real time
+            queryClient.invalidateQueries();
+          }
+        } else {
+          // Document does not exist yet in Firestore: seed initial CBMMT dataset
+          console.log("Realizando seed inicial dos dados oficiais do CBMMT no Firestore...");
+          const initialPayload = JSON.parse(JSON.stringify(store));
+          setDoc(docRef, initialPayload, { merge: true }).catch((err) => {
+            console.error("Erro no seed inicial do Firestore:", err);
+          });
+        }
+      },
+      (error) => {
+        console.error("Firestore onSnapshot error:", error);
+        try {
+          handleFirestoreError(error, OperationType.GET, "corporacao/dados");
+        } catch {}
+      }
+    );
+  } catch (e) {
+    console.warn("Falha ao inicializar listener de sincronização em tempo real do Firestore:", e);
+  }
+}
+
+if (typeof window !== "undefined") {
+  initFirestoreSync();
 }
 
 export function getCurrentUser(): UserOut | null {

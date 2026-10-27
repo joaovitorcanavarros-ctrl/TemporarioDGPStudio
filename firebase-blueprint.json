@@ -1,5 +1,22 @@
 {
   "entities": {
+    "CorporacaoDados": {
+      "title": "CorporacaoDados",
+      "description": "Dados corporativos centralizados de militares, editais, cargos e lotações",
+      "type": "object",
+      "properties": {
+        "config": { "type": "object" },
+        "categorias": { "type": "array" },
+        "cargos": { "type": "array" },
+        "lotacoes": { "type": "array" },
+        "editais": { "type": "array" },
+        "motivos": { "type": "array" },
+        "militares": { "type": "array" },
+        "alteracoes": { "type": "array" },
+        "situacoes": { "type": "array" },
+        "ultima_atualizacao": { "type": "string" }
+      }
+    },
     "UserProfile": {
       "title": "UserProfile",
       "description": "User profile with role-based access control and system metadata",
@@ -17,6 +34,10 @@
     }
   },
   "firestore": {
+    "/corporacao/{docId}": {
+      "schema": "CorporacaoDados",
+      "description": "Central corporate data store for militares, catalogs, and logs"
+    },
     "/users/{userId}": {
       "schema": "UserProfile",
       "description": "User account and permission profiles"

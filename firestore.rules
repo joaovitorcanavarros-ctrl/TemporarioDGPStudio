@@ -1,16 +1,13 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Default-deny catch-all
     match /{document=**} {
       allow read, write: if false;
     }
 
     function isSignedIn() {
       return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
     }
 
     function isAdmin() {
@@ -22,19 +19,16 @@ service cloud.firestore {
       );
     }
 
+    // Central corporate data: militares, editais, cargos, lotações e auditoria
+    match /corporacao/{docId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // User profiles and RBAC permissions
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create: if isSignedIn() && (
-        isOwner(userId) &&
-        request.resource.data.id == userId &&
-        request.resource.data.perfil == "CONSULTA" &&
-        request.resource.data.ativo == true
-      ) || isAdmin();
-      allow update: if isAdmin() || (
-        isOwner(userId) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nome', 'photoURL'])
-      );
-      allow delete: if isAdmin();
+      allow read: if true;
+      allow write: if true;
     }
   }
 }
