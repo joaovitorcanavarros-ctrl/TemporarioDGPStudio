@@ -3,15 +3,15 @@ import { apiGet } from "./api";
 import type { Catalogos, Meta, UserOut } from "./types";
 
 export function useMe() {
-  return useQuery({ queryKey: ["me"], queryFn: () => apiGet<UserOut>("/auth/me"), retry: false, staleTime: 60_000 });
+  return useQuery({ queryKey: ["me"], queryFn: () => apiGet<UserOut>("/auth/me"), retry: false, staleTime: 15 * 60 * 1000 });
 }
 
 export function useCatalogos() {
-  return useQuery({ queryKey: ["catalogos"], queryFn: () => apiGet<Catalogos>("/catalogos"), staleTime: 60_000 });
+  return useQuery({ queryKey: ["catalogos"], queryFn: () => apiGet<Catalogos>("/catalogos"), staleTime: 15 * 60 * 1000 });
 }
 
 export function useMeta() {
-  return useQuery({ queryKey: ["meta"], queryFn: () => apiGet<Meta>("/meta") });
+  return useQuery({ queryKey: ["meta"], queryFn: () => apiGet<Meta>("/meta"), staleTime: 15 * 60 * 1000 });
 }
 
 export function podeEditar(u: UserOut | undefined): boolean {

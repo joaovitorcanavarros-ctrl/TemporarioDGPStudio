@@ -209,7 +209,7 @@ async function persistMetadadosExplicitly(keys: Array<keyof Omit<StoredData, "mi
 
 let lastMilitaresFetchAt = 0;
 let militaresFetchPromise: Promise<void> | null = null;
-const MILITARES_FETCH_COOLDOWN_MS = 6_000;
+const MILITARES_FETCH_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutos: impede releituras desnecessárias de toda a base
 
 /**
  * Consulta pontual e sincronização oficial com a coleção 'militares' do Firestore.
@@ -992,8 +992,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     });
 
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-    // Limite máximo de resultados por página (entre 10 e 30) para evitar leitura excessiva
-    const pageSize = Math.min(30, Math.max(1, parseInt(searchParams.get("page_size") || "25", 10)));
+    // Limite estrito de resultados por página (padrão 20) para evitar consumo excessivo de leitura
+    const pageSize = Math.min(50, Math.max(1, parseInt(searchParams.get("page_size") || "20", 10)));
     const total = list.length;
     const start = (page - 1) * pageSize;
     const items = list.slice(start, start + pageSize);

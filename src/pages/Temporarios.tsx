@@ -31,7 +31,7 @@ export default function Temporarios() {
   const catNome = cat.data?.categorias.find((c) => c.codigo === categoria)?.nome ?? categoria;
   const situacao = filters.status || "TODOS";
 
-  // Debounced search input handler
+  // Debounced search input handler (500ms debounce para economizar requisições)
   const handleSearchChange = (value: string) => {
     setQInput(value);
     if (debounceTimerRef.current) {
@@ -39,7 +39,7 @@ export default function Temporarios() {
     }
     debounceTimerRef.current = setTimeout(() => {
       setQApplied(value.trim());
-    }, 280);
+    }, 500);
   };
 
   // Centralized action that completely resets all filter states in a single place
@@ -148,6 +148,12 @@ export default function Temporarios() {
           <Input
             value={qInput}
             onChange={(e) => handleSearchChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+                setQApplied(qInput.trim());
+              }
+            }}
             placeholder="Pesquisar por nome ou matrícula"
             className="bg-[#121B28] pl-9 pr-8"
             data-testid="search-input"

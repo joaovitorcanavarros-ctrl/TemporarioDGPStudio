@@ -4,9 +4,12 @@ import { QueryClient } from "@tanstack/react-query";
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: true,
-      refetchOnReconnect: true,
-      staleTime: 1000 * 15, // 15 segundos para manter sincronização ágil entre múltiplos administradores
+      refetchOnWindowFocus: false, // Impede novas leituras no Firestore ao alternar abas do navegador
+      refetchOnReconnect: false,
+      staleTime: 15 * 60 * 1000, // 15 minutos: preserva dados em cache ao navegar entre abas do menu
+      gcTime: 30 * 60 * 1000, // Mantém registros em memória por 30 minutos
+      retry: 1,
     },
   },
 });
+

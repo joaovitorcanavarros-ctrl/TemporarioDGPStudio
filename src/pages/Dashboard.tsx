@@ -94,7 +94,7 @@ export default function Dashboard() {
   const q = useQuery({
     queryKey: ["dashboard", fp],
     queryFn: () => apiGet<D>(`/dashboard${qs(fp)}`),
-    staleTime: 10_000,
+    staleTime: 15 * 60 * 1000,
   });
   const d = q.isError ? undefined : q.data;
   const base = baseParams(filters);

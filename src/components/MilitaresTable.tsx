@@ -47,7 +47,7 @@ interface Props { params: Params; variant?: "geral" | "desligados"; compact?: bo
 export default function MilitaresTable({ params, variant = "geral", compact, testId = "militares-table", resetKey }: Props) {
   const me = useMe();
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(compact ? 10 : 20);
+  const [pageSize, setPageSize] = useState(20);
   const [sort, setSort] = useState(variant === "desligados" ? "data_desligamento" : "nome_completo");
   const [direction, setDirection] = useState<"asc" | "desc">(variant === "desligados" ? "desc" : "asc");
   const [desligar, setDesligar] = useState<Militar | null>(null);
@@ -66,6 +66,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
     queryKey: ["militares", params, page, pageSize, sort, direction],
     queryFn: () => apiGet<MilitarPage>(`/militares${qs({ ...params, page, page_size: pageSize, sort, direction })}`),
     placeholderData: keepPreviousData,
+    staleTime: 15 * 60 * 1000,
   });
   const cols = variant === "desligados" ? [...COLS_BASE.slice(0, 4), ...COLS_DESLIG, COL_STATUS] : [...COLS_BASE, COL_STATUS];
   const items = q.isError ? [] : q.data?.items ?? [];
@@ -195,7 +196,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
         <div className="flex items-center gap-2">
           <span>Itens por página</span>
           <FieldSelect testId="page-size-select" className="w-20" value={String(pageSize)} onChange={(v) => { setPageSize(Number(v)); setPage(1); }}
-            options={["10", "20", "30"].map((v) => ({ value: v, label: v }))} />
+            options={["20", "30", "50"].map((v) => ({ value: v, label: v }))} />
         </div>
         <div className="flex items-center gap-2">
           <span data-testid="pagination-info">Página <span className="num text-white">{page}</span> de <span className="num">{pages}</span></span>
