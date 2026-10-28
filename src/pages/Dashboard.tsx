@@ -4,10 +4,11 @@ import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { Activity, Briefcase, Scale, Building2, Clock, HeartPulse, Shield, Stethoscope, Truck, UserCheck, UserMinus } from "lucide-react";
+import { Activity, Briefcase, Scale, Building2, Clock, HeartPulse, RotateCw, Shield, Stethoscope, Truck, UserCheck, UserMinus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import DrillSheet, { type Drill } from "@/components/DrillSheet";
 import FiltersBar from "@/components/FiltersBar";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiGet } from "@/lib/api";
 import { fmtDate, fmtNum, qs } from "@/lib/format";
@@ -90,7 +91,11 @@ export default function Dashboard() {
   const [distView, setDistView] = useState("cargo");
   const [ubmAll, setUbmAll] = useState(false);
   const fp = filterParams(filters);
-  const q = useQuery({ queryKey: ["dashboard", fp], queryFn: () => apiGet<D>(`/dashboard${qs(fp)}`) });
+  const q = useQuery({
+    queryKey: ["dashboard", fp],
+    queryFn: () => apiGet<D>(`/dashboard${qs(fp)}`),
+    staleTime: 10_000,
+  });
   const d = q.isError ? undefined : q.data;
   const base = baseParams(filters);
   const ref = d?.data_referencia;
@@ -113,6 +118,19 @@ export default function Dashboard() {
           <p className="mt-1 text-sm text-slate-400" data-testid="dashboard-criteria">
             Efetivo em <span className="num text-slate-200">{fmtDate(ref)}</span> · Movimentações: {periodoTxt} · Alerta de vencimento: {d?.alerta_dias ?? "—"} dias (fuso America/Cuiabá)
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => q.refetch()}
+            disabled={q.isFetching}
+            className="border-[#1E2C42] bg-[#121B28] text-xs text-slate-300 hover:bg-[#182335] hover:text-white"
+            data-testid="dashboard-refresh-button"
+          >
+            <RotateCw className={cn("mr-1.5 size-3.5", q.isFetching && "animate-spin text-blue-400")} />
+            {q.isFetching ? "Sincronizando..." : "Sincronizar Firestore"}
+          </Button>
         </div>
       </div>
       <FiltersBar />

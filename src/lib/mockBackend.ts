@@ -3,6 +3,7 @@ import {
   salvarMilitarFirestore,
   buscarMilitarFirestore,
   buscarMilitaresLimitadosFirestore,
+  buscarTodosMilitaresFirestore,
   salvarMetadadosFirestore,
   buscarMetadadosFirestore,
 } from "./firebase";
@@ -168,7 +169,15 @@ function saveLocalOnly() {
  * NÃO altera a coleção corporacao nem o documento metadados.
  */
 async function persistMilitarExplicitly(militar: StoredData["militares"][number]) {
+  // Atualiza imediatamente a lista em memória local
+  const idx = store.militares.findIndex((m) => m.id === militar.id);
+  if (idx >= 0) {
+    store.militares[idx] = { ...store.militares[idx], ...militar };
+  } else {
+    store.militares.unshift(militar);
+  }
   saveLocalOnly();
+  // Gravação definitiva direta no documento do militar no Firestore (militares/${militar.id})
   await salvarMilitarFirestore(militar);
 }
 
@@ -192,43 +201,51 @@ async function persistMetadadosExplicitly(keys: Array<keyof Omit<StoredData, "mi
 
 let lastMilitaresFetchAt = 0;
 let militaresFetchPromise: Promise<void> | null = null;
-const MILITARES_FETCH_COOLDOWN_MS = 20_000;
+const MILITARES_FETCH_COOLDOWN_MS = 6_000;
 
 /**
- * Consulta pontual direta na coleção 'militares' do Firestore.
- * Lê diretamente os documentos de 'militares' SEM depender nem carregar metadados a todo momento.
+ * Consulta pontual e sincronização oficial com a coleção 'militares' do Firestore.
+ * Lê diretamente TODOS os documentos da coleção oficial 'militares',
+ * garantindo que alterações e renovações de contratos feitas por qualquer administrador
+ * reflitam nos totais, gráficos de vencimento e efetivo de todos os administradores.
  */
-export async function carregarMilitaresFirestore(force = false, termoBusca?: string): Promise<void> {
+export async function sincronizarMilitaresComFirestore(force = false): Promise<void> {
   if (typeof window === "undefined") return;
   const now = Date.now();
-  if (!force && !termoBusca && now - lastMilitaresFetchAt < MILITARES_FETCH_COOLDOWN_MS) return;
+  if (!force && store.militares.length > 0 && now - lastMilitaresFetchAt < MILITARES_FETCH_COOLDOWN_MS) {
+    return;
+  }
   if (militaresFetchPromise) return militaresFetchPromise;
 
   lastMilitaresFetchAt = now;
   militaresFetchPromise = (async () => {
     try {
-      const militaresCloud = await buscarMilitaresLimitadosFirestore(30, termoBusca);
+      const militaresCloud = await buscarTodosMilitaresFirestore();
       if (Array.isArray(militaresCloud) && militaresCloud.length > 0) {
-        let changed = false;
-        const byId = new Map(store.militares.map((m, idx) => [m.id, idx]));
-        for (const rawMil of militaresCloud) {
-          const mil = cleanAvnm(rawMil) as StoredData["militares"][number];
-          if (!mil?.id) continue;
-          const existingIdx = byId.get(mil.id);
-          if (existingIdx !== undefined) {
-            store.militares[existingIdx] = { ...store.militares[existingIdx], ...mil };
-          } else {
-            store.militares.unshift(mil);
-            byId.set(mil.id, 0);
+        const cloudMap = new Map<string, StoredData["militares"][number]>();
+        for (const raw of militaresCloud) {
+          const m = cleanAvnm(raw) as StoredData["militares"][number];
+          if (m?.id) {
+            cloudMap.set(m.id, m);
           }
-          changed = true;
         }
-        if (changed) {
-          saveLocalOnly();
+
+        // Reconstrói a lista com os dados oficiais do Firestore
+        const novaLista: StoredData["militares"] = [];
+        for (const [, cloudDoc] of cloudMap.entries()) {
+          novaLista.push(cloudDoc);
         }
+        // Se houver algum registro local ainda não sincronizado, preserva
+        for (const local of store.militares) {
+          if (!cloudMap.has(local.id)) {
+            novaLista.push(local);
+          }
+        }
+        store.militares = novaLista;
+        saveLocalOnly();
       }
     } catch (e) {
-      console.warn("Aviso ao buscar militares diretamente da coleção 'militares':", e);
+      console.warn("Aviso ao sincronizar militares diretamente do Firestore:", e);
     } finally {
       militaresFetchPromise = null;
     }
@@ -236,6 +253,8 @@ export async function carregarMilitaresFirestore(force = false, termoBusca?: str
 
   return militaresFetchPromise;
 }
+
+export const carregarMilitaresFirestore = sincronizarMilitaresComFirestore;
 
 let lastMetaFetchAt = 0;
 let metaFetchPromise: Promise<void> | null = null;
@@ -690,6 +709,9 @@ export async function handleBackendRequest<T>(method: string, path: string, body
 
   // 3. DASHBOARD
   if (pathname === "/dashboard" && method === "GET") {
+    // Sincroniza com a coleção oficial de militares no Firestore para calcular métricas com base real
+    await sincronizarMilitaresComFirestore();
+
     const categoria = searchParams.get("categoria");
     const cargo_id = searchParams.get("cargo_id");
     const lotacao_id = searchParams.get("lotacao_id");
@@ -876,9 +898,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   }
 
   if (pathname === "/militares" && method === "GET") {
-    // Busca pontual DIRETAMENTE na coleção 'militares', SEM depender nem carregar metadados a todo momento
-    const qParam = searchParams.get("q");
-    await carregarMilitaresFirestore(false, qParam || undefined);
+    // Busca pontual DIRETAMENTE na coleção oficial 'militares' do Firestore
+    await sincronizarMilitaresComFirestore();
 
     let list = store.militares.map((m) => enrichMilitar(m, hoje, alertaDias));
 

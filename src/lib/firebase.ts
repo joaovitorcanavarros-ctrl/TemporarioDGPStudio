@@ -67,11 +67,35 @@ export async function salvarMilitarFirestore(militar: Record<string, any>): Prom
   try {
     const ref = doc(db, "militares", String(militar.id));
     const cleanPayload = JSON.parse(JSON.stringify(militar));
+    cleanPayload.atualizado_em = cleanPayload.atualizado_em || new Date().toISOString();
     await setDoc(ref, cleanPayload, { merge: true });
     return true;
   } catch (err: any) {
     console.warn(`[Firestore] Aviso ao gravar militar em militares/${militar.id}:`, err?.code || err?.message);
     return false;
+  }
+}
+
+/**
+ * Busca pontual de TODOS os documentos da coleção 'militares' no Firestore.
+ * Utilizada pelo Painel de Visão Geral (Dashboard) e pela gestão de efetivo
+ * para garantir que os totais, gráficos e vencimentos de contratos reflitam
+ * os dados oficiais e reais da base, sincronizados entre todos os administradores.
+ */
+export async function buscarTodosMilitaresFirestore(): Promise<Array<Record<string, any>>> {
+  try {
+    const colRef = collection(db, "militares");
+    const snap = await getDocs(colRef);
+    const results: Array<Record<string, any>> = [];
+    snap.forEach((docSnap) => {
+      if (docSnap.exists()) {
+        results.push(docSnap.data() as Record<string, any>);
+      }
+    });
+    return results;
+  } catch (err: any) {
+    console.warn("[Firestore] Aviso ao buscar todos os militares da coleção 'militares':", err?.code || err?.message);
+    return [];
   }
 }
 

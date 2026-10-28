@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { FilterX, Search, UserPlus, X } from "lucide-react";
+import { FilterX, RotateCw, Search, UserPlus, X } from "lucide-react";
 import FieldSelect from "@/components/FieldSelect";
 import FiltersBar from "@/components/FiltersBar";
 import MilitaresTable from "@/components/MilitaresTable";
@@ -112,11 +112,26 @@ export default function Temporarios() {
             {categoria ? catNome : "Temporários Geral"}
           </h2>
         </div>
-        {podeEditar(me.data) && (
-          <Link to="/temporarios/novo" className={cn(buttonVariants(), "bg-blue-600 hover:bg-blue-700")} data-testid="new-militar-button">
-            <UserPlus className="size-4" /> Cadastrar temporário
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              queryClient.invalidateQueries({ queryKey: ["militares"] });
+              queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+            }}
+            className="border-[#1E2C42] bg-[#121B28] text-xs text-slate-300 hover:bg-[#182335] hover:text-white"
+            data-testid="temporarios-sync-button"
+          >
+            <RotateCw className="mr-1.5 size-3.5 text-blue-400" />
+            Sincronizar
+          </Button>
+          {podeEditar(me.data) && (
+            <Link to="/temporarios/novo" className={cn(buttonVariants(), "bg-blue-600 hover:bg-blue-700")} data-testid="new-militar-button">
+              <UserPlus className="size-4" /> Cadastrar temporário
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Integrated FiltersBar with centralized onReset */}
