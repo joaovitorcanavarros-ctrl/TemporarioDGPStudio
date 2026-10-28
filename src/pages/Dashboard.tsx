@@ -142,18 +142,18 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         <Kpi id="ativos" label="Temporários ativos" value={v(d?.kpis.ativos)} icon={UserCheck} tone="green" sub={`Efetivo em ${fmtDate(ref)}`}
-          onClick={() => setDrill({ title: "Temporários ativos", params: { ...base, ativo_em: ref } })} />
+          onClick={() => setDrill({ title: "Temporários ativos", params: { ...base, status: "ATIVO", ativo_em: ref } })} />
         <Kpi id="desligamentos" label="Distratos / desligamentos" value={v(d?.kpis.desligamentos_periodo)} icon={UserMinus} tone="red" sub={periodoTxt}
-          onClick={() => setDrill({ title: "Desligamentos no período", params: deslParams, variant: "desligados" })} />
+          onClick={() => setDrill({ title: "Desligamentos no período", params: { ...deslParams, status: "DESLIGADO" }, variant: "desligados" })} />
         <Kpi id="top-ubm" label="Efetivo por UBM (maior)" value={d ? fmtNum(d.kpis.top_ubm_total) : "—"} icon={Building2} tone="blue" sub={d?.kpis.top_ubm_nome ?? "—"}
-          onClick={() => d?.kpis.top_ubm_id && setDrill({ title: d.kpis.top_ubm_nome ?? "UBM", params: { ...base, lotacao_id: d.kpis.top_ubm_id, ativo_em: ref } })} />
+          onClick={() => d?.kpis.top_ubm_id && setDrill({ title: d.kpis.top_ubm_nome ?? "UBM", params: { ...base, status: "ATIVO", lotacao_id: d.kpis.top_ubm_id, ativo_em: ref } })} />
         <Kpi id="contratos-a-vencer" label="Contratos a vencer" value={v(d?.kpis.a_vencer)} icon={Clock} tone="amber" sub={`Próximos ${d?.alerta_dias ?? "—"} dias`}
-          onClick={() => setDrill({ title: "Contratos a vencer", params: { ...base, venc: "a_vencer" } })} />
+          onClick={() => setDrill({ title: "Contratos a vencer", params: { ...base, status: "ATIVO", venc: "a_vencer" } })} />
         <Kpi id="sub-judice" label="Militares sub judice" value={v(d?.kpis.sub_judice)} icon={Scale} tone="amber" sub={`Ativos em ${fmtDate(ref)}`}
-          onClick={() => setDrill({ title: "Militares sub judice", params: { ...base, sub_judice: "true", ativo_em: ref } })} />
+          onClick={() => setDrill({ title: "Militares sub judice", params: { ...base, status: "ATIVO", sub_judice: "true", ativo_em: ref } })} />
         {(cats.length ? cats.filter((c) => c.chave !== "OUTROS" || c.total > 0) : []).map((c) => (
           <Kpi key={c.chave} id={c.chave.toLowerCase().replace(/_/g, "-")} label={c.nome} value={fmtNum(c.total)} icon={CAT_ICON[c.chave] ?? Briefcase} tone="sky" sub="Ativos no cargo"
-            onClick={() => setDrill({ title: `${c.nome} — ativos`, params: { ...base, categoria: c.chave, ativo_em: ref } })} />
+            onClick={() => setDrill({ title: `${c.nome} — ativos`, params: { ...base, status: "ATIVO", categoria: c.chave, ativo_em: ref } })} />
         ))}
       </div>
 
@@ -313,7 +313,17 @@ export default function Dashboard() {
                   activeDot={{ r: 6, className: "cursor-pointer", onClick: (_: unknown, ev: unknown) => {
                     const idx = (ev as { index?: number }).index;
                     const f = idx !== undefined ? d.faixas_vencimento[idx] : undefined;
-                    if (f) setDrill({ title: `Contratos — ${f.faixa}`, params: { ...base, status: "ATIVO", venc_min_dias: f.min, venc_max_dias: f.max } });
+                    if (f) setDrill({
+                      title: `Contratos — ${f.faixa}`,
+                      params: {
+                        ...base,
+                        status: "ATIVO",
+                        faixa_venc: f.faixa,
+                        venc: f.faixa === "Vencidos" ? "vencidos" : undefined,
+                        venc_min_dias: f.min !== null ? f.min : undefined,
+                        venc_max_dias: f.max !== null ? f.max : undefined,
+                      }
+                    });
                   } }} />
               </AreaChart>
             </ResponsiveContainer>
@@ -322,7 +332,17 @@ export default function Dashboard() {
             <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
               {d.faixas_vencimento.map((f, i) => (
                 <button key={f.faixa} data-testid={`faixa-${i}`}
-                  onClick={() => setDrill({ title: `Contratos — ${f.faixa}`, params: { ...base, status: "ATIVO", venc_min_dias: f.min, venc_max_dias: f.max } })}
+                  onClick={() => setDrill({
+                    title: `Contratos — ${f.faixa}`,
+                    params: {
+                      ...base,
+                      status: "ATIVO",
+                      faixa_venc: f.faixa,
+                      venc: f.faixa === "Vencidos" ? "vencidos" : undefined,
+                      venc_min_dias: f.min !== null ? f.min : undefined,
+                      venc_max_dias: f.max !== null ? f.max : undefined,
+                    }
+                  })}
                   className={cn("rounded-lg border px-2 py-1.5 text-left transition-colors hover:bg-[#182335]", i === 0 ? "border-red-500/30" : i === 1 ? "border-amber-500/30" : "border-[#1E2C42]")}>
                   <p className="text-[10px] text-slate-400">{f.faixa}</p>
                   <p className={cn("num text-lg font-bold", i === 0 ? "text-red-300" : i === 1 ? "text-amber-300" : "text-white")}>{fmtNum(f.total)}</p>

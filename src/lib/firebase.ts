@@ -23,20 +23,53 @@ import {
 } from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json";
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// 1. Instância dedicada e isolada para o Firestore (sem provider de Auth acoplado).
+// Isso impede que erros no serviço de token de autenticação (securetoken.googleapis.com)
+// bloqueiem a conexão do Firestore ou forcem o cliente para modo offline.
+const existingFirestoreApp = getApps().find((a) => a.name === "cbmmt-firestore");
+const firestoreApp = existingFirestoreApp || initializeApp(firebaseConfig, "cbmmt-firestore");
+export const db = getFirestore(firestoreApp, firebaseConfig.firestoreDatabaseId);
+
+// 2. Instância padrão para serviços de autenticação do Firebase
+const existingDefaultApp = getApps().find((a) => a.name === "[DEFAULT]");
+const defaultApp = existingDefaultApp || initializeApp(firebaseConfig);
+export const auth = getAuth(defaultApp);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
 
+// Limpa tokens expirados ou residuais no navegador para evitar erros contínuos de token-service
+if (typeof window !== "undefined") {
+  try {
+    auth.onIdTokenChanged(async (user) => {
+      if (user) {
+        try {
+          await user.getIdToken();
+        } catch (err: any) {
+          if (err?.message?.includes("token-service") || err?.message?.includes("securetoken")) {
+            console.warn("[Auth] Token expirado ou serviço de token indisponível no projeto; limpando sessão residual.");
+            void firebaseSignOut(auth).catch(() => {});
+          }
+        }
+      }
+    });
+  } catch (_) {}
+}
+
 export async function loginWithGoogle(): Promise<{ user: User; email: string; name: string }> {
-  const result = await signInWithPopup(auth, googleProvider);
-  const user = result.user;
-  return {
-    user,
-    email: user.email || "",
-    name: user.displayName || user.email?.split("@")[0] || "Usuário Google",
-  };
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    const user = result.user;
+    return {
+      user,
+      email: user.email || "",
+      name: user.displayName || user.email?.split("@")[0] || "Usuário Google",
+    };
+  } catch (err: any) {
+    if (err?.message?.includes("token-service") || err?.message?.includes("securetoken")) {
+      throw new Error("A API de token do Google não está disponível neste projeto. Utilize o acesso com e-mail e senha.");
+    }
+    throw err;
+  }
 }
 
 export async function logoutFirebase(): Promise<void> {

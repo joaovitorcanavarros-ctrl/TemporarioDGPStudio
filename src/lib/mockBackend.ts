@@ -944,11 +944,38 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     const motivo_id = searchParams.get("motivo_id");
     if (motivo_id) list = list.filter((m) => (motivo_id === "sem_motivo" ? !m.motivo_desligamento_id : m.motivo_desligamento_id === motivo_id));
 
+    // Filtros por situação de vencimento do contrato e faixas de dias
+    const faixaVenc = searchParams.get("faixa_venc");
     const venc = searchParams.get("venc");
-    if (venc === "a_vencer") {
-      list = list.filter((m) => m.status === "ATIVO" && m.alerta === "A_VENCER");
-    } else if (venc === "vencidos") {
-      list = list.filter((m) => m.status === "ATIVO" && m.alerta === "VENCIDO");
+    const vencMinDiasRaw = searchParams.get("venc_min_dias");
+    const vencMaxDiasRaw = searchParams.get("venc_max_dias");
+
+    if (faixaVenc === "Vencidos" || venc === "vencidos" || venc === "vencido") {
+      list = list.filter((m) => m.status === "ATIVO" && (m.alerta === "VENCIDO" || m.dias_para_vencer < 0));
+    } else if (faixaVenc === "0–30 dias" || faixaVenc === "0-30 dias") {
+      list = list.filter((m) => m.status === "ATIVO" && m.dias_para_vencer >= 0 && m.dias_para_vencer <= 30);
+    } else if (faixaVenc === "31–60 dias" || faixaVenc === "31-60 dias") {
+      list = list.filter((m) => m.status === "ATIVO" && m.dias_para_vencer >= 31 && m.dias_para_vencer <= 60);
+    } else if (faixaVenc === "61–90 dias" || faixaVenc === "61-90 dias") {
+      list = list.filter((m) => m.status === "ATIVO" && m.dias_para_vencer >= 61 && m.dias_para_vencer <= 90);
+    } else if (faixaVenc === "91–180 dias" || faixaVenc === "91-180 dias") {
+      list = list.filter((m) => m.status === "ATIVO" && m.dias_para_vencer >= 91 && m.dias_para_vencer <= 180);
+    } else if (faixaVenc === "> 180 dias" || faixaVenc === ">180 dias") {
+      list = list.filter((m) => m.status === "ATIVO" && m.dias_para_vencer > 180);
+    } else if (vencMinDiasRaw !== null || vencMaxDiasRaw !== null) {
+      const minDias = (vencMinDiasRaw !== null && vencMinDiasRaw !== "" && vencMinDiasRaw !== "null") ? parseInt(vencMinDiasRaw, 10) : null;
+      const maxDias = (vencMaxDiasRaw !== null && vencMaxDiasRaw !== "" && vencMaxDiasRaw !== "null") ? parseInt(vencMaxDiasRaw, 10) : null;
+      list = list.filter((m) => {
+        if (m.status !== "ATIVO") return false;
+        const d = m.dias_para_vencer;
+        if (minDias !== null && !isNaN(minDias) && d < minDias) return false;
+        if (maxDias !== null && !isNaN(maxDias) && d > maxDias) return false;
+        return true;
+      });
+    } else if (venc === "a_vencer") {
+      list = list.filter((m) => m.status === "ATIVO" && (m.alerta === "A_VENCER" || (m.dias_para_vencer >= 0 && m.dias_para_vencer <= alertaDias)));
+    } else if (venc === "regular" || venc === "em_dia") {
+      list = list.filter((m) => m.status === "ATIVO" && m.dias_para_vencer > alertaDias);
     }
 
     const sub_judice = searchParams.get("sub_judice");
@@ -959,6 +986,16 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     if (ativo_em) {
       list = list.filter((m) => ativoEm(m, ativo_em, hoje));
     }
+
+    const inclusao_ini = searchParams.get("inclusao_ini");
+    const inclusao_fim = searchParams.get("inclusao_fim");
+    if (inclusao_ini) list = list.filter((m) => m.data_inclusao >= inclusao_ini);
+    if (inclusao_fim) list = list.filter((m) => m.data_inclusao <= inclusao_fim);
+
+    const deslig_ini = searchParams.get("deslig_ini");
+    const deslig_fim = searchParams.get("deslig_fim");
+    if (deslig_ini) list = list.filter((m) => m.data_desligamento && m.data_desligamento >= deslig_ini);
+    if (deslig_fim) list = list.filter((m) => m.data_desligamento && m.data_desligamento <= deslig_fim);
 
     const ano = searchParams.get("ano");
     const data_inicio = searchParams.get("data_inicio");
