@@ -10,7 +10,7 @@ import DrillSheet, { type Drill } from "@/components/DrillSheet";
 import FiltersBar from "@/components/FiltersBar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { apiGet } from "@/lib/api";
+import { apiGet, apiPost } from "@/lib/api";
 import { fmtDate, fmtNum, qs } from "@/lib/format";
 import { useFilters, type GlobalFilters } from "@/lib/filters";
 import type { ChartRow, Dashboard as D } from "@/lib/types";
@@ -123,7 +123,12 @@ export default function Dashboard() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => q.refetch()}
+            onClick={async () => {
+              try {
+                await apiPost("/militares/sincronizar");
+              } catch (_) {}
+              await q.refetch();
+            }}
             disabled={q.isFetching}
             className="border-[#1E2C42] bg-[#121B28] text-xs text-slate-300 hover:bg-[#182335] hover:text-white"
             data-testid="dashboard-refresh-button"

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useFilters } from "@/lib/filters";
 import { podeEditar, useCatalogos, useMe } from "@/lib/hooks";
+import { apiPost } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { filterParams } from "@/pages/Dashboard";
 
@@ -116,7 +117,10 @@ export default function Temporarios() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
+            onClick={async () => {
+              try {
+                await apiPost("/militares/sincronizar");
+              } catch (_) {}
               queryClient.invalidateQueries({ queryKey: ["militares"] });
               queryClient.invalidateQueries({ queryKey: ["dashboard"] });
             }}
@@ -124,7 +128,7 @@ export default function Temporarios() {
             data-testid="temporarios-sync-button"
           >
             <RotateCw className="mr-1.5 size-3.5 text-blue-400" />
-            Sincronizar
+            Sincronizar Firestore
           </Button>
           {podeEditar(me.data) && (
             <Link to="/temporarios/novo" className={cn(buttonVariants(), "bg-blue-600 hover:bg-blue-700")} data-testid="new-militar-button">

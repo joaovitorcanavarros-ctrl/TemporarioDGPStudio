@@ -38,8 +38,8 @@ export default function Login() {
   // Mutation for standard email/password login
   const loginMut = useMutation({
     mutationFn: (body: { email: string; senha: string }) => apiPost<UserOut>("/auth/login", body),
-    onSuccess: () => {
-      beginSession();
+    onSuccess: async () => {
+      await beginSession();
       nav("/", { replace: true });
     },
     onError: (e) => setErro(errMsg(e, "Falha ao entrar")),
@@ -48,8 +48,8 @@ export default function Login() {
   // Mutation for signup (Criar Conta)
   const signupMut = useMutation({
     mutationFn: (body: { nome: string; email: string; senha: string }) => apiPost<UserOut>("/auth/signup", body),
-    onSuccess: () => {
-      beginSession();
+    onSuccess: async () => {
+      await beginSession();
       nav("/", { replace: true });
     },
     onError: (e) => setErro(errMsg(e, "Falha ao criar conta")),
@@ -58,8 +58,8 @@ export default function Login() {
   // Mutation for Google login synchronization
   const googleMut = useMutation({
     mutationFn: (body: { email: string; nome: string; uid: string }) => apiPost<UserOut>("/auth/google", body),
-    onSuccess: () => {
-      beginSession();
+    onSuccess: async () => {
+      await beginSession();
       nav("/", { replace: true });
     },
     onError: (e) => setErro(errMsg(e, "Falha ao autenticar com Google")),

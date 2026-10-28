@@ -15,6 +15,7 @@ import {
   getDoc,
   getDocs,
   setDoc,
+  deleteDoc,
   collection,
   query,
   limit,
@@ -72,6 +73,21 @@ export async function salvarMilitarFirestore(militar: Record<string, any>): Prom
     return true;
   } catch (err: any) {
     console.warn(`[Firestore] Aviso ao gravar militar em militares/${militar.id}:`, err?.code || err?.message);
+    return false;
+  }
+}
+
+/**
+ * Exclusão direta e definitiva do documento do militar em 'militares/${militarId}' no Firestore.
+ */
+export async function excluirMilitarFirestore(militarId: string): Promise<boolean> {
+  if (!militarId) return false;
+  try {
+    const ref = doc(db, "militares", String(militarId));
+    await deleteDoc(ref);
+    return true;
+  } catch (err: any) {
+    console.warn(`[Firestore] Aviso ao excluir militar em militares/${militarId}:`, err?.code || err?.message);
     return false;
   }
 }

@@ -1,11 +1,19 @@
 import { useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Clock, Pencil, RotateCcw, UserMinus } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Clock, Pencil, RotateCcw, Trash2, UserMinus } from "lucide-react";
 import { DesligamentoDialog, ReativarDialog } from "@/components/MilitarDialogs";
 import { AlertaBadge, StatusBadge } from "@/components/StatusBadge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { apiGet } from "@/lib/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { apiGet, apiDelete } from "@/lib/api";
 import { fmtDate, fmtDateTime } from "@/lib/format";
 import { isAdmin, podeEditar, useMe } from "@/lib/hooks";
 import type { Militar, MilitarHistorico } from "@/lib/types";
@@ -30,12 +38,33 @@ const fmtVal = (v: unknown) => (v === null || v === undefined || v === "" ? "—
 
 export default function MilitarDetalhe() {
   const { id } = useParams();
+  const nav = useNavigate();
+  const qc = useQueryClient();
   const me = useMe();
   const [desl, setDesl] = useState<Militar | null>(null);
   const [reat, setReat] = useState<Militar | null>(null);
+  const [excluirModalOpen, setExcluirModalOpen] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
+
   const q = useQuery({ queryKey: ["militar", id], queryFn: () => apiGet<Militar>(`/militares/${id}`) });
   const h = useQuery({ queryKey: ["militar", id, "historico"], queryFn: () => apiGet<MilitarHistorico>(`/militares/${id}/historico`) });
   const m = q.isError ? undefined : q.data;
+
+  const handleExcluir = async () => {
+    if (!m) return;
+    setExcluindo(true);
+    try {
+      await apiDelete(`/militares/${m.id}`);
+      qc.invalidateQueries({ queryKey: ["militares"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      nav("/temporarios", { replace: true });
+    } catch (err: any) {
+      console.error("Erro ao excluir militar:", err);
+    } finally {
+      setExcluindo(false);
+      setExcluirModalOpen(false);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -58,6 +87,16 @@ export default function MilitarDetalhe() {
               )}
               {isAdmin(me.data) && m.status === "DESLIGADO" && (
                 <Button className="bg-emerald-600 text-white hover:bg-emerald-700" onClick={() => setReat(m)} data-testid="detail-reativar-button"><RotateCcw className="size-4" /> Reativar Cadastro</Button>
+              )}
+              {isAdmin(me.data) && (
+                <Button
+                  variant="outline"
+                  className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                  onClick={() => setExcluirModalOpen(true)}
+                  data-testid="detail-delete-button"
+                >
+                  <Trash2 className="size-4" /> Excluir Cadastro
+                </Button>
               )}
             </div>
           </div>
@@ -139,6 +178,34 @@ export default function MilitarDetalhe() {
       </div>
       <DesligamentoDialog militar={desl} onClose={() => setDesl(null)} />
       <ReativarDialog militar={reat} onClose={() => setReat(null)} />
+
+      <Dialog open={excluirModalOpen} onOpenChange={setExcluirModalOpen}>
+        <DialogContent className="border-[#1E2C42] bg-[#121B28] text-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-red-400">Excluir Cadastro</DialogTitle>
+            <DialogDescription className="text-slate-300">
+              Tem certeza que deseja excluir definitivamente o cadastro de <strong>{m?.nome_completo}</strong> (Matrícula: {m?.matricula})? Esta ação removerá o militar permanentemente do banco de dados oficial do Firestore e do sistema.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setExcluirModalOpen(false)}
+              disabled={excluindo}
+              className="border-[#1E2C42] bg-[#182335] text-slate-300 hover:text-white"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleExcluir}
+              disabled={excluindo}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              {excluindo ? "Excluindo..." : "Confirmar Exclusão"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

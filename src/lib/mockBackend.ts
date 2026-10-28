@@ -6,6 +6,7 @@ import {
   buscarTodosMilitaresFirestore,
   salvarMetadadosFirestore,
   buscarMetadadosFirestore,
+  excluirMilitarFirestore,
 } from "./firebase";
 import { queryClient } from "./queryClient";
 import type {
@@ -110,6 +111,13 @@ function getInitialStore(): StoredData {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed.militares && parsed.militares.length > 0) {
+        // Purga cadastros de teste locais que não pertençam ao quadro oficial
+        // enquanto a sincronização do Firestore consulta a base real
+        const officialIds = new Set((initialData.militares as any[]).map((m: any) => m.id));
+        const cleanMilitares = (parsed.militares as any[]).filter((m) => officialIds.has(m.id));
+        if (cleanMilitares.length > 0) {
+          parsed.militares = cleanMilitares;
+        }
         return cleanAvnm(parsed);
       }
     }
@@ -230,17 +238,19 @@ export async function sincronizarMilitaresComFirestore(force = false): Promise<v
           }
         }
 
-        // Reconstrói a lista com os dados oficiais do Firestore
-        const novaLista: StoredData["militares"] = [];
-        for (const [, cloudDoc] of cloudMap.entries()) {
-          novaLista.push(cloudDoc);
+        // Reconstrói a lista ESTRITAMENTE com os dados oficiais e reais da coleção 'militares' do Firestore.
+        // Se um cadastro de teste foi excluído no Firebase pelo usuário/admin, ele é AUTOMATICAMENTE
+        // e permanentemente removido da lista e do cache local, garantindo sincronia perfeita com o banco.
+        const novaLista: StoredData["militares"] = Array.from(cloudMap.values());
+
+        // Remove também quaisquer registros de situação funcional ou auditoria órfãos de militares excluídos
+        if (Array.isArray(store.situacoes)) {
+          store.situacoes = store.situacoes.filter((s) => !s.militar_id || cloudMap.has(s.militar_id));
         }
-        // Se houver algum registro local ainda não sincronizado, preserva
-        for (const local of store.militares) {
-          if (!cloudMap.has(local.id)) {
-            novaLista.push(local);
-          }
+        if (Array.isArray(store.alteracoes)) {
+          store.alteracoes = store.alteracoes.filter((a) => !a.entidade_id || a.entidade !== "militar" || cloudMap.has(a.entidade_id));
         }
+
         store.militares = novaLista;
         saveLocalOnly();
       }
@@ -879,6 +889,12 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   }
 
   // 4. MILITARES
+  if ((pathname === "/militares/sincronizar" || pathname === "/sincronizar") && (method === "POST" || method === "GET")) {
+    await sincronizarMilitaresComFirestore(true);
+    await carregarMetadadosInstitucionaisFirestore(true);
+    return { ok: true, total: store.militares.length } as T;
+  }
+
   if (pathname === "/militares/verificar-matricula" && method === "GET") {
     const matricula = normMatricula(searchParams.get("matricula") || "");
     const excluirId = searchParams.get("excluir_id");
@@ -1149,6 +1165,29 @@ export async function handleBackendRequest<T>(method: string, path: string, body
 
       await persistMilitarExplicitly(doc);
       return enrichMilitar(doc, hoje, alertaDias) as T;
+    }
+
+    if (method === "DELETE") {
+      const user = getCurrentUser() || DEFAULT_USERS[0];
+      const docIdx = store.militares.findIndex((m) => m.id === id);
+      if (docIdx >= 0) {
+        const removed = store.militares.splice(docIdx, 1)[0];
+        store.situacoes = (store.situacoes || []).filter((s) => s.militar_id !== id);
+        store.alteracoes = (store.alteracoes || []).filter((a) => a.entidade_id !== id);
+        logAudit({
+          entidade: "militar",
+          entidade_id: id,
+          matricula: removed.matricula,
+          operacao: "EXCLUSAO_CADASTRO",
+          usuario_nome: user.nome,
+          antes: { "Nome": removed.nome_completo, "Matrícula": removed.matricula },
+          depois: null,
+        });
+        saveLocalOnly();
+        await excluirMilitarFirestore(id);
+        return { ok: true, id } as T;
+      }
+      throw { status: 404, body: { detail: "Militar não encontrado" } };
     }
   }
 

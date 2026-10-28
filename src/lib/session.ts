@@ -2,9 +2,17 @@ import { queryClient } from "./queryClient";
 import { apiPost } from "./api";
 import { logoutFirebase } from "./firebase";
 
+import { sincronizarMilitaresComFirestore, carregarMetadadosInstitucionaisFirestore } from "./mockBackend";
+
 // Call after every successful login/signup.
-export function beginSession(): void {
+export async function beginSession(): Promise<void> {
   queryClient.clear();
+  try {
+    await sincronizarMilitaresComFirestore(true);
+    await carregarMetadadosInstitucionaisFirestore(true);
+  } catch (e) {
+    console.warn("Session begin sync error", e);
+  }
 }
 
 // Call from every sign-out control; the hard redirect resets all in-memory state.
