@@ -58,8 +58,9 @@ export async function loginWithFirebaseEmail(email: string, pass: string): Promi
 }
 
 /**
- * Gravação granular de um único militar no Firestore (~400 bytes = 1 unidade de escrita).
- * Chamada EXCLUSIVAMENTE quando o administrador clica em Salvar / Atualizar / Confirmar.
+ * Gravação granular direta no documento do militar dentro da coleção 'militares' (ex: militares/${militar.id}).
+ * Executada EXCLUSIVAMENTE quando o administrador clica em Salvar / Atualizar / Confirmar.
+ * NÃO altera a coleção corporacao nem o documento metadados.
  */
 export async function salvarMilitarFirestore(militar: Record<string, any>): Promise<boolean> {
   if (!militar?.id) return false;
@@ -69,14 +70,14 @@ export async function salvarMilitarFirestore(militar: Record<string, any>): Prom
     await setDoc(ref, cleanPayload, { merge: true });
     return true;
   } catch (err: any) {
-    console.warn("[Firestore] Aviso ao gravar militar individual:", err?.code || err?.message);
+    console.warn(`[Firestore] Aviso ao gravar militar em militares/${militar.id}:`, err?.code || err?.message);
     return false;
   }
 }
 
 /**
- * Busca pontual (getDoc) de um único militar quando sua ficha/cadastro é aberta.
- * Nunca dispara escrita automática após a leitura.
+ * Busca pontual (getDoc) diretamente no documento do militar em 'militares/${militarId}'.
+ * Lê diretamente da coleção 'militares', sem carregar metadados e sem disparar escrita automática.
  */
 export async function buscarMilitarFirestore(militarId: string): Promise<Record<string, any> | null> {
   if (!militarId) return null;
@@ -88,60 +89,83 @@ export async function buscarMilitarFirestore(militarId: string): Promise<Record<
     }
     return null;
   } catch (err: any) {
-    console.warn("[Firestore] Aviso ao buscar militar pontualmente:", err?.code || err?.message);
+    console.warn(`[Firestore] Aviso ao buscar militar pontualmente em militares/${militarId}:`, err?.code || err?.message);
     return null;
   }
 }
 
 /**
- * Busca pontual com limite estrito (getDocs + limit) de militares alterados/adicionados na nuvem.
- * Evita ler toda a base de uma vez só e não mantém listener onSnapshot ativo.
+ * Busca pontual com limite estrito (getDocs + limit) DIRETAMENTE na coleção 'militares'.
+ * Lê diretamente os documentos de 'militares' sem depender de carregar metadados a todo momento.
  */
 export async function buscarMilitaresLimitadosFirestore(
   limiteResultados: number = 30,
-  matriculaExata?: string
+  termoBusca?: string
 ): Promise<Array<Record<string, any>>> {
   const safeLimit = Math.min(50, Math.max(1, limiteResultados));
   try {
     const colRef = collection(db, "militares");
-    const q = matriculaExata
-      ? query(colRef, where("matricula", "==", matriculaExata), limit(5))
-      : query(colRef, limit(safeLimit));
-    const snap = await getDocs(q);
+    const snap = await getDocs(query(colRef, limit(safeLimit)));
     const results: Array<Record<string, any>> = [];
     snap.forEach((docSnap) => {
       if (docSnap.exists()) {
         results.push(docSnap.data() as Record<string, any>);
       }
     });
+
+    // Se houver busca pontual por matrícula específica não contemplada nos primeiros registros, busca diretamente
+    if (termoBusca && termoBusca.trim().length >= 3) {
+      const termo = termoBusca.trim();
+      const jaContem = results.some(
+        (r) =>
+          r.matricula?.toLowerCase().includes(termo.toLowerCase()) ||
+          r.id === termo
+      );
+      if (!jaContem) {
+        try {
+          const directSnap = await getDocs(query(colRef, where("matricula", "==", termo), limit(5)));
+          directSnap.forEach((docSnap) => {
+            if (docSnap.exists() && !results.some((r) => r.id === docSnap.id)) {
+              results.push(docSnap.data() as Record<string, any>);
+            }
+          });
+        } catch (_) {
+          // ignora caso não haja índice específico para where composto
+        }
+      }
+    }
     return results;
   } catch (err: any) {
-    console.warn("[Firestore] Aviso ao listar militares com limite:", err?.code || err?.message);
+    console.warn("[Firestore] Aviso ao listar diretamente da coleção 'militares':", err?.code || err?.message);
     return [];
   }
 }
 
 /**
- * Gravação leve apenas de metadados/catálogos/usuários alterados (~1-2 KB).
- * Chamada EXCLUSIVAMENTE após ação explícita de salvar configurações, catálogos ou usuários.
+ * Gravação estrita apenas de dados institucionais fixos ou contadores gerais em 'corporacao/metadados'.
+ * Mantida estritamente para dados institucionais (config, catálogos, usuários),
+ * NUNCA gravando arrays/históricos de alterações a cada clique de edição de militar.
  */
 export async function salvarMetadadosFirestore(partialMeta: Record<string, any>): Promise<boolean> {
   try {
     const ref = doc(db, "corporacao", "metadados");
+    // Garante remoção rigorosa de alteracoes, situacoes ou militares
+    const { alteracoes, situacoes, militares, ...dadosInstitucionaisFixos } = partialMeta;
     const cleanPayload = JSON.parse(JSON.stringify({
-      ...partialMeta,
+      ...dadosInstitucionaisFixos,
       ultima_atualizacao: new Date().toISOString(),
     }));
     await setDoc(ref, cleanPayload, { merge: true });
     return true;
   } catch (err: any) {
-    console.warn("[Firestore] Aviso ao gravar metadados:", err?.code || err?.message);
+    console.warn("[Firestore] Aviso ao gravar metadados institucionais:", err?.code || err?.message);
     return false;
   }
 }
 
 /**
- * Busca pontual (getDoc) dos metadados corporativos leves (catálogos, usuários, configurações).
+ * Busca pontual (getDoc) dos metadados corporativos institucionais fixos (catálogos, usuários, configurações).
+ * Usada exclusivamente na gestão institucional, nunca nas listagens rotineiras de militares.
  */
 export async function buscarMetadadosFirestore(): Promise<Record<string, any> | null> {
   try {
@@ -152,7 +176,7 @@ export async function buscarMetadadosFirestore(): Promise<Record<string, any> | 
     }
     return null;
   } catch (err: any) {
-    console.warn("[Firestore] Aviso ao buscar metadados:", err?.code || err?.message);
+    console.warn("[Firestore] Aviso ao buscar metadados institucionais:", err?.code || err?.message);
     return null;
   }
 }

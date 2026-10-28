@@ -163,71 +163,53 @@ function saveLocalOnly() {
 }
 
 /**
- * Gravação granular de um único militar no Firestore.
+ * Gravação granular direta do militar na coleção 'militares' (militares/${militar.id}).
  * Executada EXCLUSIVAMENTE quando o administrador clica em Salvar / Atualizar / Confirmar.
+ * NÃO altera a coleção corporacao nem o documento metadados.
  */
 async function persistMilitarExplicitly(militar: StoredData["militares"][number]) {
   saveLocalOnly();
   await salvarMilitarFirestore(militar);
-  await salvarMetadadosFirestore({
-    alteracoes: store.alteracoes.slice(0, 40),
-    situacoes: store.situacoes.slice(0, 40),
-  });
 }
 
 /**
- * Gravação leve apenas de metadados/catálogos/usuários alterados.
- * Executada EXCLUSIVAMENTE após clique explícito de salvamento.
+ * Gravação estrita apenas de dados institucionais fixos ou contadores gerais (config, catálogos, usuários).
+ * Executada EXCLUSIVAMENTE após alteração explícita de configurações ou catálogos.
+ * NUNCA envia históricos/arrays de alterações a cada clique de edição de militar.
  */
-async function persistMetadadosExplicitly(keys: Array<keyof Omit<StoredData, "militares">>) {
+async function persistMetadadosExplicitly(keys: Array<keyof Omit<StoredData, "militares" | "alteracoes" | "situacoes">>) {
   saveLocalOnly();
   const partial: Record<string, any> = {
-    alteracoes: store.alteracoes.slice(0, 40),
+    total_registros: store.militares.length,
   };
   for (const k of keys) {
-    partial[k] = store[k];
+    if (k !== "alteracoes" && k !== "situacoes") {
+      partial[k] = store[k];
+    }
   }
   await salvarMetadadosFirestore(partial);
 }
 
-let lastCloudFetchAt = 0;
-let cloudFetchPromise: Promise<void> | null = null;
-const CLOUD_FETCH_COOLDOWN_MS = 60_000;
+let lastMilitaresFetchAt = 0;
+let militaresFetchPromise: Promise<void> | null = null;
+const MILITARES_FETCH_COOLDOWN_MS = 20_000;
 
 /**
- * Consulta pontual (getDoc / getDocs com limite de 30 registros) sob demanda ao abrir páginas.
- * Não mantém listener onSnapshot ativo e NUNCA executa gravações automáticas após carregar.
+ * Consulta pontual direta na coleção 'militares' do Firestore.
+ * Lê diretamente os documentos de 'militares' SEM depender nem carregar metadados a todo momento.
  */
-export async function carregarDadosPontuaisFirestore(force = false): Promise<void> {
+export async function carregarMilitaresFirestore(force = false, termoBusca?: string): Promise<void> {
   if (typeof window === "undefined") return;
   const now = Date.now();
-  if (!force && now - lastCloudFetchAt < CLOUD_FETCH_COOLDOWN_MS) return;
-  if (cloudFetchPromise) return cloudFetchPromise;
+  if (!force && !termoBusca && now - lastMilitaresFetchAt < MILITARES_FETCH_COOLDOWN_MS) return;
+  if (militaresFetchPromise) return militaresFetchPromise;
 
-  lastCloudFetchAt = now;
-  cloudFetchPromise = (async () => {
+  lastMilitaresFetchAt = now;
+  militaresFetchPromise = (async () => {
     try {
-      const [metaSnap, militaresCloud] = await Promise.all([
-        buscarMetadadosFirestore(),
-        buscarMilitaresLimitadosFirestore(30),
-      ]);
-
-      let changed = false;
-
-      if (metaSnap) {
-        const cleanedMeta = cleanAvnm(metaSnap);
-        if (cleanedMeta.config) { store.config = cleanedMeta.config; changed = true; }
-        if (Array.isArray(cleanedMeta.categorias) && cleanedMeta.categorias.length > 0) { store.categorias = cleanedMeta.categorias; changed = true; }
-        if (Array.isArray(cleanedMeta.cargos) && cleanedMeta.cargos.length > 0) { store.cargos = cleanedMeta.cargos; changed = true; }
-        if (Array.isArray(cleanedMeta.lotacoes) && cleanedMeta.lotacoes.length > 0) { store.lotacoes = cleanedMeta.lotacoes; changed = true; }
-        if (Array.isArray(cleanedMeta.editais) && cleanedMeta.editais.length > 0) { store.editais = cleanedMeta.editais; changed = true; }
-        if (Array.isArray(cleanedMeta.motivos) && cleanedMeta.motivos.length > 0) { store.motivos = cleanedMeta.motivos; changed = true; }
-        if (Array.isArray(cleanedMeta.usuarios) && cleanedMeta.usuarios.length > 0) { store.usuarios = cleanedMeta.usuarios; changed = true; }
-        if (Array.isArray(cleanedMeta.alteracoes) && cleanedMeta.alteracoes.length > 0) { store.alteracoes = cleanedMeta.alteracoes; changed = true; }
-        if (Array.isArray(cleanedMeta.situacoes) && cleanedMeta.situacoes.length > 0) { store.situacoes = cleanedMeta.situacoes; changed = true; }
-      }
-
+      const militaresCloud = await buscarMilitaresLimitadosFirestore(30, termoBusca);
       if (Array.isArray(militaresCloud) && militaresCloud.length > 0) {
+        let changed = false;
         const byId = new Map(store.militares.map((m, idx) => [m.id, idx]));
         for (const rawMil of militaresCloud) {
           const mil = cleanAvnm(rawMil) as StoredData["militares"][number];
@@ -241,20 +223,60 @@ export async function carregarDadosPontuaisFirestore(force = false): Promise<voi
           }
           changed = true;
         }
-      }
-
-      if (changed) {
-        saveLocalOnly();
-        queryClient.invalidateQueries();
+        if (changed) {
+          saveLocalOnly();
+        }
       }
     } catch (e) {
-      console.warn("Aviso ao executar busca pontual no Firestore:", e);
+      console.warn("Aviso ao buscar militares diretamente da coleção 'militares':", e);
     } finally {
-      cloudFetchPromise = null;
+      militaresFetchPromise = null;
     }
   })();
 
-  return cloudFetchPromise;
+  return militaresFetchPromise;
+}
+
+let lastMetaFetchAt = 0;
+let metaFetchPromise: Promise<void> | null = null;
+const META_FETCH_COOLDOWN_MS = 300_000;
+
+/**
+ * Consulta pontual de metadados institucionais (apenas configurações e catálogos fixos).
+ * Estritamente isolada e nunca executada nas listagens rotineiras de militares.
+ */
+export async function carregarMetadadosInstitucionaisFirestore(force = false): Promise<void> {
+  if (typeof window === "undefined") return;
+  const now = Date.now();
+  if (!force && now - lastMetaFetchAt < META_FETCH_COOLDOWN_MS) return;
+  if (metaFetchPromise) return metaFetchPromise;
+
+  lastMetaFetchAt = now;
+  metaFetchPromise = (async () => {
+    try {
+      const metaSnap = await buscarMetadadosFirestore();
+      if (metaSnap) {
+        const cleanedMeta = cleanAvnm(metaSnap);
+        let changed = false;
+        if (cleanedMeta.config) { store.config = cleanedMeta.config; changed = true; }
+        if (Array.isArray(cleanedMeta.categorias) && cleanedMeta.categorias.length > 0) { store.categorias = cleanedMeta.categorias; changed = true; }
+        if (Array.isArray(cleanedMeta.cargos) && cleanedMeta.cargos.length > 0) { store.cargos = cleanedMeta.cargos; changed = true; }
+        if (Array.isArray(cleanedMeta.lotacoes) && cleanedMeta.lotacoes.length > 0) { store.lotacoes = cleanedMeta.lotacoes; changed = true; }
+        if (Array.isArray(cleanedMeta.editais) && cleanedMeta.editais.length > 0) { store.editais = cleanedMeta.editais; changed = true; }
+        if (Array.isArray(cleanedMeta.motivos) && cleanedMeta.motivos.length > 0) { store.motivos = cleanedMeta.motivos; changed = true; }
+        if (Array.isArray(cleanedMeta.usuarios) && cleanedMeta.usuarios.length > 0) { store.usuarios = cleanedMeta.usuarios; changed = true; }
+        if (changed) {
+          saveLocalOnly();
+        }
+      }
+    } catch (e) {
+      console.warn("Aviso ao carregar metadados institucionais:", e);
+    } finally {
+      metaFetchPromise = null;
+    }
+  })();
+
+  return metaFetchPromise;
 }
 
 export function getCurrentUser(): UserOut | null {
@@ -528,6 +550,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
 
   // 2. CATALOGOS & META & CONFIG
   if (pathname === "/catalogos" && method === "GET") {
+    await carregarMetadadosInstitucionaisFirestore();
     const res: Catalogos = {
       categorias: [...store.categorias].sort((a, b) => a.ordem - b.ordem || a.nome.localeCompare(b.nome)),
       cargos: [...store.cargos].sort((a, b) => a.nome.localeCompare(b.nome)),
@@ -853,8 +876,9 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   }
 
   if (pathname === "/militares" && method === "GET") {
-    // Busca pontual controlada (getDocs com limite de 30 e cooldown, sem escrita automática)
-    await carregarDadosPontuaisFirestore();
+    // Busca pontual DIRETAMENTE na coleção 'militares', SEM depender nem carregar metadados a todo momento
+    const qParam = searchParams.get("q");
+    await carregarMilitaresFirestore(false, qParam || undefined);
 
     let list = store.militares.map((m) => enrichMilitar(m, hoje, alertaDias));
 

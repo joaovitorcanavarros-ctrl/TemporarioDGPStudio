@@ -2,7 +2,7 @@
   "entities": {
     "CorporacaoMetadados": {
       "title": "CorporacaoMetadados",
-      "description": "Metadados leves da corporação: configurações, catálogos, usuários e histórico recente",
+      "description": "Dados institucionais fixos da corporação: configurações, catálogos, usuários e total de registros",
       "type": "object",
       "properties": {
         "config": { "type": "object" },
@@ -12,8 +12,7 @@
         "editais": { "type": "array" },
         "motivos": { "type": "array" },
         "usuarios": { "type": "array" },
-        "alteracoes": { "type": "array" },
-        "situacoes": { "type": "array" },
+        "total_registros": { "type": "number" },
         "ultima_atualizacao": { "type": "string" }
       }
     },
