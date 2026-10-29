@@ -4,12 +4,11 @@ import { QueryClient } from "@tanstack/react-query";
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false, // Impede novas leituras no Firestore ao alternar abas do navegador
+      refetchOnWindowFocus: false,
       refetchOnReconnect: false,
-      staleTime: 15 * 60 * 1000, // 15 minutos: preserva dados em cache ao navegar entre abas do menu
-      gcTime: 30 * 60 * 1000, // Mantém registros em memória por 30 minutos
+      staleTime: 10 * 60 * 1000, // 10 minutos (entre 5 e 15 min): proteção de cotas de leitura do Firestore
+      gcTime: 15 * 60 * 1000,
       retry: 1,
     },
   },
 });
-

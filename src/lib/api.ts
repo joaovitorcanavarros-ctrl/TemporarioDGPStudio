@@ -1,4 +1,4 @@
-import { handleBackendRequest } from "./mockBackend";
+import { handleBackendRequest } from "./firestoreService";
 
 export class ApiError extends Error {
   status: number;

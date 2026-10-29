@@ -7,7 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiGet } from "@/lib/api";
-import { fmtDate, qs } from "@/lib/format";
+import { exportFile, fmtDate, qs } from "@/lib/format";
 import { useFilters } from "@/lib/filters";
 import { gerarPdfRelatorio } from "@/lib/pdfRelatorio";
 import type { MilitarPage, Relatorio } from "@/lib/types";
@@ -25,7 +25,19 @@ const TIPOS = [
   { id: "historico", label: "Histórico individual por matrícula" },
 ];
 
-const fmtCell = (v: string | number | null) => (v === null || v === undefined ? "—" : typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? fmtDate(v) : String(v));
+const fmtCell = (v: string | number | null) => {
+  if (v === null || v === undefined || String(v).trim() === "" || String(v).trim() === "-") return "—";
+  if (typeof v === "string") {
+    const s = v.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return fmtDate(s);
+    const fixedUtc = s.match(/^(\d{4})-(\d{2})-(\d{2})T(00:00|08:00|10:00|12:00):\d{2}(?:\.\d+)?Z$/);
+    if (fixedUtc) return `${fixedUtc[3]}/${fixedUtc[2]}/${fixedUtc[1]} às ${fixedUtc[4]}`;
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) {
+      return `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)} às ${s.slice(11, 16)}`;
+    }
+  }
+  return String(v);
+};
 
 export default function Relatorios() {
   const { filters } = useFilters();
@@ -42,6 +54,8 @@ export default function Relatorios() {
     queryFn: () => apiGet<Relatorio>(`/relatorios/${tipo}${qs(params)}`),
     enabled,
     retry: false,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
   const r = q.isError ? undefined : q.data;
 
@@ -50,7 +64,8 @@ export default function Relatorios() {
     queryKey: ["militares-sugestoes", cleanMatricula],
     queryFn: () => apiGet<MilitarPage>(`/militares?q=${encodeURIComponent(cleanMatricula)}&page_size=6`),
     enabled: tipo === "historico" && cleanMatricula.length >= 2,
-    staleTime: 1000 * 30,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const handleExportPdf = async () => {
@@ -125,9 +140,7 @@ export default function Relatorios() {
                     cols.map((c) => `"${c.label}"`).join(";"),
                     ...r.linhas.map((row) => cols.map((c) => `"${String(row[c.key] ?? "").replace(/"/g, '""')}"`).join(";")),
                   ];
-                  import("@/lib/mockBackend").then(({ exportFile }) => {
-                    exportFile(`relatorio_${tipo}_${new Date().toISOString().slice(0, 10)}.csv`, "\ufeff" + csvLines.join("\n"));
-                  });
+                  exportFile(`relatorio_${tipo}_${new Date().toISOString().slice(0, 10)}.csv`, "\ufeff" + csvLines.join("\n"));
                 }}
                 className={cn(buttonVariants({ variant: "outline", size: "sm" }), (!r || r.linhas.length === 0) && "pointer-events-none opacity-50")}
                 data-testid="report-export-csv"
@@ -135,16 +148,33 @@ export default function Relatorios() {
                 <Download className="size-4" /> CSV
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (!r) return;
-                  const cols = r.colunas;
-                  const csvLines = [
-                    cols.map((c) => `"${c.label}"`).join(";"),
-                    ...r.linhas.map((row) => cols.map((c) => `"${String(row[c.key] ?? "").replace(/"/g, '""')}"`).join(";")),
-                  ];
-                  import("@/lib/mockBackend").then(({ exportFile }) => {
-                    exportFile(`relatorio_${tipo}_${new Date().toISOString().slice(0, 10)}.csv`, "\ufeff" + csvLines.join("\n"));
-                  });
+                  try {
+                    const XLSX = await import("xlsx");
+                    const cols = r.colunas;
+                    const headers = cols.map((c) => c.label);
+                    const rows = r.linhas.map((row) => cols.map((c) => fmtCell(row[c.key])));
+                    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+                    ws["!cols"] = headers.map((h, i) => {
+                      let maxLen = h.length;
+                      for (let idx = 0; idx < Math.min(rows.length, 100); idx++) {
+                        const val = rows[idx][i] ? String(rows[idx][i]) : "";
+                        if (val.length > maxLen) maxLen = Math.min(val.length, 60);
+                      }
+                      return { wch: Math.max(maxLen + 2, 12) };
+                    });
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "Relatorio");
+                    const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+                    const blob = new Blob([wbout], {
+                      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    });
+                    exportFile(`relatorio_${tipo}_${new Date().toISOString().slice(0, 10)}.xlsx`, blob);
+                  } catch (err) {
+                    console.error("Erro ao exportar Excel:", err);
+                    toast.error("Não foi possível gerar a planilha Excel.");
+                  }
                 }}
                 className={cn(buttonVariants({ variant: "outline", size: "sm" }), (!r || r.linhas.length === 0) && "pointer-events-none opacity-50")}
                 data-testid="report-export-xlsx"
@@ -246,11 +276,11 @@ export default function Relatorios() {
               {r?.militar && (
                 <div className="rounded-lg border border-blue-500/30 bg-blue-950/20 p-3.5" data-testid="militar-card-resumo">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-start gap-3">
                       <div className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-blue-400/30 bg-blue-500/10 text-blue-300 shadow">
                         <Shield className="size-6 text-blue-400" />
                       </div>
-                      <div>
+                      <div className="space-y-0.5">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-mono text-sm font-bold text-blue-300">{r.militar.matricula}</span>
                           <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[11px] font-medium text-slate-300">{r.militar.cargo_nome}</span>
@@ -264,7 +294,15 @@ export default function Relatorios() {
                         <h4 className="font-heading text-base font-extrabold text-white">{r.militar.nome_completo}</h4>
                         <p className="text-xs text-slate-400">
                           UBM: <strong className="text-slate-300">{r.militar.lotacao_nome}</strong> · Edital: <span className="text-slate-300">{r.militar.edital_nome}</span> · Inclusão: <span className="text-slate-300">{fmtDate(r.militar.data_inclusao)}</span> · Vencimento: <strong className="text-slate-200">{fmtDate(r.militar.data_vencimento_contrato)}</strong>
+                          {r.militar.data_desligamento && (
+                            <> · Desligamento: <strong className="text-red-300">{fmtDate(r.militar.data_desligamento)} ({r.militar.motivo_desligamento_nome || "—"})</strong></>
+                          )}
                         </p>
+                        {r.militar.observacoes && r.militar.observacoes.trim() !== "" && r.militar.observacoes.trim() !== "-" && r.militar.observacoes.trim() !== "—" && (
+                          <p className="mt-1.5 rounded border border-blue-500/20 bg-[#0E1622]/80 px-2.5 py-1 text-xs text-slate-300">
+                            <strong className="text-blue-300">OBSERVAÇÕES:</strong> {r.militar.observacoes}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <button

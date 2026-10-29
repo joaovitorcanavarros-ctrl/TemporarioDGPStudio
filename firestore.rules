@@ -19,7 +19,7 @@ service cloud.firestore {
       );
     }
 
-    // Central corporate metadata: editais, cargos, lotações e auditoria
+    // Dados institucionais e tabelas auxiliares (corporacao/dados): categorias, cargos, lotações, editais e motivos
     match /corporacao/{docId} {
       allow read: if true;
       allow write: if true;
@@ -38,6 +38,12 @@ service cloud.firestore {
     }
 
     match /usuarios/{userId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Dedicated audit log collection
+    match /auditoria/{auditId} {
       allow read: if true;
       allow write: if true;
     }

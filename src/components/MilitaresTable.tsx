@@ -1,14 +1,15 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Download, History, Pencil, RotateCcw, SquarePen, UserMinus } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Download, History, Loader2, Pencil, RotateCcw, SquarePen, UserMinus } from "lucide-react";
+import { toast } from "sonner";
 import FieldSelect from "@/components/FieldSelect";
 import { DesligamentoDialog, QuickEditDialog, ReativarDialog } from "@/components/MilitarDialogs";
 import { AlertaBadge, StatusBadge } from "@/components/StatusBadge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiGet } from "@/lib/api";
-import { fmtDate, fmtNum, qs } from "@/lib/format";
+import { exportFile, fmtDate, fmtNum, qs } from "@/lib/format";
 import { isAdmin, podeEditar, useMe } from "@/lib/hooks";
 import type { Militar, MilitarPage } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -39,7 +40,7 @@ const COLS_BASE: Col[] = [
 const COL_STATUS: Col = { key: "status", label: "Situação", render: (m) => <StatusBadge status={m.status} /> };
 const COLS_DESLIG: Col[] = [
   { key: "data_desligamento", label: "Desligamento", render: (m) => <span className="num text-[13px] text-red-300">{fmtDate(m.data_desligamento)}</span> },
-  { key: "motivo_desligamento_nome", label: "Motivo", render: (m) => <span className="text-slate-300">{m.motivo_desligamento_nome ?? "—"}</span> },
+  { key: "motivo_desligamento_nome", label: "Status de desligamento", render: (m) => <span className="text-slate-300">{m.motivo_desligamento_nome ?? "—"}</span> },
 ];
 
 interface Props { params: Params; variant?: "geral" | "desligados"; compact?: boolean; testId?: string; resetKey?: number }
@@ -53,6 +54,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
   const [desligar, setDesligar] = useState<Militar | null>(null);
   const [reativar, setReativar] = useState<Militar | null>(null);
   const [rapido, setRapido] = useState<Militar | null>(null);
+  const [exportando, setExportando] = useState<"csv" | "xlsx" | null>(null);
   const paramsKey = JSON.stringify(params);
   const [lastKey, setLastKey] = useState(paramsKey);
   const [lastResetKey, setLastResetKey] = useState(resetKey);
@@ -74,42 +76,104 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const editar = podeEditar(me.data);
   const admin = isAdmin(me.data);
-  const exportQs = qs({ ...params, sort, direction });
 
   const toggleSort = (k: string) => {
     if (sort === k) setDirection(direction === "asc" ? "desc" : "asc");
     else { setSort(k); setDirection("asc"); }
   };
 
-  const handleExport = (formato: "csv" | "xlsx") => {
-    const exportItems = items;
-    const headers = [
-      "Matrícula", "Nome completo", "Cargo/Função", "Categoria", "Lotação/UBM", "Edital/Processo seletivo",
-      "Data de inclusão", "Vencimento do contrato", "Dias p/ vencer", "Situação", "Data do desligamento",
-      "Motivo do desligamento", "Documento/processo", "Sub judice", "DOE - Incorporação", "Observações"
-    ];
-    const rows = exportItems.map((m) => [
-      m.matricula,
-      m.nome_completo,
-      m.cargo_nome,
-      m.categoria_nome,
-      m.lotacao_nome,
-      m.edital_nome,
-      m.data_inclusao,
-      m.data_vencimento_contrato,
-      m.dias_para_vencer,
-      m.status,
-      m.data_desligamento || "",
-      m.motivo_desligamento_nome || "",
-      m.documento_desligamento || "",
-      m.sub_judice ? "Sim" : "Não",
-      m.doe_incorporacao || "",
-      m.observacoes || ""
-    ]);
-    const csvContent = [headers.join(";"), ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";"))].join("\n");
-    import("@/lib/mockBackend").then(({ exportFile }) => {
-      exportFile(`temporarios_${new Date().toISOString().slice(0, 10)}.csv`, "\ufeff" + csvContent);
-    });
+  const handleExport = async (formato: "csv" | "xlsx") => {
+    if (exportando) return;
+    setExportando(formato);
+    try {
+      // Busca todos os registros filtrados conforme os filtros ativos na tela (respeita categoria, cargo, lotação, edital, datas, situação e ordenação)
+      const res = await apiGet<MilitarPage>(`/militares${qs({ ...params, sort, direction, all: "true" })}`);
+      const exportItems = res?.items ?? [];
+
+      if (!exportItems.length) {
+        toast.warning("Nenhum registro encontrado para exportação com os filtros atuais.");
+        return;
+      }
+
+      const headers = [
+        "Matrícula",
+        "Nome completo",
+        "Cargo/Função",
+        "Categoria",
+        "Lotação/UBM",
+        "Edital/Processo seletivo",
+        "Data de inclusão",
+        "Vencimento do contrato",
+        "Dias p/ vencer",
+        "Situação",
+        "Data do desligamento",
+        "Status de desligamento",
+        "Documento/processo",
+        "Sub judice",
+        "DOE - Incorporação",
+        "Motivo do desligamento",
+      ];
+
+      const rows = exportItems.map((m) => [
+        m.matricula,
+        m.nome_completo,
+        m.cargo_nome || "",
+        m.categoria_nome || "",
+        m.lotacao_nome || "",
+        m.edital_nome || "",
+        m.data_inclusao ? fmtDate(m.data_inclusao) : "",
+        m.data_vencimento_contrato ? fmtDate(m.data_vencimento_contrato) : "",
+        m.dias_para_vencer ?? "",
+        m.status,
+        m.data_desligamento ? fmtDate(m.data_desligamento) : "",
+        m.motivo_desligamento_nome || "",
+        m.documento_desligamento || "",
+        m.sub_judice ? "Sim" : "Não",
+        m.doe_incorporacao || "",
+        m.observacoes || "",
+      ]);
+
+      const dataHoje = new Date().toISOString().slice(0, 10);
+      const prefixo = variant === "desligados" ? "desligados" : "temporarios";
+
+      if (formato === "xlsx") {
+        const XLSX = await import("xlsx");
+        const wsData = [headers, ...rows];
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+        // Largura automática das colunas
+        const colWidths = headers.map((h, i) => {
+          let maxLen = h.length;
+          for (let r = 0; r < Math.min(rows.length, 100); r++) {
+            const val = rows[r][i] ? String(rows[r][i]) : "";
+            if (val.length > maxLen) maxLen = Math.min(val.length, 60);
+          }
+          return { wch: Math.max(maxLen + 2, 12) };
+        });
+        ws["!cols"] = colWidths;
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Militares");
+        const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+        const blob = new Blob([wbout], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
+        exportFile(`${prefixo}_${dataHoje}.xlsx`, blob);
+      } else {
+        const csvContent = [
+          headers.join(";"),
+          ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")),
+        ].join("\n");
+        exportFile(`${prefixo}_${dataHoje}.csv`, "\ufeff" + csvContent, "text/csv;charset=utf-8;");
+      }
+
+      toast.success(`Exportação concluída: ${fmtNum(exportItems.length)} registros exportados.`);
+    } catch (err: any) {
+      console.error("Erro ao exportar:", err);
+      toast.error("Ocorreu um erro ao gerar o arquivo de exportação.");
+    } finally {
+      setExportando(null);
+    }
   };
 
   return (
@@ -119,11 +183,43 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
           <span className="num font-semibold text-white">{fmtNum(total)}</span> registro(s) encontrados
         </p>
         <div className="flex gap-2">
-          <button onClick={() => handleExport("csv")} className={buttonVariants({ variant: "outline", size: "sm" })} data-testid="export-csv-button">
-            <Download className="size-4" /> CSV
+          <button
+            onClick={() => handleExport("csv")}
+            disabled={exportando !== null}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "transition-all disabled:opacity-60")}
+            data-testid="export-csv-button"
+            title="Exportar todos os registros filtrados em CSV"
+          >
+            {exportando === "csv" ? (
+              <>
+                <Loader2 className="size-4 animate-spin mr-1.5" />
+                <span>Gerando CSV...</span>
+              </>
+            ) : (
+              <>
+                <Download className="size-4 mr-1.5" />
+                <span>CSV</span>
+              </>
+            )}
           </button>
-          <button onClick={() => handleExport("xlsx")} className={buttonVariants({ variant: "outline", size: "sm" })} data-testid="export-xlsx-button">
-            <Download className="size-4" /> Excel
+          <button
+            onClick={() => handleExport("xlsx")}
+            disabled={exportando !== null}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "transition-all disabled:opacity-60")}
+            data-testid="export-xlsx-button"
+            title="Exportar todos os registros filtrados em Excel (XLSX)"
+          >
+            {exportando === "xlsx" ? (
+              <>
+                <Loader2 className="size-4 animate-spin mr-1.5" />
+                <span>Gerando planilha...</span>
+              </>
+            ) : (
+              <>
+                <Download className="size-4 mr-1.5" />
+                <span>Excel</span>
+              </>
+            )}
           </button>
         </div>
       </div>

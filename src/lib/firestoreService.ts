@@ -1,13 +1,21 @@
-import initialData from "./seedData.json";
+import initialCatalogos from "./seedData.json";
 import {
+  auth,
   salvarMilitarFirestore,
   buscarMilitarFirestore,
-  buscarMilitaresLimitadosFirestore,
   buscarTodosMilitaresFirestore,
-  salvarMetadadosFirestore,
-  buscarMetadadosFirestore,
+  salvarDadosCorporacaoFirestore,
+  buscarDadosCorporacaoFirestore,
   excluirMilitarFirestore,
+  salvarUsuarioFirestore,
+  excluirUsuarioFirestore,
+  buscarTodosUsuariosFirestore,
+  buscarUsuarioPorEmailFirestore,
+  registrarAuditoriaFirestore,
+  buscarAuditoriaFirestore,
+  buscarAuditoriaPorEntidadeFirestore,
 } from "./firebase";
+import { exportFile } from "./format";
 import { queryClient } from "./queryClient";
 import type {
   AuditoriaPage,
@@ -39,10 +47,9 @@ import type {
   UsuarioIn,
 } from "./types";
 
-const STORAGE_KEY = "cbmmt_db_v1";
-const SESSION_KEY = "cbmmt_current_user_v1";
+export { exportFile };
 
-export interface StoredData {
+export interface CloudCacheState {
   config: Config;
   categorias: Array<{ id: string; codigo: string; nome: string; ordem: number; ativo: boolean }>;
   cargos: Array<{ id: string; nome: string; categoria: string; ativo: boolean }>;
@@ -76,17 +83,19 @@ export interface StoredData {
     email: string;
     perfil: "ADMIN" | "GESTOR" | "CONSULTA";
     ativo: boolean;
-    senha_hash?: string;
   }>;
-  alteracoes: HistoricoAlteracao[];
   situacoes: HistoricoSituacao[];
 }
 
-const DEFAULT_USERS: StoredData["usuarios"] = [
+const BOOTSTRAP_USERS: CloudCacheState["usuarios"] = [
   { id: "usr_admin", nome: "Administrador do Sistema", email: "admin@cbmmt.mt.gov.br", perfil: "ADMIN", ativo: true },
   { id: "usr_gestor", nome: "Gestor de Pessoal", email: "gestor@cbmmt.mt.gov.br", perfil: "GESTOR", ativo: true },
   { id: "usr_consulta", nome: "Usuário Consulta", email: "consulta@cbmmt.mt.gov.br", perfil: "CONSULTA", ativo: true },
 ];
+
+// Sessão autenticada em memória sincronizada com Firebase Auth e coleção 'usuarios'
+let activeSessionEmail: string | null = null;
+let activeSessionUser: UserOut | null = null;
 
 function cleanAvnm<T>(obj: T): T {
   if (typeof obj === "string") {
@@ -105,122 +114,138 @@ function cleanAvnm<T>(obj: T): T {
   return obj;
 }
 
-function getInitialStore(): StoredData {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed.militares && parsed.militares.length > 0) {
-        // Purga cadastros de teste locais que não pertençam ao quadro oficial
-        // enquanto a sincronização do Firestore consulta a base real
-        const officialIds = new Set((initialData.militares as any[]).map((m: any) => m.id));
-        const cleanMilitares = (parsed.militares as any[]).filter((m) => officialIds.has(m.id));
-        if (cleanMilitares.length > 0) {
-          parsed.militares = cleanMilitares;
-        }
-        return cleanAvnm(parsed);
-      }
-    }
-  } catch (e) {
-    console.warn("Failed to read stored data from localStorage", e);
-  }
-
-  // Pre-fill initial state
-  const data: StoredData = {
-    config: initialData.config ?? { alerta_dias: 30 },
-    categorias: initialData.categorias as any,
-    cargos: initialData.cargos as any,
-    lotacoes: initialData.lotacoes as any,
-    editais: initialData.editais as any,
-    motivos: initialData.motivos as any,
-    militares: (initialData.militares as any) || [],
-    usuarios: DEFAULT_USERS,
-    alteracoes: [
-      {
-        id: "alt_init",
-        entidade: "militar",
-        entidade_id: null,
-        matricula: null,
-        operacao: "IMPORTACAO_CSV",
-        usuario_nome: "Administrador do Sistema",
-        timestamp: "2026-10-14T10:00:00Z",
-        antes: null,
-        depois: { Arquivo: "Carga inicial oficial — 421 militares", inseridos: 421 },
-      },
-    ],
-    situacoes: [],
+function sanitizeMilitarRecord(raw: Record<string, any>): CloudCacheState["militares"][number] {
+  const cleaned = cleanAvnm(raw);
+  return {
+    id: String(cleaned.id || `mil_${Date.now()}`),
+    matricula: String(cleaned.matricula || "").trim(),
+    nome_completo: String(cleaned.nome_completo || "").trim().toUpperCase(),
+    cargo_id: String(cleaned.cargo_id || ""),
+    lotacao_id: String(cleaned.lotacao_id || ""),
+    edital_id: String(cleaned.edital_id || ""),
+    data_inclusao: cleaned.data_inclusao ? String(cleaned.data_inclusao).slice(0, 10) : "",
+    data_vencimento_contrato: cleaned.data_vencimento_contrato ? String(cleaned.data_vencimento_contrato).slice(0, 10) : "",
+    status: cleaned.status === "DESLIGADO" ? "DESLIGADO" : "ATIVO",
+    observacoes:
+      cleaned.observacoes !== null && cleaned.observacoes !== undefined && String(cleaned.observacoes).trim() !== ""
+        ? String(cleaned.observacoes)
+        : null,
+    doe_incorporacao:
+      cleaned.doe_incorporacao !== null && cleaned.doe_incorporacao !== undefined && String(cleaned.doe_incorporacao).trim() !== ""
+        ? String(cleaned.doe_incorporacao)
+        : null,
+    sub_judice: Boolean(cleaned.sub_judice),
+    data_desligamento:
+      cleaned.data_desligamento !== null && cleaned.data_desligamento !== undefined && String(cleaned.data_desligamento).trim() !== ""
+        ? String(cleaned.data_desligamento).slice(0, 10)
+        : null,
+    motivo_desligamento_id: cleaned.motivo_desligamento_id ? String(cleaned.motivo_desligamento_id) : null,
+    documento_desligamento:
+      cleaned.documento_desligamento !== null && cleaned.documento_desligamento !== undefined && String(cleaned.documento_desligamento).trim() !== ""
+        ? String(cleaned.documento_desligamento)
+        : null,
+    criado_em: cleaned.criado_em ? String(cleaned.criado_em) : null,
+    atualizado_em: cleaned.atualizado_em ? String(cleaned.atualizado_em) : null,
+    criado_por: cleaned.criado_por ? String(cleaned.criado_por) : null,
+    atualizado_por: cleaned.atualizado_por ? String(cleaned.atualizado_por) : null,
   };
-
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (e) {
-    console.warn("Failed to persist store to localStorage", e);
-  }
-  return data;
 }
 
-let store: StoredData = getInitialStore();
+const state: CloudCacheState = {
+  config: initialCatalogos.config ?? { alerta_dias: 30 },
+  categorias: initialCatalogos.categorias as any,
+  cargos: initialCatalogos.cargos as any,
+  lotacoes: initialCatalogos.lotacoes as any,
+  editais: initialCatalogos.editais as any,
+  motivos: initialCatalogos.motivos as any,
+  militares: [],
+  usuarios: [...BOOTSTRAP_USERS],
+  situacoes: [],
+};
 
-function saveLocalOnly() {
-  try {
-    store.alteracoes = (store.alteracoes || []).slice(0, 100);
-    store.situacoes = (store.situacoes || []).slice(0, 100);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-  } catch (e) {
-    console.warn("Failed to persist store to localStorage", e);
+function rebuildSituacoesFromMilitares(militaresList: CloudCacheState["militares"] = state.militares) {
+  const existingNonSynthetic = (state.situacoes || []).filter((s) => !s.id.startsWith("sit_cloud_"));
+  const syntheticDesligamentos: HistoricoSituacao[] = [];
+
+  for (const m of militaresList) {
+    if (m.status === "DESLIGADO") {
+      const hasManualEvent = existingNonSynthetic.some(
+        (s) => s.militar_id === m.id && s.tipo === "DESLIGAMENTO"
+      );
+      if (!hasManualEvent) {
+        const motivoObj = state.motivos.find((mt) => mt.id === m.motivo_desligamento_id);
+        const criadorObj = state.usuarios.find((u) => u.id === (m.atualizado_por || m.criado_por));
+        const dtEfetiva = m.data_desligamento || (m.atualizado_em ? m.atualizado_em.slice(0, 10) : "2026-10-01");
+        syntheticDesligamentos.push({
+          id: `sit_cloud_${m.id}`,
+          militar_id: m.id,
+          matricula: m.matricula,
+          nome_completo: m.nome_completo,
+          tipo: "DESLIGAMENTO",
+          data_efetiva: dtEfetiva,
+          motivo_nome: motivoObj?.nome || null,
+          documento: m.documento_desligamento || null,
+          justificativa: null,
+          observacoes: m.observacoes || null,
+          usuario_nome: criadorObj?.nome || "Sistema",
+          timestamp: m.atualizado_em || m.criado_em || `${dtEfetiva}T12:00:00Z`,
+        });
+      }
+    }
   }
+
+  state.situacoes = [...existingNonSynthetic, ...syntheticDesligamentos]
+    .sort((a, b) => (b.data_efetiva || b.timestamp || "").localeCompare(a.data_efetiva || a.timestamp || ""))
+    .slice(0, 150);
 }
 
 /**
  * Gravação granular direta do militar na coleção 'militares' (militares/${militar.id}).
- * Executada EXCLUSIVAMENTE quando o administrador clica em Salvar / Atualizar / Confirmar.
- * NÃO altera a coleção corporacao nem o documento metadados.
  */
-async function persistMilitarExplicitly(militar: StoredData["militares"][number]) {
-  // Atualiza imediatamente a lista em memória local
-  const idx = store.militares.findIndex((m) => m.id === militar.id);
+async function persistMilitarExplicitly(militar: CloudCacheState["militares"][number]) {
+  const sanitized = sanitizeMilitarRecord(militar);
+  const idx = state.militares.findIndex((m) => m.id === sanitized.id);
   if (idx >= 0) {
-    store.militares[idx] = { ...store.militares[idx], ...militar };
+    state.militares[idx] = { ...state.militares[idx], ...sanitized };
   } else {
-    store.militares.unshift(militar);
+    state.militares.unshift(sanitized);
   }
-  saveLocalOnly();
-  // Gravação definitiva direta no documento do militar no Firestore (militares/${militar.id})
-  await salvarMilitarFirestore(militar);
+  rebuildSituacoesFromMilitares(state.militares);
+  await salvarMilitarFirestore(sanitized);
+  void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+  void queryClient.invalidateQueries({ queryKey: ["militares"] });
+  void queryClient.invalidateQueries({ queryKey: ["situacao"] });
+  void queryClient.invalidateQueries({ queryKey: ["relatorio"] });
 }
 
 /**
- * Gravação estrita apenas de dados institucionais fixos ou contadores gerais (config, catálogos, usuários).
- * Executada EXCLUSIVAMENTE após alteração explícita de configurações ou catálogos.
- * NUNCA envia históricos/arrays de alterações a cada clique de edição de militar.
+ * Gravação estrita apenas de dados institucionais e tabelas auxiliares em 'corporacao/dados'.
+ * Jamais grava 'usuarios', 'militares', 'alteracoes' ou 'situacoes' em 'corporacao'.
  */
-async function persistMetadadosExplicitly(keys: Array<keyof Omit<StoredData, "militares" | "alteracoes" | "situacoes">>) {
-  saveLocalOnly();
+async function persistDadosCorporacaoExplicitly(
+  keys: Array<"config" | "categorias" | "cargos" | "lotacoes" | "editais" | "motivos">
+) {
   const partial: Record<string, any> = {
-    total_registros: store.militares.length,
+    total_registros: state.militares.length,
   };
   for (const k of keys) {
-    if (k !== "alteracoes" && k !== "situacoes") {
-      partial[k] = store[k];
-    }
+    partial[k] = state[k];
   }
-  await salvarMetadadosFirestore(partial);
+  await salvarDadosCorporacaoFirestore(partial);
 }
 
 let lastMilitaresFetchAt = 0;
 let militaresFetchPromise: Promise<void> | null = null;
-const MILITARES_FETCH_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutos: impede releituras desnecessárias de toda a base
+const MILITARES_FETCH_COOLDOWN_MS = 15_000;
 
 /**
- * Consulta pontual e sincronização oficial com a coleção 'militares' do Firestore.
- * Lê diretamente TODOS os documentos da coleção oficial 'militares',
- * garantindo que alterações e renovações de contratos feitas por qualquer administrador
- * reflitam nos totais, gráficos de vencimento e efetivo de todos os administradores.
+ * Sincronização com a coleção 'militares' do Cloud Firestore.
+ * Nunca executa gravações automáticas durante a leitura.
  */
 export async function sincronizarMilitaresComFirestore(force = false): Promise<void> {
   if (typeof window === "undefined") return;
   const now = Date.now();
-  if (!force && store.militares.length > 0 && now - lastMilitaresFetchAt < MILITARES_FETCH_COOLDOWN_MS) {
+  if (!force && state.militares.length > 0 && now - lastMilitaresFetchAt < MILITARES_FETCH_COOLDOWN_MS) {
     return;
   }
   if (militaresFetchPromise) return militaresFetchPromise;
@@ -230,32 +255,20 @@ export async function sincronizarMilitaresComFirestore(force = false): Promise<v
     try {
       const militaresCloud = await buscarTodosMilitaresFirestore();
       if (Array.isArray(militaresCloud) && militaresCloud.length > 0) {
-        const cloudMap = new Map<string, StoredData["militares"][number]>();
+        const cloudMap = new Map<string, CloudCacheState["militares"][number]>();
         for (const raw of militaresCloud) {
-          const m = cleanAvnm(raw) as StoredData["militares"][number];
-          if (m?.id) {
+          if (raw?.id || raw?.matricula) {
+            const m = sanitizeMilitarRecord(raw);
             cloudMap.set(m.id, m);
           }
         }
-
-        // Reconstrói a lista ESTRITAMENTE com os dados oficiais e reais da coleção 'militares' do Firestore.
-        // Se um cadastro de teste foi excluído no Firebase pelo usuário/admin, ele é AUTOMATICAMENTE
-        // e permanentemente removido da lista e do cache local, garantindo sincronia perfeita com o banco.
-        const novaLista: StoredData["militares"] = Array.from(cloudMap.values());
-
-        // Remove também quaisquer registros de situação funcional ou auditoria órfãos de militares excluídos
-        if (Array.isArray(store.situacoes)) {
-          store.situacoes = store.situacoes.filter((s) => !s.militar_id || cloudMap.has(s.militar_id));
-        }
-        if (Array.isArray(store.alteracoes)) {
-          store.alteracoes = store.alteracoes.filter((a) => !a.entidade_id || a.entidade !== "militar" || cloudMap.has(a.entidade_id));
-        }
-
-        store.militares = novaLista;
-        saveLocalOnly();
+        const novaLista = Array.from(cloudMap.values());
+        state.situacoes = (state.situacoes || []).filter((s) => !s.militar_id || cloudMap.has(s.militar_id));
+        state.militares = novaLista;
+        rebuildSituacoesFromMilitares(novaLista);
       }
     } catch (e) {
-      console.warn("Aviso ao sincronizar militares diretamente do Firestore:", e);
+      console.warn("Aviso ao sincronizar militares do Firestore:", e);
     } finally {
       militaresFetchPromise = null;
     }
@@ -271,8 +284,8 @@ let metaFetchPromise: Promise<void> | null = null;
 const META_FETCH_COOLDOWN_MS = 300_000;
 
 /**
- * Consulta pontual de metadados institucionais (apenas configurações e catálogos fixos).
- * Estritamente isolada e nunca executada nas listagens rotineiras de militares.
+ * Consulta pontual de tabelas auxiliares em 'corporacao > dados'.
+ * Estritamente isolada de 'usuarios' e 'militares'.
  */
 export async function carregarMetadadosInstitucionaisFirestore(force = false): Promise<void> {
   if (typeof window === "undefined") return;
@@ -283,23 +296,18 @@ export async function carregarMetadadosInstitucionaisFirestore(force = false): P
   lastMetaFetchAt = now;
   metaFetchPromise = (async () => {
     try {
-      const metaSnap = await buscarMetadadosFirestore();
+      const metaSnap = await buscarDadosCorporacaoFirestore();
       if (metaSnap) {
         const cleanedMeta = cleanAvnm(metaSnap);
-        let changed = false;
-        if (cleanedMeta.config) { store.config = cleanedMeta.config; changed = true; }
-        if (Array.isArray(cleanedMeta.categorias) && cleanedMeta.categorias.length > 0) { store.categorias = cleanedMeta.categorias; changed = true; }
-        if (Array.isArray(cleanedMeta.cargos) && cleanedMeta.cargos.length > 0) { store.cargos = cleanedMeta.cargos; changed = true; }
-        if (Array.isArray(cleanedMeta.lotacoes) && cleanedMeta.lotacoes.length > 0) { store.lotacoes = cleanedMeta.lotacoes; changed = true; }
-        if (Array.isArray(cleanedMeta.editais) && cleanedMeta.editais.length > 0) { store.editais = cleanedMeta.editais; changed = true; }
-        if (Array.isArray(cleanedMeta.motivos) && cleanedMeta.motivos.length > 0) { store.motivos = cleanedMeta.motivos; changed = true; }
-        if (Array.isArray(cleanedMeta.usuarios) && cleanedMeta.usuarios.length > 0) { store.usuarios = cleanedMeta.usuarios; changed = true; }
-        if (changed) {
-          saveLocalOnly();
-        }
+        if (cleanedMeta.config) state.config = cleanedMeta.config;
+        if (Array.isArray(cleanedMeta.categorias) && cleanedMeta.categorias.length > 0) state.categorias = cleanedMeta.categorias;
+        if (Array.isArray(cleanedMeta.cargos) && cleanedMeta.cargos.length > 0) state.cargos = cleanedMeta.cargos;
+        if (Array.isArray(cleanedMeta.lotacoes) && cleanedMeta.lotacoes.length > 0) state.lotacoes = cleanedMeta.lotacoes;
+        if (Array.isArray(cleanedMeta.editais) && cleanedMeta.editais.length > 0) state.editais = cleanedMeta.editais;
+        if (Array.isArray(cleanedMeta.motivos) && cleanedMeta.motivos.length > 0) state.motivos = cleanedMeta.motivos;
       }
     } catch (e) {
-      console.warn("Aviso ao carregar metadados institucionais:", e);
+      console.warn("Aviso ao carregar dados institucionais da corporação:", e);
     } finally {
       metaFetchPromise = null;
     }
@@ -308,40 +316,157 @@ export async function carregarMetadadosInstitucionaisFirestore(force = false): P
   return metaFetchPromise;
 }
 
-export function getCurrentUser(): UserOut | null {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    if (raw) {
-      const user = JSON.parse(raw);
-      const found = store.usuarios.find((u) => u.id === user.id && u.ativo);
-      if (found) {
-        return { id: found.id, nome: found.nome, email: found.email, perfil: found.perfil, ativo: found.ativo };
-      }
-    }
-  } catch (e) {
-    console.warn("Failed to get current user session", e);
+let lastUsuariosFetchAt = 0;
+let usuariosFetchPromise: Promise<void> | null = null;
+const USUARIOS_FETCH_COOLDOWN_MS = 15_000;
+
+/**
+ * Consulta pontual diretamente na coleção oficial 'usuarios' do Cloud Firestore.
+ * ÚNICA fonte da verdade para a lista de usuários e perfis de acesso.
+ */
+export async function sincronizarUsuariosComFirestore(force = false): Promise<void> {
+  if (typeof window === "undefined") return;
+  const now = Date.now();
+  if (!force && state.usuarios.length > 0 && now - lastUsuariosFetchAt < USUARIOS_FETCH_COOLDOWN_MS) {
+    return;
   }
-  // If the user has not logged in or logged out, return null so unauthenticated state is respected
+  if (usuariosFetchPromise) return usuariosFetchPromise;
+
+  lastUsuariosFetchAt = now;
+  usuariosFetchPromise = (async () => {
+    try {
+      const usersCloud = await buscarTodosUsuariosFirestore();
+      if (Array.isArray(usersCloud) && usersCloud.length > 0) {
+        const userMap = new Map<string, CloudCacheState["usuarios"][number]>();
+        for (const raw of usersCloud) {
+          const u = cleanAvnm(raw) as CloudCacheState["usuarios"][number];
+          if (u?.id && u?.email) {
+            userMap.set(u.id, {
+              id: u.id,
+              nome: u.nome || u.email.split("@")[0],
+              email: u.email.toLowerCase().trim(),
+              perfil: u.perfil === "ADMIN" || u.perfil === "GESTOR" ? u.perfil : "CONSULTA",
+              ativo: u.ativo !== false,
+            });
+          }
+        }
+        state.usuarios = Array.from(userMap.values());
+
+        if (activeSessionUser) {
+          const fresh = state.usuarios.find(
+            (u) =>
+              u.email.toLowerCase() === activeSessionUser!.email.toLowerCase() ||
+              u.id === activeSessionUser!.id
+          );
+          if (fresh) {
+            activeSessionUser = {
+              id: fresh.id,
+              nome: fresh.nome,
+              email: fresh.email,
+              perfil: fresh.perfil,
+              ativo: fresh.ativo,
+            };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Aviso ao sincronizar usuários do Firestore:", e);
+    } finally {
+      usuariosFetchPromise = null;
+    }
+  })();
+
+  return usuariosFetchPromise;
+}
+
+export function getCurrentUser(): UserOut | null {
+  const emailTarget = activeSessionEmail || auth.currentUser?.email?.toLowerCase() || null;
+  if (emailTarget) {
+    const found = state.usuarios.find(
+      (u) => u.email.toLowerCase() === emailTarget.toLowerCase() && u.ativo
+    );
+    if (found) {
+      activeSessionUser = {
+        id: found.id,
+        nome: found.nome,
+        email: found.email,
+        perfil: found.perfil,
+        ativo: found.ativo,
+      };
+      return activeSessionUser;
+    }
+  }
+  if (activeSessionUser) {
+    const foundById = state.usuarios.find(
+      (u) =>
+        (u.id === activeSessionUser!.id ||
+          u.email.toLowerCase() === activeSessionUser!.email.toLowerCase()) &&
+        u.ativo
+    );
+    if (foundById) {
+      activeSessionUser = {
+        id: foundById.id,
+        nome: foundById.nome,
+        email: foundById.email,
+        perfil: foundById.perfil,
+        ativo: foundById.ativo,
+      };
+    }
+    return activeSessionUser;
+  }
   return null;
 }
 
 export function setCurrentUser(user: UserOut | null) {
   if (!user) {
-    localStorage.removeItem(SESSION_KEY);
+    activeSessionEmail = null;
+    activeSessionUser = null;
   } else {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    activeSessionEmail = user.email.toLowerCase().trim();
+    activeSessionUser = { ...user, email: activeSessionEmail };
   }
 }
 
 function fmtDateLocal(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  const d = iso.slice(0, 10);
+  if (!iso || typeof iso !== "string") return "—";
+  const d = iso.trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return "—";
   return `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
 }
 
-// Today date in Mato Grosso / Cuiaba (YYYY-MM-DD)
+function fmtDateTimeBr(iso: string | null | undefined): string {
+  if (!iso || typeof iso !== "string") return "—";
+  const s = iso.trim();
+  if (!s || s === "-" || s === "—" || s.toLowerCase() === "null") return "—";
+  if (/^\d{2}\/\d{2}\/\d{4}\s+às\s+\d{2}:\d{2}/.test(s)) return s;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    return `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)} às 08:00`;
+  }
+  const fixedUtcMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})T(00:00|08:00|10:00|12:00):\d{2}(?:\.\d+)?Z$/);
+  if (fixedUtcMatch) {
+    return `${fixedUtcMatch[3]}/${fixedUtcMatch[2]}/${fixedUtcMatch[1]} às ${fixedUtcMatch[4]}`;
+  }
+  const dt = new Date(s);
+  if (!isNaN(dt.getTime())) {
+    const parts = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Cuiaba",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(dt);
+    const get = (type: string) => parts.find((p) => p.type === type)?.value || "00";
+    return `${get("day")}/${get("month")}/${get("year")} às ${get("hour")}:${get("minute")}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(s)) {
+    return `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)} às ${s.slice(11, 16)}`;
+  }
+  return s;
+}
+
 export function getHoje(): string {
-  // Use today's local date or 2026-10-26
   const now = new Date();
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, "0");
@@ -349,33 +474,51 @@ export function getHoje(): string {
   return `${y}-${m}-${d}`;
 }
 
-export function diasEntre(a: string, b: string): number {
-  const da = new Date(a + "T00:00:00Z");
-  const db = new Date(b + "T00:00:00Z");
+export function diasEntre(a: string | null | undefined, b: string | null | undefined): number {
+  if (!a || !b) return 0;
+  const cleanA = String(a).trim().slice(0, 10);
+  const cleanB = String(b).trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanA) || !/^\d{4}-\d{2}-\d{2}$/.test(cleanB)) return 0;
+  const da = new Date(cleanA + "T00:00:00Z");
+  const db = new Date(cleanB + "T00:00:00Z");
+  if (isNaN(da.getTime()) || isNaN(db.getTime())) return 0;
   return Math.round((db.getTime() - da.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function alertaContrato(m: { status: string; data_vencimento_contrato: string }, hoje: string, alertaDias: number): "VENCIDO" | "A_VENCER" | null {
-  if (m.status !== "ATIVO") return null;
+function alertaContrato(
+  m: { status: string; data_vencimento_contrato?: string | null },
+  hoje: string,
+  alertaDias: number
+): "VENCIDO" | "A_VENCER" | null {
+  if (m.status !== "ATIVO" || !m.data_vencimento_contrato) return null;
   const dias = diasEntre(hoje, m.data_vencimento_contrato);
   if (dias < 0) return "VENCIDO";
   if (dias <= alertaDias) return "A_VENCER";
   return null;
 }
 
-function ativoEm(m: { status: string; data_inclusao: string; data_desligamento?: string | null }, ref: string, hoje: string): boolean {
+function ativoEm(
+  m: { status: string; data_inclusao?: string | null; data_desligamento?: string | null },
+  ref: string,
+  hoje: string
+): boolean {
   if (ref >= hoje) return m.status === "ATIVO";
-  if (m.data_inclusao > ref) return false;
+  if (m.data_inclusao && m.data_inclusao > ref) return false;
   if (m.status === "ATIVO") return true;
   return Boolean(m.data_desligamento && m.data_desligamento > ref);
 }
 
-function noPeriodo(d: string | null | undefined, ini: string | null | undefined, fim: string | null | undefined): boolean {
+function noPeriodo(
+  d: string | null | undefined,
+  ini: string | null | undefined,
+  fim: string | null | undefined
+): boolean {
+  if (!ini && !fim) return true;
   if (!d) return false;
   return (!ini || d >= ini) && (!fim || d <= fim);
 }
 
-function normKey(s: string): string {
+function normKey(s: string | null | undefined): string {
   return (s || "")
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -385,15 +528,15 @@ function normKey(s: string): string {
     .trim();
 }
 
-function normMatricula(s: string): string {
+function normMatricula(s: string | null | undefined): string {
   return (s || "").replace(/\s+/g, "").toUpperCase();
 }
 
-function cleanAlphanumeric(s: string): string {
+function cleanAlphanumeric(s: string | null | undefined): string {
   return (s || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
 }
 
-function getBaseMatricula(s: string): string {
+function getBaseMatricula(s: string | null | undefined): string {
   return (s || "").split(/[\/\-]/)[0].replace(/[^A-Za-z0-9]/g, "").toUpperCase();
 }
 
@@ -420,18 +563,24 @@ function matchMatriculaFlexible(inputQuery: string, targetMatricula: string): bo
   return false;
 }
 
-function enrichMilitar(m: StoredData["militares"][number], hoje: string, alertaDias: number): Militar {
-  const cargo = store.cargos.find((c) => c.id === m.cargo_id);
+function enrichMilitar(m: CloudCacheState["militares"][number], hoje: string, alertaDias: number): Militar {
+  const cargo = state.cargos.find((c) => c.id === m.cargo_id);
   const cat = cargo?.categoria || "OUTROS";
-  const categoria = store.categorias.find((c) => c.codigo === cat);
-  const lotacao = store.lotacoes.find((l) => l.id === m.lotacao_id);
-  const edital = store.editais.find((e) => e.id === m.edital_id);
-  const motivo = store.motivos.find((mt) => mt.id === m.motivo_desligamento_id);
-  const criador = store.usuarios.find((u) => u.id === m.criado_por);
-  const atualizador = store.usuarios.find((u) => u.id === m.atualizado_por);
+  const categoria = state.categorias.find((c) => c.codigo === cat);
+  const lotacao = state.lotacoes.find((l) => l.id === m.lotacao_id);
+  const edital = state.editais.find((e) => e.id === m.edital_id);
+  const motivo = state.motivos.find((mt) => mt.id === m.motivo_desligamento_id);
+  const criador = state.usuarios.find((u) => u.id === m.criado_por);
+  const atualizador = state.usuarios.find((u) => u.id === m.atualizado_por);
 
   return {
     ...m,
+    data_inclusao: m.data_inclusao || "",
+    data_vencimento_contrato: m.data_vencimento_contrato || "",
+    data_desligamento: m.data_desligamento || null,
+    doe_incorporacao: m.doe_incorporacao || null,
+    observacoes: m.observacoes || null,
+    documento_desligamento: m.documento_desligamento || null,
     cargo_nome: cargo?.nome || "—",
     categoria: cat,
     categoria_nome: categoria?.nome || cat,
@@ -446,38 +595,60 @@ function enrichMilitar(m: StoredData["militares"][number], hoje: string, alertaD
   };
 }
 
-export function logAudit(entry: {
+export async function logAudit(entry: {
   entidade: string;
   entidade_id?: string | null;
   matricula?: string | null;
   operacao: string;
   usuario_nome?: string;
+  usuario_email?: string;
   antes?: Record<string, unknown> | null;
   depois?: Record<string, unknown> | null;
-}): HistoricoAlteracao {
-  const user = getCurrentUser() || DEFAULT_USERS[0];
-  const item: HistoricoAlteracao = {
-    id: `alt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+  descricao?: string | null;
+}): Promise<HistoricoAlteracao> {
+  const user = getCurrentUser() || BOOTSTRAP_USERS[0];
+  const usuarioNome = entry.usuario_nome || user.nome || "Sistema";
+  const usuarioEmail = entry.usuario_email || user.email || "";
+
+  const saved = await registrarAuditoriaFirestore({
     entidade: entry.entidade,
-    entidade_id: entry.entidade_id ?? null,
+    entidade_id: entry.entidade_id ?? entry.matricula ?? null,
     matricula: entry.matricula ?? null,
     operacao: entry.operacao,
-    usuario_nome: entry.usuario_nome || user.nome || "Sistema",
-    timestamp: new Date().toISOString(),
+    usuario_nome: usuarioNome,
+    usuario_email: usuarioEmail,
     antes: entry.antes ?? null,
     depois: entry.depois ?? null,
-  };
-  if (!store.alteracoes) {
-    store.alteracoes = [];
-  }
-  store.alteracoes.unshift(item);
-  if (store.alteracoes.length > 1000) {
-    store.alteracoes = store.alteracoes.slice(0, 1000);
-  }
-  return item;
+    descricao: entry.descricao ?? null,
+  });
+
+  void queryClient.invalidateQueries({ queryKey: ["auditoria"] });
+  void queryClient.invalidateQueries({ queryKey: ["meta"] });
+
+  const nowIso = new Date().toISOString();
+  return (
+    (saved as HistoricoAlteracao) || {
+      id: `alt_${Date.now()}`,
+      entidade: entry.entidade,
+      entidade_id: entry.entidade_id ?? null,
+      matricula: entry.matricula ?? null,
+      operacao: entry.operacao,
+      usuario_nome: usuarioNome,
+      usuario_email: usuarioEmail,
+      timestamp: nowIso,
+      data_hora: nowIso,
+      antes: entry.antes ?? null,
+      depois: entry.depois ?? null,
+      detalhes: {
+        antes: entry.antes ?? null,
+        depois: entry.depois ?? null,
+        descricao: entry.descricao ?? null,
+      },
+    }
+  );
 }
 
-// ----------------- BACKEND ENDPOINT IMPLEMENTATIONS -----------------
+// ----------------- CLOUD FIRESTORE SERVICE ENDPOINTS -----------------
 
 export async function handleBackendRequest<T>(method: string, path: string, body?: any): Promise<T> {
   const url = new URL(path.startsWith("/") ? `http://localhost${path}` : `http://localhost/${path}`);
@@ -486,24 +657,54 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   const searchParams = url.searchParams;
 
   const hoje = getHoje();
-  const alertaDias = store.config.alerta_dias || 30;
+  const alertaDias = state.config.alerta_dias || 30;
 
-  // 1. AUTH
+  // 1. AUTH & PERMISSÕES (Fonte única da verdade: coleção 'usuarios' no Firestore)
   if (pathname === "/auth/me" && method === "GET") {
+    await sincronizarUsuariosComFirestore();
     const user = getCurrentUser();
     if (!user) {
       throw { status: 401, body: { detail: "Sessão expirada ou não autenticado" } };
+    }
+    const freshUser = state.usuarios.find(
+      (u) => u.email.toLowerCase() === user.email.toLowerCase() || u.id === user.id
+    );
+    if (freshUser) {
+      user.perfil = freshUser.perfil;
+      user.nome = freshUser.nome;
+      user.ativo = freshUser.ativo;
+      setCurrentUser(user);
     }
     return user as T;
   }
 
   if (pathname === "/auth/login" && method === "POST") {
     const email = (body?.email || "").trim().toLowerCase();
-    const user = store.usuarios.find((u) => u.email.toLowerCase() === email && u.ativo);
+    await sincronizarUsuariosComFirestore(true);
+    let user = state.usuarios.find((u) => u.email.toLowerCase() === email && u.ativo);
+    if (!user) {
+      const cloudUser = await buscarUsuarioPorEmailFirestore(email);
+      if (cloudUser && cloudUser.ativo !== false) {
+        user = {
+          id: cloudUser.id,
+          nome: cloudUser.nome || email.split("@")[0],
+          email: cloudUser.email.toLowerCase(),
+          perfil: cloudUser.perfil === "ADMIN" || cloudUser.perfil === "GESTOR" ? cloudUser.perfil : "CONSULTA",
+          ativo: true,
+        };
+        state.usuarios.push(user);
+      }
+    }
     if (!user) {
       throw { status: 401, body: { detail: "E-mail ou senha inválidos" } };
     }
-    const userOut: UserOut = { id: user.id, nome: user.nome, email: user.email, perfil: user.perfil, ativo: user.ativo };
+    const userOut: UserOut = {
+      id: user.id,
+      nome: user.nome,
+      email: user.email,
+      perfil: user.perfil,
+      ativo: user.ativo,
+    };
     setCurrentUser(userOut);
     return userOut as T;
   }
@@ -511,28 +712,46 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   if (pathname === "/auth/signup" && method === "POST") {
     const email = (body?.email || "").trim().toLowerCase();
     const nome = (body?.nome || "").trim();
-    const senha = (body?.senha || "").trim();
 
     if (!email || !nome) {
       throw { status: 400, body: { detail: "Preencha todos os campos obrigatórios." } };
     }
-    const existing = store.usuarios.find((u) => u.email.toLowerCase() === email);
+    await sincronizarUsuariosComFirestore(true);
+    const existing = state.usuarios.find((u) => u.email.toLowerCase() === email);
     if (existing) {
       throw { status: 409, body: { detail: "Já existe uma conta cadastrada com este e-mail." } };
     }
 
-    const isSystemAdmin = email === "admin@cbmmt.mt.gov.br" || email === "joao1canavarros@gmail.com";
-    const newUser: StoredData["usuarios"][number] = {
+    const isSystemAdmin =
+      email === "admin@cbmmt.mt.gov.br" ||
+      email === "joao1canavarros@gmail.com" ||
+      email === "rodrigues11-30@hotmail.com";
+    const newUser: CloudCacheState["usuarios"][number] = {
       id: `usr_${Date.now()}`,
       nome,
       email,
       perfil: isSystemAdmin ? "ADMIN" : "CONSULTA",
       ativo: true,
     };
-    store.usuarios.push(newUser);
-    await persistMetadadosExplicitly(["usuarios"]);
+    state.usuarios.push(newUser);
+    await salvarUsuarioFirestore(newUser);
+    await logAudit({
+      entidade: "Usuario",
+      entidade_id: newUser.id,
+      operacao: "CRIACAO_USUARIO",
+      usuario_nome: newUser.nome,
+      usuario_email: newUser.email,
+      antes: null,
+      depois: { Nome: newUser.nome, "E-mail": newUser.email, Perfil: newUser.perfil, Ativo: "Sim" },
+    });
 
-    const userOut: UserOut = { id: newUser.id, nome: newUser.nome, email: newUser.email, perfil: newUser.perfil, ativo: newUser.ativo };
+    const userOut: UserOut = {
+      id: newUser.id,
+      nome: newUser.nome,
+      email: newUser.email,
+      perfil: newUser.perfil,
+      ativo: newUser.ativo,
+    };
     setCurrentUser(userOut);
     return userOut as T;
   }
@@ -545,29 +764,71 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       throw { status: 400, body: { detail: "E-mail da conta Google não recebido." } };
     }
 
-    let user = store.usuarios.find((u) => u.email.toLowerCase() === email);
-    const isSystemAdmin = email === "admin@cbmmt.mt.gov.br" || email === "joao1canavarros@gmail.com";
+    await sincronizarUsuariosComFirestore(true);
+    let user = state.usuarios.find((u) => u.email.toLowerCase() === email);
+    const isSystemAdmin =
+      email === "admin@cbmmt.mt.gov.br" ||
+      email === "joao1canavarros@gmail.com" ||
+      email === "rodrigues11-30@hotmail.com";
 
     if (!user) {
-      user = {
-        id: `usr_g_${Date.now()}`,
-        nome,
-        email,
-        perfil: isSystemAdmin ? "ADMIN" : "CONSULTA",
-        ativo: true,
-      };
-      store.usuarios.push(user);
-      await persistMetadadosExplicitly(["usuarios"]);
+      const cloudUser = await buscarUsuarioPorEmailFirestore(email);
+      if (cloudUser) {
+        user = {
+          id: cloudUser.id,
+          nome: cloudUser.nome || nome,
+          email: cloudUser.email.toLowerCase(),
+          perfil:
+            cloudUser.perfil === "ADMIN" || cloudUser.perfil === "GESTOR"
+              ? cloudUser.perfil
+              : isSystemAdmin
+              ? "ADMIN"
+              : "CONSULTA",
+          ativo: cloudUser.ativo !== false,
+        };
+        state.usuarios.push(user);
+      } else {
+        user = {
+          id: `usr_g_${Date.now()}`,
+          nome,
+          email,
+          perfil: isSystemAdmin ? "ADMIN" : "CONSULTA",
+          ativo: true,
+        };
+        state.usuarios.push(user);
+        await salvarUsuarioFirestore(user);
+        await logAudit({
+          entidade: "Usuario",
+          entidade_id: user.id,
+          operacao: "CRIACAO_USUARIO",
+          usuario_nome: user.nome,
+          usuario_email: user.email,
+          antes: null,
+          depois: { Nome: user.nome, "E-mail": user.email, Perfil: user.perfil, Origem: "Google OAuth" },
+        });
+      }
     } else {
       let userModified = false;
-      if (!user.nome && nome) { user.nome = nome; userModified = true; }
-      if (isSystemAdmin && user.perfil !== "ADMIN") { user.perfil = "ADMIN"; userModified = true; }
+      if (!user.nome && nome) {
+        user.nome = nome;
+        userModified = true;
+      }
+      if (isSystemAdmin && user.perfil !== "ADMIN") {
+        user.perfil = "ADMIN";
+        userModified = true;
+      }
       if (userModified) {
-        await persistMetadadosExplicitly(["usuarios"]);
+        await salvarUsuarioFirestore(user);
       }
     }
 
-    const userOut: UserOut = { id: user.id, nome: user.nome, email: user.email, perfil: user.perfil, ativo: user.ativo };
+    const userOut: UserOut = {
+      id: user.id,
+      nome: user.nome,
+      email: user.email,
+      perfil: user.perfil,
+      ativo: user.ativo,
+    };
     setCurrentUser(userOut);
     return userOut as T;
   }
@@ -577,48 +838,46 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     return { ok: true } as T;
   }
 
-  // 2. CATALOGOS & META & CONFIG
+  // 2. CATÁLOGOS, DADOS INSTITUCIONAIS ('corporacao > dados') & CONFIG
   if (pathname === "/catalogos" && method === "GET") {
     await carregarMetadadosInstitucionaisFirestore();
     const res: Catalogos = {
-      categorias: [...store.categorias].sort((a, b) => a.ordem - b.ordem || a.nome.localeCompare(b.nome)),
-      cargos: [...store.cargos].sort((a, b) => a.nome.localeCompare(b.nome)),
-      lotacoes: [...store.lotacoes].sort((a, b) => a.nome.localeCompare(b.nome)),
-      editais: [...store.editais].sort((a, b) => a.nome.localeCompare(b.nome)),
-      motivos: [...store.motivos].sort((a, b) => a.nome.localeCompare(b.nome)),
-      config: { ...store.config },
+      categorias: [...state.categorias].sort((a, b) => a.ordem - b.ordem || a.nome.localeCompare(b.nome)),
+      cargos: [...state.cargos].sort((a, b) => a.nome.localeCompare(b.nome)),
+      lotacoes: [...state.lotacoes].sort((a, b) => a.nome.localeCompare(b.nome)),
+      editais: [...state.editais].sort((a, b) => a.nome.localeCompare(b.nome)),
+      motivos: [...state.motivos].sort((a, b) => a.nome.localeCompare(b.nome)),
+      config: { ...state.config },
     };
     return res as T;
   }
 
   if (pathname === "/meta" && method === "GET") {
-    const ultimaAtualizacao =
-      store.alteracoes?.[0]?.timestamp ||
-      store.militares?.[0]?.atualizado_em ||
-      "2026-10-14T10:00:00Z";
+    const ultimaAtualizacao = state.militares?.[0]?.atualizado_em || new Date().toISOString();
     const res: Meta = {
       data_hoje: hoje,
       ultima_atualizacao: ultimaAtualizacao,
-      total_registros: store.militares.length,
+      total_registros: state.militares.length,
     };
     return res as T;
   }
 
   if (pathname === "/config" && method === "PUT") {
-    const oldAlerta = store.config.alerta_dias;
+    const oldAlerta = state.config.alerta_dias;
     const newAlerta = Number(body?.alerta_dias) || 30;
-    store.config = { alerta_dias: newAlerta };
-    logAudit({
+    state.config = { alerta_dias: newAlerta };
+    await logAudit({
       entidade: "Configurações",
+      entidade_id: "config",
       operacao: "ALTERACAO_CONFIGURACAO",
       antes: { "Prazo de alerta (dias)": oldAlerta },
       depois: { "Prazo de alerta (dias)": newAlerta },
     });
-    await persistMetadadosExplicitly(["config"]);
-    return store.config as T;
+    await persistDadosCorporacaoExplicitly(["config"]);
+    return state.config as T;
   }
 
-  // Catálogos CRUD
+  // Catálogos CRUD em 'corporacao > dados'
   const catMatch = pathname.match(/^\/(categorias|cargos|lotacoes|editais|motivos)(\/(.+))?$/);
   if (catMatch) {
     const coll = catMatch[1] as "categorias" | "cargos" | "lotacoes" | "editais" | "motivos";
@@ -626,39 +885,39 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     if (method === "POST") {
       const newId = `${coll.slice(0, 3)}_${Date.now()}`;
       const item = { id: newId, ...body, ativo: true };
-      (store[coll] as any).push(item);
-      logAudit({
+      (state[coll] as any).push(item);
+      await logAudit({
         entidade: coll,
         entidade_id: newId,
         operacao: `INSERCAO_${coll.toUpperCase()}`,
         antes: null,
         depois: { Nome: item.nome || item.codigo, ...item },
       });
-      await persistMetadadosExplicitly([coll]);
+      await persistDadosCorporacaoExplicitly([coll]);
       return item as T;
     }
     if (method === "PUT" && itemId) {
-      const idx = (store[coll] as any).findIndex((x: any) => x.id === itemId);
+      const idx = (state[coll] as any).findIndex((x: any) => x.id === itemId);
       if (idx >= 0) {
-        const oldItem = { ...store[coll][idx] };
-        store[coll][idx] = { ...store[coll][idx], ...body, id: itemId };
-        logAudit({
+        const oldItem = { ...state[coll][idx] };
+        state[coll][idx] = { ...state[coll][idx], ...body, id: itemId };
+        await logAudit({
           entidade: coll,
           entidade_id: itemId,
           operacao: `EDICAO_${coll.toUpperCase()}`,
           antes: oldItem,
-          depois: store[coll][idx],
+          depois: state[coll][idx],
         });
-        await persistMetadadosExplicitly([coll]);
-        return store[coll][idx] as T;
+        await persistDadosCorporacaoExplicitly([coll]);
+        return state[coll][idx] as T;
       }
     }
     if (method === "DELETE" && itemId) {
-      const idx = (store[coll] as any).findIndex((x: any) => x.id === itemId);
+      const idx = (state[coll] as any).findIndex((x: any) => x.id === itemId);
       if (idx >= 0) {
         if (coll === "categorias") {
-          const cat = store.categorias[idx];
-          const cargosUsando = store.cargos.filter((c) => c.categoria === cat.codigo);
+          const cat = state.categorias[idx];
+          const cargosUsando = state.cargos.filter((c) => c.categoria === cat.codigo);
           if (cargosUsando.length > 0) {
             throw {
               status: 400,
@@ -669,7 +928,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
           }
         }
         if (coll === "cargos") {
-          const milUsando = store.militares.filter((m) => m.cargo_id === itemId);
+          const milUsando = state.militares.filter((m) => m.cargo_id === itemId);
           if (milUsando.length > 0) {
             throw {
               status: 400,
@@ -680,7 +939,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
           }
         }
         if (coll === "lotacoes") {
-          const milUsando = store.militares.filter((m) => m.lotacao_id === itemId);
+          const milUsando = state.militares.filter((m) => m.lotacao_id === itemId);
           if (milUsando.length > 0) {
             throw {
               status: 400,
@@ -691,7 +950,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
           }
         }
         if (coll === "editais") {
-          const milUsando = store.militares.filter((m) => m.edital_id === itemId);
+          const milUsando = state.militares.filter((m) => m.edital_id === itemId);
           if (milUsando.length > 0) {
             throw {
               status: 400,
@@ -701,16 +960,16 @@ export async function handleBackendRequest<T>(method: string, path: string, body
             };
           }
         }
-        const oldItem = { ...store[coll][idx] };
-        const removed = store[coll].splice(idx, 1);
-        logAudit({
+        const oldItem = { ...state[coll][idx] };
+        const removed = state[coll].splice(idx, 1);
+        await logAudit({
           entidade: coll,
           entidade_id: itemId,
           operacao: `EXCLUSAO_${coll.toUpperCase()}`,
           antes: { Nome: oldItem.nome || oldItem.codigo, ...oldItem },
           depois: null,
         });
-        await persistMetadadosExplicitly([coll]);
+        await persistDadosCorporacaoExplicitly([coll]);
         return { ok: true, removed } as T;
       }
       throw { status: 404, body: { detail: "Registro não encontrado" } };
@@ -719,8 +978,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
 
   // 3. DASHBOARD
   if (pathname === "/dashboard" && method === "GET") {
-    // Sincroniza com a coleção oficial de militares no Firestore para calcular métricas com base real
     await sincronizarMilitaresComFirestore();
+    await carregarMetadadosInstitucionaisFirestore();
 
     const categoria = searchParams.get("categoria");
     const cargo_id = searchParams.get("cargo_id");
@@ -739,8 +998,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     }
     const ref = fim && fim < hoje ? fim : hoje;
 
-    // Filter records
-    let records = store.militares.map((m) => enrichMilitar(m, hoje, alertaDias));
+    let records = state.militares.map((m) => enrichMilitar(m, hoje, alertaDias));
     if (categoria) records = records.filter((m) => m.categoria === categoria);
     if (cargo_id) records = records.filter((m) => m.cargo_id === cargo_id);
     if (lotacao_id) records = records.filter((m) => m.lotacao_id === lotacao_id);
@@ -752,14 +1010,12 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     const desligPeriodo = records.filter((m) => m.status === "DESLIGADO" && noPeriodo(m.data_desligamento, ini, fim));
     const inclusoesPeriodo = records.filter((m) => noPeriodo(m.data_inclusao, ini, fim));
 
-    // Por categoria
     const porCat: Record<string, number> = {};
-    for (const c of store.categorias) porCat[c.codigo] = 0;
+    for (const c of state.categorias) porCat[c.codigo] = 0;
     for (const m of ativosRef) {
       porCat[m.categoria] = (porCat[m.categoria] || 0) + 1;
     }
 
-    // Por UBM
     const ubmCount: Record<string, { nome: string; total: number }> = {};
     for (const m of ativosRef) {
       if (!ubmCount[m.lotacao_id]) {
@@ -771,7 +1027,6 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       .map(([k, v]) => ({ chave: k, nome: v.nome, total: v.total }))
       .sort((a, b) => b.total - a.total);
 
-    // Por Edital
     const editalCount: Record<string, { nome: string; total: number }> = {};
     for (const m of ativosRef) {
       if (!editalCount[m.edital_id]) {
@@ -783,7 +1038,6 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       .map(([k, v]) => ({ chave: k, nome: v.nome, total: v.total }))
       .sort((a, b) => b.total - a.total);
 
-    // Faixas de vencimento
     const FAIXAS: Array<[string, number | null, number | null]> = [
       ["Vencidos", null, -1],
       ["0–30 dias", 0, 30],
@@ -802,16 +1056,18 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       return { faixa: label, min, max, total: tot };
     });
 
-    // Efetivo cargo ano
-    const anosInclusao = records.map((m) => parseInt(m.data_inclusao.slice(0, 4), 10)).filter(Boolean);
+    const anosInclusao = records.map((m) => parseInt((m.data_inclusao || "").slice(0, 4), 10)).filter(Boolean);
     const minAno = anosInclusao.length ? Math.min(...anosInclusao) : 2022;
     const refAno = parseInt(ref.slice(0, 4), 10);
     const efetivoCargoAno: ChartRow[] = [];
     for (let a = minAno; a <= refAno; a++) {
-      const d = Math.min(new Date(`${a}-12-31`).getTime(), new Date(ref).getTime()) === new Date(`${a}-12-31`).getTime() ? `${a}-12-31` : ref;
+      const d =
+        Math.min(new Date(`${a}-12-31`).getTime(), new Date(ref).getTime()) === new Date(`${a}-12-31`).getTime()
+          ? `${a}-12-31`
+          : ref;
       const row: ChartRow = { ano: String(a), data: d };
       let tot = 0;
-      for (const cat of store.categorias) {
+      for (const cat of state.categorias) {
         const c = records.filter((m) => m.categoria === cat.codigo && ativoEm(m, d, hoje)).length;
         row[cat.codigo] = c;
         tot += c;
@@ -820,19 +1076,66 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       efetivoCargoAno.push(row);
     }
 
-    // Desligamentos por ano / motivo
     const totMotivo: Record<string, number> = {};
     for (const m of desligPeriodo) {
       const mid = m.motivo_desligamento_id || "sem_motivo";
       totMotivo[mid] = (totMotivo[mid] || 0) + 1;
     }
-    const desligMotivos: CountItem[] = store.motivos.map((mot) => ({
+    const desligMotivos: CountItem[] = state.motivos.map((mot) => ({
       chave: mot.id,
       nome: mot.nome,
       total: totMotivo[mot.id] || 0,
     }));
+    if (totMotivo["sem_motivo"]) {
+      desligMotivos.push({
+        chave: "sem_motivo",
+        nome: "Não informado",
+        total: totMotivo["sem_motivo"],
+      });
+    }
 
-    // Evolução mensal (últimos 12 meses)
+    const activeMotivoIds = desligMotivos.filter((mt) => mt.total > 0).map((mt) => mt.chave);
+
+    const desligAnosMap = new Map<string, ChartRow>();
+    for (const m of desligPeriodo) {
+      const dt = m.data_desligamento || (m.atualizado_em ? m.atualizado_em.slice(0, 10) : hoje);
+      const anoDesl = dt.slice(0, 4);
+      const mid = m.motivo_desligamento_id || "sem_motivo";
+      if (!desligAnosMap.has(anoDesl)) {
+        const initRow: ChartRow = { ano: anoDesl, total: 0 };
+        for (const mk of activeMotivoIds) initRow[mk] = 0;
+        desligAnosMap.set(anoDesl, initRow);
+      }
+      const row = desligAnosMap.get(anoDesl)!;
+      row[mid] = Number(row[mid] || 0) + 1;
+      row.total = Number(row.total || 0) + 1;
+    }
+    const desligPorAno: ChartRow[] = Array.from(desligAnosMap.values()).sort((a, b) =>
+      String(a.ano).localeCompare(String(b.ano))
+    );
+
+    const desligCargoMap = new Map<string, ChartRow>();
+    for (const cat of state.categorias) {
+      const initRow: ChartRow = { categoria: cat.codigo, nome: cat.nome, total: 0 };
+      for (const mk of activeMotivoIds) initRow[mk] = 0;
+      desligCargoMap.set(cat.codigo, initRow);
+    }
+    for (const m of desligPeriodo) {
+      const catCode = m.categoria || "OUTROS";
+      const mid = m.motivo_desligamento_id || "sem_motivo";
+      if (!desligCargoMap.has(catCode)) {
+        const initRow: ChartRow = { categoria: catCode, nome: m.categoria_nome || catCode, total: 0 };
+        for (const mk of activeMotivoIds) initRow[mk] = 0;
+        desligCargoMap.set(catCode, initRow);
+      }
+      const row = desligCargoMap.get(catCode)!;
+      row[mid] = Number(row[mid] || 0) + 1;
+      row.total = Number(row.total || 0) + 1;
+    }
+    const desligPorCargo: ChartRow[] = Array.from(desligCargoMap.values()).filter(
+      (r) => Number(r.total || 0) > 0
+    );
+
     const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
     const evolucaoMensal: ChartRow[] = [];
     const currYear = parseInt(ref.slice(0, 4), 10);
@@ -845,9 +1148,24 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       evolucaoMensal.push({
         mes: pref,
         rotulo: `${MESES[mm - 1]}/${String(y).slice(2)}`,
-        inclusoes: records.filter((m) => m.data_inclusao.startsWith(pref)).length,
-        desligamentos: records.filter((m) => (m.data_desligamento || "").startsWith(pref)).length,
+        inclusoes: records.filter((m) => (m.data_inclusao || "").startsWith(pref)).length,
+        desligamentos: records.filter((m) => m.status === "DESLIGADO" && (m.data_desligamento || "").startsWith(pref)).length,
         efetivo: records.filter((m) => ativoEm(m, `${pref}-28`, hoje)).length,
+      });
+    }
+
+    const evolucaoAnual: ChartRow[] = [];
+    for (let a = minAno; a <= refAno; a++) {
+      const dFim =
+        Math.min(new Date(`${a}-12-31`).getTime(), new Date(ref).getTime()) === new Date(`${a}-12-31`).getTime()
+          ? `${a}-12-31`
+          : ref;
+      const aStr = String(a);
+      evolucaoAnual.push({
+        ano: aStr,
+        inclusoes: records.filter((m) => (m.data_inclusao || "").startsWith(aStr)).length,
+        desligamentos: records.filter((m) => m.status === "DESLIGADO" && (m.data_desligamento || "").startsWith(aStr)).length,
+        efetivo: records.filter((m) => ativoEm(m, dFim, hoje)).length,
       });
     }
 
@@ -872,33 +1190,35 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       periodo_fim: fim || null,
       alerta_dias: alertaDias,
       kpis,
-      categorias: store.categorias.map((c) => ({ chave: c.codigo, nome: c.nome, total: porCat[c.codigo] || 0 })),
+      categorias: state.categorias.map((c) => ({ chave: c.codigo, nome: c.nome, total: porCat[c.codigo] || 0 })),
       motivos: desligMotivos,
       efetivo_cargo_ano: efetivoCargoAno,
-      deslig_por_ano: [],
-      deslig_por_cargo: [],
+      deslig_por_ano: desligPorAno,
+      deslig_por_cargo: desligPorCargo,
       deslig_motivos: desligMotivos,
       por_ubm: porUbm,
       evolucao_mensal: evolucaoMensal,
-      evolucao_anual: [],
-      dist_categoria: store.categorias.map((c) => ({ chave: c.codigo, nome: c.nome, total: porCat[c.codigo] || 0 })),
+      evolucao_anual: evolucaoAnual,
+      dist_categoria: state.categorias.map((c) => ({ chave: c.codigo, nome: c.nome, total: porCat[c.codigo] || 0 })),
       dist_edital: distEdital,
       faixas_vencimento: faixasVencimento,
     };
     return dashboardRes as T;
   }
 
-  // 4. MILITARES
+  // 4. MILITARES (Coleção dedicada 'militares')
   if ((pathname === "/militares/sincronizar" || pathname === "/sincronizar") && (method === "POST" || method === "GET")) {
     await sincronizarMilitaresComFirestore(true);
     await carregarMetadadosInstitucionaisFirestore(true);
-    return { ok: true, total: store.militares.length } as T;
+    return { ok: true, total: state.militares.length } as T;
   }
 
   if (pathname === "/militares/verificar-matricula" && method === "GET") {
     const matricula = normMatricula(searchParams.get("matricula") || "");
     const excluirId = searchParams.get("excluir_id");
-    const found = store.militares.find((m) => normMatricula(m.matricula) === matricula && (!excluirId || m.id !== excluirId));
+    const found = state.militares.find(
+      (m) => normMatricula(m.matricula) === matricula && (!excluirId || m.id !== excluirId)
+    );
     const check: MatriculaCheck = {
       existe: Boolean(found),
       militar_id: found ? found.id : null,
@@ -908,27 +1228,29 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   }
 
   if (pathname === "/militares/situacao" && method === "GET") {
-    const items = [...store.situacoes].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+    await sincronizarMilitaresComFirestore();
+    const items = [...state.situacoes].sort((a, b) =>
+      (b.data_efetiva || b.timestamp || "").localeCompare(a.data_efetiva || a.timestamp || "")
+    );
     const res: SituacaoPage = { items, total: items.length };
     return res as T;
   }
 
   if (pathname === "/militares" && method === "GET") {
-    // Busca pontual DIRETAMENTE na coleção oficial 'militares' do Firestore
     await sincronizarMilitaresComFirestore();
 
-    let list = store.militares.map((m) => enrichMilitar(m, hoje, alertaDias));
+    let list = state.militares.map((m) => enrichMilitar(m, hoje, alertaDias));
 
-    // Filters
     const q = searchParams.get("q");
     if (q) {
       const qNorm = normKey(q);
       const qClean = cleanAlphanumeric(q);
-      list = list.filter((m) =>
-        normKey(m.nome_completo).includes(qNorm) ||
-        normMatricula(m.matricula).includes(qNorm) ||
-        (qClean && cleanAlphanumeric(m.matricula).includes(qClean)) ||
-        matchMatriculaFlexible(q, m.matricula)
+      list = list.filter(
+        (m) =>
+          normKey(m.nome_completo).includes(qNorm) ||
+          normMatricula(m.matricula).includes(qNorm) ||
+          (qClean && cleanAlphanumeric(m.matricula).includes(qClean)) ||
+          matchMatriculaFlexible(q, m.matricula)
       );
     }
     const categoria = searchParams.get("categoria");
@@ -942,9 +1264,14 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     const status = searchParams.get("status");
     if (status) list = list.filter((m) => m.status === status);
     const motivo_id = searchParams.get("motivo_id");
-    if (motivo_id) list = list.filter((m) => (motivo_id === "sem_motivo" ? !m.motivo_desligamento_id : m.motivo_desligamento_id === motivo_id));
+    if (motivo_id) {
+      list = list.filter((m) =>
+        motivo_id === "sem_motivo" || motivo_id === "NAO_INFORMADO"
+          ? !m.motivo_desligamento_id
+          : m.motivo_desligamento_id === motivo_id
+      );
+    }
 
-    // Filtros por situação de vencimento do contrato e faixas de dias
     const faixaVenc = searchParams.get("faixa_venc");
     const venc = searchParams.get("venc");
     const vencMinDiasRaw = searchParams.get("venc_min_dias");
@@ -963,8 +1290,14 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     } else if (faixaVenc === "> 180 dias" || faixaVenc === ">180 dias") {
       list = list.filter((m) => m.status === "ATIVO" && m.dias_para_vencer > 180);
     } else if (vencMinDiasRaw !== null || vencMaxDiasRaw !== null) {
-      const minDias = (vencMinDiasRaw !== null && vencMinDiasRaw !== "" && vencMinDiasRaw !== "null") ? parseInt(vencMinDiasRaw, 10) : null;
-      const maxDias = (vencMaxDiasRaw !== null && vencMaxDiasRaw !== "" && vencMaxDiasRaw !== "null") ? parseInt(vencMaxDiasRaw, 10) : null;
+      const minDias =
+        vencMinDiasRaw !== null && vencMinDiasRaw !== "" && vencMinDiasRaw !== "null"
+          ? parseInt(vencMinDiasRaw, 10)
+          : null;
+      const maxDias =
+        vencMaxDiasRaw !== null && vencMaxDiasRaw !== "" && vencMaxDiasRaw !== "null"
+          ? parseInt(vencMaxDiasRaw, 10)
+          : null;
       list = list.filter((m) => {
         if (m.status !== "ATIVO") return false;
         const d = m.dias_para_vencer;
@@ -973,7 +1306,9 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         return true;
       });
     } else if (venc === "a_vencer") {
-      list = list.filter((m) => m.status === "ATIVO" && (m.alerta === "A_VENCER" || (m.dias_para_vencer >= 0 && m.dias_para_vencer <= alertaDias)));
+      list = list.filter(
+        (m) => m.status === "ATIVO" && (m.alerta === "A_VENCER" || (m.dias_para_vencer >= 0 && m.dias_para_vencer <= alertaDias))
+      );
     } else if (venc === "regular" || venc === "em_dia") {
       list = list.filter((m) => m.status === "ATIVO" && m.dias_para_vencer > alertaDias);
     }
@@ -1004,21 +1339,26 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     if (ano) {
       list = list.filter((m) => {
         const incAno = m.data_inclusao ? m.data_inclusao.slice(0, 4) : "";
-        const edital = store.editais.find((e) => e.id === m.edital_id);
+        const edital = state.editais.find((e) => e.id === m.edital_id);
         const editalAno = edital?.ano ? String(edital.ano) : "";
-        const activeInYear = m.data_inclusao <= `${ano}-12-31` && (!m.data_desligamento || m.data_desligamento >= `${ano}-01-01`);
+        const activeInYear =
+          m.data_inclusao <= `${ano}-12-31` && (!m.data_desligamento || m.data_desligamento >= `${ano}-01-01`);
         return incAno === ano || editalAno === ano || activeInYear;
       });
     } else {
       if (data_inicio) {
-        list = list.filter((m) => m.data_inclusao >= data_inicio || (m.data_vencimento_contrato && m.data_vencimento_contrato >= data_inicio) || (!m.data_desligamento || m.data_desligamento >= data_inicio));
+        list = list.filter(
+          (m) =>
+            m.data_inclusao >= data_inicio ||
+            (m.data_vencimento_contrato && m.data_vencimento_contrato >= data_inicio) ||
+            (!m.data_desligamento || m.data_desligamento >= data_inicio)
+        );
       }
       if (data_fim) {
         list = list.filter((m) => m.data_inclusao <= data_fim);
       }
     }
 
-    // Sorting
     const sort = searchParams.get("sort") || "nome_completo";
     const direction = searchParams.get("direction") || "asc";
     list.sort((a: any, b: any) => {
@@ -1028,12 +1368,22 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       return direction === "desc" ? -cmp : cmp;
     });
 
-    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-    // Limite estrito de resultados por página (padrão 20) para evitar consumo excessivo de leitura
-    const pageSize = Math.min(50, Math.max(1, parseInt(searchParams.get("page_size") || "20", 10)));
+    // Exportação sob demanda apenas quando all=true / export=true; caso contrário, limite estrito de 20 ou 30 registros
+    const isAll =
+      searchParams.get("all") === "true" ||
+      searchParams.get("export") === "true" ||
+      searchParams.get("page_size") === "all";
     const total = list.length;
-    const start = (page - 1) * pageSize;
-    const items = list.slice(start, start + pageSize);
+    let items = list;
+    let page = 1;
+    let pageSize = total;
+
+    if (!isAll) {
+      page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+      pageSize = Math.min(50, Math.max(1, parseInt(searchParams.get("page_size") || "20", 10)));
+      const start = (page - 1) * pageSize;
+      items = list.slice(start, start + pageSize);
+    }
 
     const pageRes: MilitarPage = { items, total, page, page_size: pageSize };
     return pageRes as T;
@@ -1043,15 +1393,20 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   if (pathname === "/militares" && method === "POST") {
     const b = body as MilitarIn;
     const mat = normMatricula(b.matricula);
-    const exists = store.militares.find((m) => normMatricula(m.matricula) === mat);
+    const exists = state.militares.find((m) => normMatricula(m.matricula) === mat);
     if (exists) {
       throw {
         status: 409,
-        body: { detail: { message: `Já existe cadastro para a matrícula ${b.matricula} (${exists.nome_completo}).`, militar_id: exists.id } },
+        body: {
+          detail: {
+            message: `Já existe cadastro para a matrícula ${b.matricula} (${exists.nome_completo}).`,
+            militar_id: exists.id,
+          },
+        },
       };
     }
-    const user = getCurrentUser() || DEFAULT_USERS[0];
-    const newDoc: StoredData["militares"][number] = {
+    const user = getCurrentUser() || BOOTSTRAP_USERS[0];
+    const newDoc: CloudCacheState["militares"][number] = {
       id: `mil_${Date.now()}`,
       matricula: b.matricula.trim(),
       nome_completo: b.nome_completo.trim().toUpperCase(),
@@ -1072,8 +1427,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       criado_por: user.id,
       atualizado_por: user.id,
     };
-    store.militares.unshift(newDoc);
-    store.situacoes.unshift({
+    state.militares.unshift(newDoc);
+    state.situacoes.unshift({
       id: `sit_${Date.now()}`,
       militar_id: newDoc.id,
       matricula: newDoc.matricula,
@@ -1087,19 +1442,20 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       usuario_nome: user.nome,
       timestamp: new Date().toISOString(),
     });
-    logAudit({
-      entidade: "militar",
+    await logAudit({
+      entidade: "Militar",
       entidade_id: newDoc.id,
       matricula: newDoc.matricula,
       operacao: "NOVO_CADASTRO",
       usuario_nome: user.nome,
+      usuario_email: user.email,
       antes: null,
       depois: {
-        "Nome": newDoc.nome_completo,
-        "Matrícula": newDoc.matricula,
+        Nome: newDoc.nome_completo,
+        Matrícula: newDoc.matricula,
         "Vencimento do contrato": newDoc.data_vencimento_contrato,
         "Data de inclusão": newDoc.data_inclusao,
-        "Situação": newDoc.status,
+        Situação: newDoc.status,
       },
     });
     await persistMilitarExplicitly(newDoc);
@@ -1112,29 +1468,27 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     const id = milDetailMatch[1];
 
     if (method === "GET") {
-      // Consulta pontual (getDoc) apenas ao abrir o cadastro do militar; NUNCA dispara escrita automática
       const cloudMil = await buscarMilitarFirestore(id);
       if (cloudMil && cloudMil.id) {
-        const cleaned = cleanAvnm(cloudMil) as StoredData["militares"][number];
-        const existingIdx = store.militares.findIndex((m) => m.id === id);
+        const cleaned = sanitizeMilitarRecord(cloudMil);
+        const existingIdx = state.militares.findIndex((m) => m.id === id);
         if (existingIdx >= 0) {
-          store.militares[existingIdx] = { ...store.militares[existingIdx], ...cleaned };
+          state.militares[existingIdx] = { ...state.militares[existingIdx], ...cleaned };
         } else {
-          store.militares.unshift(cleaned);
+          state.militares.unshift(cleaned);
         }
-        saveLocalOnly();
       }
-      const doc = store.militares.find((m) => m.id === id);
+      const doc = state.militares.find((m) => m.id === id);
       if (!doc) throw { status: 404, body: { detail: "Militar não encontrado" } };
       return enrichMilitar(doc, hoje, alertaDias) as T;
     }
 
-    const doc = store.militares.find((m) => m.id === id);
+    const doc = state.militares.find((m) => m.id === id);
     if (!doc) throw { status: 404, body: { detail: "Militar não encontrado" } };
 
     if (method === "PUT") {
       const b = body as MilitarIn;
-      const user = getCurrentUser() || DEFAULT_USERS[0];
+      const user = getCurrentUser() || BOOTSTRAP_USERS[0];
       const antes: Record<string, unknown> = {};
       const depois: Record<string, unknown> = {};
       let isVencChange = false;
@@ -1149,16 +1503,16 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       checkField("Nome completo", doc.nome_completo, b.nome_completo?.trim().toUpperCase());
       checkField("Matrícula", doc.matricula, b.matricula?.trim());
       if (doc.cargo_id !== b.cargo_id) {
-        antes["Cargo"] = store.cargos.find((c) => c.id === doc.cargo_id)?.nome || doc.cargo_id;
-        depois["Cargo"] = store.cargos.find((c) => c.id === b.cargo_id)?.nome || b.cargo_id;
+        antes["Cargo"] = state.cargos.find((c) => c.id === doc.cargo_id)?.nome || doc.cargo_id;
+        depois["Cargo"] = state.cargos.find((c) => c.id === b.cargo_id)?.nome || b.cargo_id;
       }
       if (doc.lotacao_id !== b.lotacao_id) {
-        antes["Lotação/UBM"] = store.lotacoes.find((l) => l.id === doc.lotacao_id)?.nome || doc.lotacao_id;
-        depois["Lotação/UBM"] = store.lotacoes.find((l) => l.id === b.lotacao_id)?.nome || b.lotacao_id;
+        antes["Lotação/UBM"] = state.lotacoes.find((l) => l.id === doc.lotacao_id)?.nome || doc.lotacao_id;
+        depois["Lotação/UBM"] = state.lotacoes.find((l) => l.id === b.lotacao_id)?.nome || b.lotacao_id;
       }
       if (doc.edital_id !== b.edital_id) {
-        antes["Edital"] = store.editais.find((e) => e.id === doc.edital_id)?.nome || doc.edital_id;
-        depois["Edital"] = store.editais.find((e) => e.id === b.edital_id)?.nome || b.edital_id;
+        antes["Edital"] = state.editais.find((e) => e.id === doc.edital_id)?.nome || doc.edital_id;
+        depois["Edital"] = state.editais.find((e) => e.id === b.edital_id)?.nome || b.edital_id;
       }
       checkField("Data de inclusão", doc.data_inclusao, b.data_inclusao);
       if (doc.data_vencimento_contrato !== b.data_vencimento_contrato) {
@@ -1190,14 +1544,15 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         atualizado_por: user.id,
       });
 
-      logAudit({
-        entidade: "militar",
+      await logAudit({
+        entidade: "Militar",
         entidade_id: doc.id,
         matricula: doc.matricula,
         operacao: isVencChange ? "ALTERACAO_VENCIMENTO" : "EDICAO_CADASTRO",
         usuario_nome: user.nome,
+        usuario_email: user.email,
         antes: Object.keys(antes).length > 0 ? antes : null,
-        depois: Object.keys(depois).length > 0 ? depois : { "Militar": doc.nome_completo },
+        depois: Object.keys(depois).length > 0 ? depois : { Militar: doc.nome_completo },
       });
 
       await persistMilitarExplicitly(doc);
@@ -1205,23 +1560,27 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     }
 
     if (method === "DELETE") {
-      const user = getCurrentUser() || DEFAULT_USERS[0];
-      const docIdx = store.militares.findIndex((m) => m.id === id);
+      const user = getCurrentUser() || BOOTSTRAP_USERS[0];
+      const docIdx = state.militares.findIndex((m) => m.id === id);
       if (docIdx >= 0) {
-        const removed = store.militares.splice(docIdx, 1)[0];
-        store.situacoes = (store.situacoes || []).filter((s) => s.militar_id !== id);
-        store.alteracoes = (store.alteracoes || []).filter((a) => a.entidade_id !== id);
-        logAudit({
-          entidade: "militar",
+        const removed = state.militares.splice(docIdx, 1)[0];
+        state.situacoes = (state.situacoes || []).filter((s) => s.militar_id !== id);
+        await logAudit({
+          entidade: "Militar",
           entidade_id: id,
           matricula: removed.matricula,
           operacao: "EXCLUSAO_CADASTRO",
           usuario_nome: user.nome,
-          antes: { "Nome": removed.nome_completo, "Matrícula": removed.matricula },
+          usuario_email: user.email,
+          antes: { Nome: removed.nome_completo, Matrícula: removed.matricula },
           depois: null,
         });
-        saveLocalOnly();
+        rebuildSituacoesFromMilitares();
         await excluirMilitarFirestore(id);
+        void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+        void queryClient.invalidateQueries({ queryKey: ["militares"] });
+        void queryClient.invalidateQueries({ queryKey: ["situacao"] });
+        void queryClient.invalidateQueries({ queryKey: ["relatorio"] });
         return { ok: true, id } as T;
       }
       throw { status: 404, body: { detail: "Militar não encontrado" } };
@@ -1231,10 +1590,10 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   const milQuickMatch = pathname.match(/^\/militares\/([^/]+)\/rapido$/);
   if (milQuickMatch && method === "PATCH") {
     const id = milQuickMatch[1];
-    const doc = store.militares.find((m) => m.id === id);
+    const doc = state.militares.find((m) => m.id === id);
     if (!doc) throw { status: 404, body: { detail: "Militar não encontrado" } };
     const b = body as MilitarRapidoIn;
-    const user = getCurrentUser() || DEFAULT_USERS[0];
+    const user = getCurrentUser() || BOOTSTRAP_USERS[0];
     const antes: Record<string, unknown> = {};
     const depois: Record<string, unknown> = {};
     let isVencChange = false;
@@ -1246,15 +1605,15 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       isVencChange = true;
     }
     if (b.lotacao_id && b.lotacao_id !== doc.lotacao_id) {
-      const oldLot = store.lotacoes.find((l) => l.id === doc.lotacao_id)?.nome || doc.lotacao_id;
-      const newLot = store.lotacoes.find((l) => l.id === b.lotacao_id)?.nome || b.lotacao_id;
+      const oldLot = state.lotacoes.find((l) => l.id === doc.lotacao_id)?.nome || doc.lotacao_id;
+      const newLot = state.lotacoes.find((l) => l.id === b.lotacao_id)?.nome || b.lotacao_id;
       antes["Lotação/UBM"] = oldLot;
       depois["Lotação/UBM"] = newLot;
       doc.lotacao_id = b.lotacao_id;
     }
     if (b.edital_id && b.edital_id !== doc.edital_id) {
-      const oldEd = store.editais.find((e) => e.id === doc.edital_id)?.nome || doc.edital_id;
-      const newEd = store.editais.find((e) => e.id === b.edital_id)?.nome || b.edital_id;
+      const oldEd = state.editais.find((e) => e.id === doc.edital_id)?.nome || doc.edital_id;
+      const newEd = state.editais.find((e) => e.id === b.edital_id)?.nome || b.edital_id;
       antes["Edital"] = oldEd;
       depois["Edital"] = newEd;
       doc.edital_id = b.edital_id;
@@ -1268,14 +1627,15 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     doc.atualizado_em = new Date().toISOString();
     doc.atualizado_por = user.id;
 
-    logAudit({
-      entidade: "militar",
+    await logAudit({
+      entidade: "Militar",
       entidade_id: doc.id,
       matricula: doc.matricula,
       operacao: isVencChange ? "ALTERACAO_VENCIMENTO" : "EDICAO_RAPIDA",
       usuario_nome: user.nome,
+      usuario_email: user.email,
       antes: Object.keys(antes).length > 0 ? antes : null,
-      depois: Object.keys(depois).length > 0 ? depois : { "Militar": doc.nome_completo },
+      depois: Object.keys(depois).length > 0 ? depois : { Militar: doc.nome_completo },
     });
 
     await persistMilitarExplicitly(doc);
@@ -1285,11 +1645,11 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   const milDesligMatch = pathname.match(/^\/militares\/([^/]+)\/(desligar|desligamento)$/);
   if (milDesligMatch && method === "POST") {
     const id = milDesligMatch[1];
-    const doc = store.militares.find((m) => m.id === id);
+    const doc = state.militares.find((m) => m.id === id);
     if (!doc) throw { status: 404, body: { detail: "Militar não encontrado" } };
     const b = body as DesligamentoIn;
-    const user = getCurrentUser() || DEFAULT_USERS[0];
-    const motivo = store.motivos.find((mt) => mt.id === b.motivo_id);
+    const user = getCurrentUser() || BOOTSTRAP_USERS[0];
+    const motivo = state.motivos.find((mt) => mt.id === b.motivo_id);
 
     const oldStatus = doc.status;
     doc.status = "DESLIGADO";
@@ -1300,7 +1660,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     doc.atualizado_em = new Date().toISOString();
     doc.atualizado_por = user.id;
 
-    store.situacoes.unshift({
+    state.situacoes.unshift({
       id: `sit_${Date.now()}`,
       militar_id: doc.id,
       matricula: doc.matricula,
@@ -1315,19 +1675,20 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       timestamp: new Date().toISOString(),
     });
 
-    logAudit({
-      entidade: "militar",
+    await logAudit({
+      entidade: "Militar",
       entidade_id: doc.id,
       matricula: doc.matricula,
       operacao: "DESLIGAMENTO",
       usuario_nome: user.nome,
-      antes: { "Situação": oldStatus },
+      usuario_email: user.email,
+      antes: { Situação: oldStatus },
       depois: {
-        "Situação": "DESLIGADO",
+        Situação: "DESLIGADO",
         "Data do desligamento": b.data_desligamento,
-        "Motivo": motivo?.nome || b.motivo_id,
-        "Documento": b.documento || "—",
-        "Observações": b.observacoes || "—",
+        "Status de desligamento": motivo?.nome || b.motivo_id,
+        Documento: b.documento || "—",
+        "Motivo do desligamento": b.observacoes || "—",
       },
     });
 
@@ -1338,10 +1699,10 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   const milReativarMatch = pathname.match(/^\/militares\/([^/]+)\/(reativar|reativacao)$/);
   if (milReativarMatch && method === "POST") {
     const id = milReativarMatch[1];
-    const doc = store.militares.find((m) => m.id === id);
+    const doc = state.militares.find((m) => m.id === id);
     if (!doc) throw { status: 404, body: { detail: "Militar não encontrado" } };
     const b = body as ReativacaoIn;
-    const user = getCurrentUser() || DEFAULT_USERS[0];
+    const user = getCurrentUser() || BOOTSTRAP_USERS[0];
 
     const oldStatus = doc.status;
     const oldVenc = doc.data_vencimento_contrato;
@@ -1353,7 +1714,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     doc.atualizado_em = new Date().toISOString();
     doc.atualizado_por = user.id;
 
-    store.situacoes.unshift({
+    state.situacoes.unshift({
       id: `sit_${Date.now()}`,
       militar_id: doc.id,
       matricula: doc.matricula,
@@ -1368,19 +1729,20 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       timestamp: new Date().toISOString(),
     });
 
-    logAudit({
-      entidade: "militar",
+    await logAudit({
+      entidade: "Militar",
       entidade_id: doc.id,
       matricula: doc.matricula,
       operacao: "REATIVACAO",
       usuario_nome: user.nome,
-      antes: { "Situação": oldStatus, "Data de vencimento": oldVenc },
+      usuario_email: user.email,
+      antes: { Situação: oldStatus, "Data de vencimento": oldVenc },
       depois: {
-        "Situação": "ATIVO",
+        Situação: "ATIVO",
         "Data da reativação": hoje,
         "Novo vencimento": doc.data_vencimento_contrato,
-        "Justificativa": b.justificativa,
-        "Documento": b.documento || "—",
+        Justificativa: b.justificativa,
+        Documento: b.documento || "—",
       },
     });
 
@@ -1391,19 +1753,20 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   const milHistMatch = pathname.match(/^\/militares\/([^/]+)\/historico$/);
   if (milHistMatch && method === "GET") {
     const id = milHistMatch[1];
-    const doc = store.militares.find((m) => m.id === id);
-    const situacao = store.situacoes.filter((s) => s.militar_id === id);
-    const alteracoes = store.alteracoes.filter((a) => a.entidade_id === id || (doc && a.matricula === doc.matricula));
-    const hist: MilitarHistorico = { alteracoes, situacao };
+    const doc = state.militares.find((m) => m.id === id);
+    const situacao = state.situacoes.filter((s) => s.militar_id === id);
+    const alteracoes = await buscarAuditoriaPorEntidadeFirestore(id, doc?.matricula ?? null, 30);
+    const hist: MilitarHistorico = { alteracoes: alteracoes as HistoricoAlteracao[], situacao };
     return hist as T;
   }
 
   // 5. RELATÓRIOS
   const relMatch = pathname.match(/^\/relatorios\/([^/]+)$/);
   if (relMatch && method === "GET") {
+    await sincronizarMilitaresComFirestore();
     const tipo = relMatch[1];
     const matriculaParam = searchParams.get("matricula");
-    let recs = store.militares.map((m) => enrichMilitar(m, hoje, alertaDias));
+    let recs = state.militares.map((m) => enrichMilitar(m, hoje, alertaDias));
 
     const categoria = searchParams.get("categoria");
     if (categoria) recs = recs.filter((m) => m.categoria === categoria);
@@ -1476,7 +1839,9 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     } else if (tipo === "a-vencer") {
       titulo = "Contratos a vencer";
       descricao = `Contratos ativos com vencimento dentro do prazo de alerta configurado (${alertaDias} dias).`;
-      linhas = recs.filter((m) => m.status === "ATIVO" && m.alerta === "A_VENCER").sort((a, b) => a.data_vencimento_contrato.localeCompare(b.data_vencimento_contrato));
+      linhas = recs
+        .filter((m) => m.status === "ATIVO" && m.alerta === "A_VENCER")
+        .sort((a, b) => (a.data_vencimento_contrato || "").localeCompare(b.data_vencimento_contrato || ""));
       colunas = [
         { key: "matricula", label: "Matrícula" },
         { key: "nome_completo", label: "Nome completo" },
@@ -1489,7 +1854,9 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     } else if (tipo === "vencidos") {
       titulo = "Contratos vencidos pendentes de conferência";
       descricao = "Cadastros ativos cuja data final do vínculo já passou.";
-      linhas = recs.filter((m) => m.status === "ATIVO" && m.alerta === "VENCIDO").sort((a, b) => a.data_vencimento_contrato.localeCompare(b.data_vencimento_contrato));
+      linhas = recs
+        .filter((m) => m.status === "ATIVO" && m.alerta === "VENCIDO")
+        .sort((a, b) => (a.data_vencimento_contrato || "").localeCompare(b.data_vencimento_contrato || ""));
       colunas = [
         { key: "matricula", label: "Matrícula" },
         { key: "nome_completo", label: "Nome completo" },
@@ -1502,7 +1869,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     } else if (tipo === "inclusoes") {
       titulo = "Inclusões por período";
       descricao = "Militares cuja data de inclusão está no período selecionado.";
-      linhas = [...recs].sort((a, b) => b.data_inclusao.localeCompare(a.data_inclusao));
+      linhas = [...recs].sort((a, b) => (b.data_inclusao || "").localeCompare(a.data_inclusao || ""));
       colunas = [
         { key: "matricula", label: "Matrícula" },
         { key: "nome_completo", label: "Nome completo" },
@@ -1514,14 +1881,16 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     } else if (tipo === "desligamentos") {
       titulo = "Desligamentos por período e motivo";
       descricao = "Desligamentos com data efetiva no período selecionado.";
-      linhas = recs.filter((m) => m.status === "DESLIGADO").sort((a, b) => (b.data_desligamento || "").localeCompare(a.data_desligamento || ""));
+      linhas = recs
+        .filter((m) => m.status === "DESLIGADO")
+        .sort((a, b) => (b.data_desligamento || "").localeCompare(a.data_desligamento || ""));
       colunas = [
         { key: "matricula", label: "Matrícula" },
         { key: "nome_completo", label: "Nome completo" },
         { key: "cargo_nome", label: "Cargo" },
         { key: "lotacao_nome", label: "Lotação/UBM" },
         { key: "data_desligamento", label: "Data do desligamento" },
-        { key: "motivo_desligamento_nome", label: "Motivo" },
+        { key: "motivo_desligamento_nome", label: "Status de desligamento" },
       ];
     } else if (tipo === "historico") {
       titulo = "Histórico individual por matrícula";
@@ -1531,26 +1900,28 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         { key: "evento", label: "Evento" },
         { key: "data_efetiva", label: "Data efetiva" },
         { key: "detalhes", label: "Detalhes" },
-        { key: "usuario", label: "Usuário / Responsável" },
+        { key: "observacoes", label: "Observações" },
       ];
-      let militarEncontrado: StoredData["militares"][number] | null = null;
+      let militarEncontrado: CloudCacheState["militares"][number] | null = null;
       if (matriculaParam) {
         const queryRaw = matriculaParam.trim();
-        // 1. Try exact or flexible matching by matricula
-        militarEncontrado = store.militares.find((x) =>
-          normMatricula(x.matricula) === normMatricula(queryRaw) ||
-          cleanAlphanumeric(x.matricula) === cleanAlphanumeric(queryRaw) ||
-          matchMatriculaFlexible(queryRaw, x.matricula)
-        ) || null;
+        militarEncontrado =
+          state.militares.find(
+            (x) =>
+              normMatricula(x.matricula) === normMatricula(queryRaw) ||
+              cleanAlphanumeric(x.matricula) === cleanAlphanumeric(queryRaw) ||
+              matchMatriculaFlexible(queryRaw, x.matricula)
+          ) || null;
 
-        // 2. If still not found and query has at least 3 chars, search by name or partial clean matricula
         if (!militarEncontrado && queryRaw.length >= 3) {
           const qNorm = normKey(queryRaw);
           const qClean = cleanAlphanumeric(queryRaw);
-          militarEncontrado = store.militares.find((x) =>
-            normKey(x.nome_completo).includes(qNorm) ||
-            (qClean && cleanAlphanumeric(x.matricula).includes(qClean))
-          ) || null;
+          militarEncontrado =
+            state.militares.find(
+              (x) =>
+                normKey(x.nome_completo).includes(qNorm) ||
+                (qClean && cleanAlphanumeric(x.matricula).includes(qClean))
+            ) || null;
         }
 
         if (militarEncontrado) {
@@ -1558,82 +1929,140 @@ export async function handleBackendRequest<T>(method: string, path: string, body
           titulo = `Histórico Funcional — ${m.nome_completo} (${m.matricula})`;
           descricao = `Cargo/Posto: ${m.cargo_nome} · UBM/Lotação: ${m.lotacao_nome} · Situação: ${m.status}`;
 
-          const historyItems: { quando: string; evento: string; data_efetiva: string; detalhes: string; usuario: string }[] = [];
+          const cleanObs = (val: unknown): string | null => {
+            if (val === null || val === undefined) return null;
+            const trimmed = String(val).trim();
+            if (!trimmed || trimmed === "-" || trimmed === "—" || trimmed.toLowerCase() === "null") return null;
+            return trimmed;
+          };
+          const obsFicha = cleanObs(m.observacoes);
 
-          // 1. Evento de Inclusão / Admissão Oficial
+          const historyItems: {
+            _sortKey: string;
+            quando: string;
+            evento: string;
+            data_efetiva: string;
+            detalhes: string;
+            observacoes: string;
+          }[] = [];
+
           const inclusaoDate = m.data_inclusao || "2025-04-29";
+          const criadoIso = m.criado_em || `${inclusaoDate}T08:00:00Z`;
           historyItems.push({
-            quando: m.criado_em || `${inclusaoDate}T08:00:00Z`,
+            _sortKey: `${inclusaoDate}_1_${criadoIso}`,
+            quando: fmtDateTimeBr(criadoIso),
             evento: "INCLUSÃO / ADMISSÃO",
             data_efetiva: inclusaoDate,
-            detalhes: `Inclusão no CBMMT como ${m.cargo_nome} · UBM: ${m.lotacao_nome} · Edital: ${m.edital_nome}${m.doe_incorporacao && m.doe_incorporacao !== "-" ? ` · DOE: ${m.doe_incorporacao}` : ""}`,
-            usuario: m.criado_por_nome || "DGP / CBMMT",
+            detalhes: `Inclusão no CBMMT como ${m.cargo_nome} · UBM: ${m.lotacao_nome} · Edital: ${m.edital_nome}${
+              m.doe_incorporacao && m.doe_incorporacao !== "-" ? ` · DOE: ${m.doe_incorporacao}` : ""
+            }`,
+            observacoes: m.status === "ATIVO" && obsFicha ? obsFicha : "—",
           });
 
-          // 2. Vigência Contratual Prevista
           if (m.data_vencimento_contrato) {
             historyItems.push({
-              quando: m.criado_em || `${inclusaoDate}T08:00:00Z`,
+              _sortKey: `${m.data_vencimento_contrato}_2_${criadoIso}`,
+              quando: fmtDateTimeBr(criadoIso),
               evento: "VIGÊNCIA CONTRATUAL",
               data_efetiva: m.data_vencimento_contrato,
-              detalhes: `Vigência do contrato de Bombeiro Temporário fixada para ${fmtDateLocal(m.data_vencimento_contrato)}.`,
-              usuario: "Sistema DGP",
+              detalhes: `Vigência do contrato de Bombeiro Temporário fixada para ${fmtDateLocal(
+                m.data_vencimento_contrato
+              )}.`,
+              observacoes: m.sub_judice ? obsFicha || "Contrato sob condição Sub Júdice" : "—",
             });
           }
 
-          // 3. Situações Funcionais Registradas (store.situacoes)
-          const sits = store.situacoes.filter((s) => s.militar_id === m.id);
+          const sits = state.situacoes.filter((s) => s.militar_id === m.id);
           for (const s of sits) {
+            const sitObs =
+              cleanObs(s.observacoes) ||
+              cleanObs(s.justificativa) ||
+              (s.tipo === "DESLIGAMENTO" && obsFicha ? obsFicha : null) ||
+              "—";
+            const sitDetalhes =
+              s.tipo === "DESLIGAMENTO"
+                ? `Desligamento do serviço ativo · Status: ${
+                    s.motivo_nome || m.motivo_desligamento_nome || "Término de Contrato"
+                  }${
+                    (s.documento && s.documento !== "-") ||
+                    (m.documento_desligamento && m.documento_desligamento !== "-")
+                      ? ` · Doc/BG: ${s.documento || m.documento_desligamento}`
+                      : ""
+                  }`
+                : [
+                    s.motivo_nome ? `Status: ${s.motivo_nome}` : null,
+                    s.documento && s.documento !== "-" ? `Doc: ${s.documento}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "Situação funcional registrada";
+
             historyItems.push({
-              quando: s.timestamp,
+              _sortKey: `${s.data_efetiva || s.timestamp}_3_${s.timestamp}`,
+              quando: fmtDateTimeBr(s.timestamp),
               evento: s.tipo,
               data_efetiva: s.data_efetiva,
-              detalhes: [s.motivo_nome, s.documento, s.justificativa, s.observacoes].filter(Boolean).join(" · ") || "Situação funcional registrada",
-              usuario: s.usuario_nome,
+              detalhes: sitDetalhes,
+              observacoes: sitObs,
             });
           }
 
-          // 4. Auditoria e Alterações Cadastrais (store.alteracoes)
-          const alts = store.alteracoes.filter((a) =>
-            a.entidade === "militar" &&
-            (a.entidade_id === m.id || a.matricula === m.matricula || matchMatriculaFlexible(a.matricula || "", m.matricula))
-          );
+          const alts = await buscarAuditoriaPorEntidadeFirestore(m.id, m.matricula, 30);
           for (const a of alts) {
             if (a.operacao === "IMPORTACAO_CSV" && !a.entidade_id) continue;
+            const antesObj = a.detalhes?.antes ?? a.antes;
+            const depoisObj = a.detalhes?.depois ?? a.depois;
             let det = "";
-            if (a.depois) {
-              const diffs = Object.entries(a.depois)
-                .map(([k, v]) => a.antes && a.antes[k] !== undefined ? `${k}: de "${a.antes[k]}" para "${v}"` : `${k}: ${v}`)
+            if (depoisObj) {
+              const diffs = Object.entries(depoisObj)
+                .filter(([k]) => k !== "Observações" && k !== "Motivo do desligamento" && k !== "Justificativa")
+                .map(([k, v]) =>
+                  antesObj && antesObj[k] !== undefined ? `${k}: de "${antesObj[k]}" para "${v}"` : `${k}: ${v}`
+                )
                 .join("; ");
               det = diffs || a.operacao.replace(/_/g, " ");
             } else {
               det = a.operacao.replace(/_/g, " ");
             }
 
+            const obsAlt =
+              cleanObs(depoisObj?.["Motivo do desligamento"]) ||
+              cleanObs(depoisObj?.["Observações"]) ||
+              cleanObs(depoisObj?.["Justificativa"]) ||
+              cleanObs(a.detalhes?.descricao) ||
+              obsFicha ||
+              "—";
+            const rawTs = a.data_hora || a.timestamp;
+
             historyItems.push({
-              quando: a.timestamp,
+              _sortKey: `${rawTs ? rawTs.slice(0, 10) : ""}_4_${rawTs}`,
+              quando: fmtDateTimeBr(rawTs),
               evento: a.operacao.replace(/_/g, " "),
-              data_efetiva: a.timestamp ? a.timestamp.slice(0, 10) : "",
+              data_efetiva: rawTs ? rawTs.slice(0, 10) : "",
               detalhes: det,
-              usuario: a.usuario_nome,
+              observacoes: obsAlt,
             });
           }
 
-          // 5. Se estiver desligado e não constar em situações
           if (m.status === "DESLIGADO" && m.data_desligamento && !sits.some((s) => s.tipo === "DESLIGAMENTO")) {
+            const deslIso = m.atualizado_em || `${m.data_desligamento}T08:00:00Z`;
             historyItems.push({
-              quando: m.atualizado_em || `${m.data_desligamento}T08:00:00Z`,
+              _sortKey: `${m.data_desligamento}_5_${deslIso}`,
+              quando: fmtDateTimeBr(deslIso),
               evento: "DESLIGAMENTO",
               data_efetiva: m.data_desligamento,
-              detalhes: `Desligamento do serviço ativo · Motivo: ${m.motivo_desligamento_nome || "Término de Contrato"}${m.documento_desligamento ? ` · Boletim Geral/Doc: ${m.documento_desligamento}` : ""}`,
-              usuario: m.atualizado_por_nome || "DGP / CBMMT",
+              detalhes: `Desligamento do serviço ativo · Status: ${
+                m.motivo_desligamento_nome || "Término de Contrato"
+              }${
+                m.documento_desligamento && m.documento_desligamento !== "-"
+                  ? ` · Boletim Geral/Doc: ${m.documento_desligamento}`
+                  : ""
+              }`,
+              observacoes: obsFicha || "—",
             });
           }
 
-          // Ordenar cronologicamente decrescente (mais recente primeiro)
-          historyItems.sort((a, b) => (b.data_efetiva || b.quando).localeCompare(a.data_efetiva || a.quando));
-
-          linhas = historyItems;
+          historyItems.sort((a, b) => b._sortKey.localeCompare(a._sortKey));
+          linhas = historyItems.map(({ _sortKey, ...rest }) => rest);
         } else {
           descricao = `Nenhum militar localizado para o critério "${queryRaw}". Verifique a matrícula ou selecione na lista.`;
         }
@@ -1646,84 +2075,125 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         descricao,
         colunas,
         linhas,
-        gerado_em: new Date().toISOString(),
-        filtros: mFinal ? `Matrícula: ${mFinal.matricula} (${mFinal.nome_completo})` : (matriculaParam ? `Matrícula: ${matriculaParam}` : "Informe a matrícula"),
-        militar: mFinal,
+        gerado_em: fmtDateTimeBr(new Date().toISOString()),
+        filtros: matriculaParam ? `Matrícula: ${matriculaParam}` : "Todos os registros",
+        ...(mFinal ? { militar: mFinal } : {}),
       };
       return relatorio as T;
     }
 
-    const relatorio: Relatorio = {
+    const rel: Relatorio = {
       tipo,
       titulo,
       descricao,
       colunas,
       linhas,
-      gerado_em: new Date().toISOString(),
+      gerado_em: fmtDateTimeBr(new Date().toISOString()),
       filtros: "Filtros aplicados",
     };
-    return relatorio as T;
+    return rel as T;
   }
 
-  // 6. USUÁRIOS & AUDITORIA
+  // 6. USUÁRIOS & AUDITORIA (Coleções dedicadas 'usuarios' e 'auditoria')
   if (pathname === "/usuarios" && method === "GET") {
-    return store.usuarios.map(({ senha_hash, ...u }) => u) as T;
+    await sincronizarUsuariosComFirestore(true);
+    const list: UserOut[] = state.usuarios.map(({ ...u }) => u);
+    return list as T;
   }
 
   if (pathname === "/usuarios" && method === "POST") {
     const b = body as UsuarioIn;
-    const exists = store.usuarios.find((u) => u.email.toLowerCase() === b.email.trim().toLowerCase());
-    if (exists) throw { status: 409, body: { detail: "Já existe um usuário com este e-mail" } };
-    const user: StoredData["usuarios"][number] = {
+    const cleanEmail = b.email.trim().toLowerCase();
+    await sincronizarUsuariosComFirestore(true);
+    const exists = state.usuarios.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (exists) {
+      throw { status: 409, body: { detail: "Já existe um usuário com este e-mail." } };
+    }
+    const user: CloudCacheState["usuarios"][number] = {
       id: `usr_${Date.now()}`,
       nome: b.nome.trim(),
-      email: b.email.trim().toLowerCase(),
+      email: cleanEmail,
       perfil: b.perfil,
       ativo: b.ativo,
     };
-    store.usuarios.push(user);
-    logAudit({
-      entidade: "usuario",
+    state.usuarios.push(user);
+
+    await salvarUsuarioFirestore(user);
+
+    await logAudit({
+      entidade: "Usuario",
       entidade_id: user.id,
       operacao: "CRIACAO_USUARIO",
       antes: null,
       depois: { Nome: user.nome, "E-mail": user.email, Perfil: user.perfil, Ativo: user.ativo ? "Sim" : "Não" },
     });
-    await persistMetadadosExplicitly(["usuarios"]);
-    const { senha_hash, ...out } = user;
-    return out as T;
+
+    return user as T;
   }
 
   if (pathname.startsWith("/usuarios/") && method === "PUT") {
     const id = pathname.replace("/usuarios/", "");
     const b = body as UsuarioIn;
-    const user = store.usuarios.find((u) => u.id === id);
+    await sincronizarUsuariosComFirestore(true);
+    let user = state.usuarios.find((u) => u.id === id);
+    if (!user) {
+      user = state.usuarios.find((u) => u.email.toLowerCase() === b.email?.trim().toLowerCase());
+    }
     if (!user) throw { status: 404, body: { detail: "Usuário não encontrado" } };
     const oldU = { Nome: user.nome, "E-mail": user.email, Perfil: user.perfil, Ativo: user.ativo ? "Sim" : "Não" };
     user.nome = b.nome.trim();
     user.email = b.email.trim().toLowerCase();
     user.perfil = b.perfil;
     user.ativo = b.ativo;
-    logAudit({
-      entidade: "usuario",
+
+    await salvarUsuarioFirestore(user);
+
+    const curr = getCurrentUser();
+    if (curr && (curr.id === user.id || curr.email.toLowerCase() === user.email.toLowerCase())) {
+      setCurrentUser({ ...curr, perfil: user.perfil, nome: user.nome, ativo: user.ativo });
+    }
+
+    await logAudit({
+      entidade: "Usuario",
       entidade_id: user.id,
       operacao: "EDICAO_USUARIO",
       antes: oldU,
       depois: { Nome: user.nome, "E-mail": user.email, Perfil: user.perfil, Ativo: user.ativo ? "Sim" : "Não" },
     });
-    await persistMetadadosExplicitly(["usuarios"]);
-    const { senha_hash, ...out } = user;
-    return out as T;
+
+    return user as T;
+  }
+
+  if (pathname.startsWith("/usuarios/") && method === "DELETE") {
+    const id = pathname.replace("/usuarios/", "");
+    const user = state.usuarios.find((u) => u.id === id);
+    if (user) {
+      state.usuarios = state.usuarios.filter((u) => u.id !== id);
+      await excluirUsuarioFirestore(id);
+      await logAudit({
+        entidade: "Usuario",
+        entidade_id: id,
+        operacao: "EXCLUSAO_USUARIO",
+        antes: { Nome: user.nome, "E-mail": user.email, Perfil: user.perfil },
+        depois: null,
+      });
+    }
+    return { ok: true } as T;
   }
 
   if (pathname === "/auditoria" && method === "GET") {
-    let items = [...(store.alteracoes || [])];
+    const rawLimit = parseInt(searchParams.get("limit") || "30", 10);
+    const safeLimit = Math.min(150, Math.max(1, isNaN(rawLimit) ? 30 : rawLimit));
+    const cloudItems = await buscarAuditoriaFirestore(safeLimit);
+
+    let items: HistoricoAlteracao[] = [...cloudItems];
     const q = searchParams.get("q");
     if (q) {
       const qN = normKey(q);
       items = items.filter(
         (a) =>
           normKey(a.usuario_nome).includes(qN) ||
+          (a.usuario_email && normKey(a.usuario_email).includes(qN)) ||
           normKey(a.operacao).includes(qN) ||
           normKey(a.entidade).includes(qN) ||
           (a.matricula && normMatricula(a.matricula).includes(qN)) ||
@@ -1743,6 +2213,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     const res: AuditoriaPage = {
       items,
       total: items.length,
+      limit: safeLimit,
+      has_more: cloudItems.length >= safeLimit,
     };
     return res as T;
   }
@@ -1752,7 +2224,9 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     const content = body?.content || "";
     const lines = content.split(/\r?\n/).filter((l: string) => l.trim().length > 0);
     const delim = content.includes(";") ? ";" : ",";
-    const headerRow = lines[0] ? lines[0].split(delim).map((c: string) => c.replace(/^["']|["']$/g, "").trim()) : [];
+    const headerRow = lines[0]
+      ? lines[0].split(delim).map((c: string) => c.replace(/^["']|["']$/g, "").trim())
+      : [];
 
     const camposDef = [
       { key: "matricula", label: "Matrícula / Vínculo", obrigatorio: true },
@@ -1786,7 +2260,9 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       mapping[c.key] = idx >= 0 ? idx : null;
     }
 
-    const amostra = lines.slice(0, 5).map((l: string) => l.split(delim).map((c: string) => c.replace(/^["']|["']$/g, "").trim()));
+    const amostra = lines
+      .slice(0, 5)
+      .map((l: string) => l.split(delim).map((c: string) => c.replace(/^["']|["']$/g, "").trim()));
     const analise: ImportAnalise = {
       delimitador: delim,
       linha_cabecalho: 1,
@@ -1807,7 +2283,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     const headerIdx = (b.linha_cabecalho || 1) - 1;
 
     const dataLines = lines.slice(headerIdx + 1);
-    const existingMap = new Map(store.militares.map((m) => [normMatricula(m.matricula), m]));
+    const existingMap = new Map(state.militares.map((m) => [normMatricula(m.matricula), m]));
 
     const importLinhas: any[] = [];
     const novosCargos: string[] = [];
@@ -1872,20 +2348,20 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     return validacao as T;
   }
 
-  if (pathname === "/importacao/aplicar" && method === "POST") {
-    const validacao = body?.validacao as ImportValidacao;
+  if ((pathname === "/importacao/aplicar" || pathname === "/importacao/confirmar") && method === "POST") {
+    const validacao = body?.validacao as ImportValidacao | undefined;
     let inseridos = 0;
-    const novosDocs: Array<StoredData["militares"][number]> = [];
-    const user = getCurrentUser() || DEFAULT_USERS[0];
+    const novosDocs: Array<CloudCacheState["militares"][number]> = [];
+    const user = getCurrentUser() || BOOTSTRAP_USERS[0];
 
     if (validacao && validacao.linhas) {
       for (const li of validacao.linhas) {
         if (li.acao === "INSERIR") {
           const rec = li.dados;
-          const cargo = store.cargos[0];
-          const lot = store.lotacoes[0];
-          const ed = store.editais[0];
-          const newDoc: StoredData["militares"][number] = {
+          const cargo = state.cargos[0];
+          const lot = state.lotacoes[0];
+          const ed = state.editais[0];
+          const newDoc: CloudCacheState["militares"][number] = {
             id: `mil_${Date.now()}_${inseridos}`,
             matricula: rec.matricula,
             nome_completo: rec.nome_completo.toUpperCase(),
@@ -1906,24 +2382,30 @@ export async function handleBackendRequest<T>(method: string, path: string, body
             criado_por: user.id,
             atualizado_por: user.id,
           };
-          store.militares.push(newDoc);
+          state.militares.push(newDoc);
           novosDocs.push(newDoc);
           inseridos++;
         }
       }
       if (inseridos > 0) {
-        logAudit({
-          entidade: "militar",
+        await logAudit({
+          entidade: "Militar",
+          entidade_id: "importacao_csv",
           operacao: "IMPORTACAO_CSV",
           usuario_nome: user.nome,
+          usuario_email: user.email,
           antes: null,
           depois: { "Militares importados": inseridos },
         });
       }
-      saveLocalOnly();
-      for (const docToSave of novosDocs.slice(0, 20)) {
+      rebuildSituacoesFromMilitares();
+      for (const docToSave of novosDocs) {
         await salvarMilitarFirestore(docToSave);
       }
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["militares"] });
+      void queryClient.invalidateQueries({ queryKey: ["situacao"] });
+      void queryClient.invalidateQueries({ queryKey: ["relatorio"] });
     }
 
     const resultado: ImportResultado = {
@@ -1936,19 +2418,6 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     return resultado as T;
   }
 
-  console.warn(`[mockBackend] Unhandled route: ${method} ${pathname}`);
+  console.warn(`[firestoreService] Unhandled route: ${method} ${pathname}`);
   return {} as T;
-}
-
-// Client-side file exporter
-export function exportFile(filename: string, content: string, mimeType = "text/csv;charset=utf-8;") {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 }

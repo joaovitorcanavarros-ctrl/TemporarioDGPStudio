@@ -1,8 +1,8 @@
 {
   "entities": {
-    "CorporacaoMetadados": {
-      "title": "CorporacaoMetadados",
-      "description": "Dados institucionais fixos da corporação: configurações, catálogos, usuários e total de registros",
+    "CorporacaoDados": {
+      "title": "CorporacaoDados",
+      "description": "Dados institucionais e tabelas auxiliares da corporação: configurações, categorias, cargos, lotações/UBMs, editais e motivos de desligamento",
       "type": "object",
       "properties": {
         "config": { "type": "object" },
@@ -11,8 +11,6 @@
         "lotacoes": { "type": "array" },
         "editais": { "type": "array" },
         "motivos": { "type": "array" },
-        "usuarios": { "type": "array" },
-        "total_registros": { "type": "number" },
         "ultima_atualizacao": { "type": "string" }
       }
     },
@@ -57,20 +55,41 @@
         "criado_em": { "type": "string", "description": "Account creation timestamp" }
       },
       "required": ["id", "nome", "email", "perfil", "ativo"]
+    },
+    "AuditoriaLog": {
+      "title": "AuditoriaLog",
+      "description": "Documento individual de auditoria de ações executadas no sistema",
+      "type": "object",
+      "properties": {
+        "data_hora": { "type": "string", "description": "Timestamp do Firestore (serverTimestamp)" },
+        "timestamp": { "type": "string", "description": "Data/hora ISO de referência" },
+        "usuario_nome": { "type": "string", "description": "Nome do usuário logado que realizou a ação" },
+        "usuario_email": { "type": "string", "description": "E-mail do autor da ação" },
+        "operacao": { "type": "string", "description": "Tipo da ação executada" },
+        "entidade": { "type": "string", "description": "Tipo do registro afetado" },
+        "entidade_id": { "type": "string", "description": "ID ou matrícula do registro afetado" },
+        "matricula": { "type": "string", "description": "Matrícula do militar afetado (se aplicável)" },
+        "detalhes": { "type": "object", "description": "Objeto contendo antes e depois das alterações" }
+      },
+      "required": ["usuario_nome", "operacao", "entidade"]
     }
   },
   "firestore": {
     "/corporacao/{docId}": {
-      "schema": "CorporacaoMetadados",
-      "description": "Corporate metadata, catalogs, and recent logs"
+      "schema": "CorporacaoDados",
+      "description": "Dados institucionais e tabelas auxiliares (corporacao/dados)"
     },
     "/militares/{militarId}": {
       "schema": "MilitarRecord",
-      "description": "Individual military personnel records for granular reads and writes"
+      "description": "Repositório exclusivo das fichas funcionais individuais"
     },
-    "/users/{userId}": {
+    "/usuarios/{userId}": {
       "schema": "UserProfile",
-      "description": "User account and permission profiles"
+      "description": "Controle exclusivo de permissões de acesso e perfis de usuários"
+    },
+    "/auditoria/{auditId}": {
+      "schema": "AuditoriaLog",
+      "description": "Logs individuais de alterações de sistema com serverTimestamp()"
     }
   }
 }

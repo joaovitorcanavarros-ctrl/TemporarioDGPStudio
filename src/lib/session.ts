@@ -2,12 +2,17 @@ import { queryClient } from "./queryClient";
 import { apiPost } from "./api";
 import { logoutFirebase } from "./firebase";
 
-import { sincronizarMilitaresComFirestore, carregarMetadadosInstitucionaisFirestore } from "./mockBackend";
+import {
+  sincronizarMilitaresComFirestore,
+  carregarMetadadosInstitucionaisFirestore,
+  sincronizarUsuariosComFirestore,
+} from "./firestoreService";
 
 // Call after every successful login/signup.
 export async function beginSession(): Promise<void> {
   queryClient.clear();
   try {
+    await sincronizarUsuariosComFirestore(true);
     await sincronizarMilitaresComFirestore(true);
     await carregarMetadadosInstitucionaisFirestore(true);
   } catch (e) {

@@ -225,9 +225,9 @@ export default function MilitarForm() {
                 <Field label="Data do desligamento" req error={e.data_desligamento?.message}>
                   <Input type="date" max={hoje} className="[color-scheme:dark]" data-testid="input-data-desligamento" {...form.register("data_desligamento")} />
                 </Field>
-                <Field label="Motivo do desligamento" req error={e.motivo_desligamento_id?.message}>
+                <Field label="Status de desligamento" req error={e.motivo_desligamento_id?.message}>
                   <Controller control={form.control} name="motivo_desligamento_id" render={({ field }) => (
-                    <FieldSelect testId="select-motivo" value={field.value ?? ""} onChange={field.onChange} placeholder="Selecione o motivo"
+                    <FieldSelect testId="select-motivo" value={field.value ?? ""} onChange={field.onChange} placeholder="Selecione o status de desligamento"
                       options={(c?.motivos ?? []).filter((x) => x.ativo).map((x) => ({ value: x.id, label: x.nome }))} />
                   )} />
                 </Field>
@@ -236,8 +236,13 @@ export default function MilitarForm() {
                 </Field>
               </>
             )}
-            <Field label="Observações" className="sm:col-span-2">
-              <Textarea rows={3} data-testid="input-observacoes" {...form.register("observacoes")} />
+            <Field label={status === "DESLIGADO" ? "Motivo do desligamento" : "Observações"} className="sm:col-span-2">
+              <Textarea
+                rows={3}
+                data-testid="input-observacoes"
+                placeholder={status === "DESLIGADO" ? "Informe os detalhes e justificativa do motivo do desligamento..." : "Observações..."}
+                {...form.register("observacoes")}
+              />
             </Field>
           </div>
         </section>

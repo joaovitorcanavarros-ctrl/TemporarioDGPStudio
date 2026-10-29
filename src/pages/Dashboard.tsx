@@ -94,7 +94,8 @@ export default function Dashboard() {
   const q = useQuery({
     queryKey: ["dashboard", fp],
     queryFn: () => apiGet<D>(`/dashboard${qs(fp)}`),
-    staleTime: 15 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
   const d = q.isError ? undefined : q.data;
   const base = baseParams(filters);
@@ -103,7 +104,12 @@ export default function Dashboard() {
   const deslParams = { ...base, deslig_ini: d?.periodo_inicio, deslig_fim: d?.periodo_fim, status: "DESLIGADO" };
   const cats = d?.categorias ?? [];
   const motivoNome = (k: string) => d?.motivos.find((m) => m.chave === k)?.nome ?? "Não informado";
-  const motivoKeys = Array.from(new Set((d?.deslig_por_ano ?? []).flatMap((r) => Object.keys(r).filter((k) => !["ano", "total"].includes(k)))));
+  const motivoKeys = Array.from(
+    new Set([
+      ...(d?.deslig_por_ano ?? []).flatMap((r) => Object.keys(r).filter((k) => !["ano", "total"].includes(k))),
+      ...(d?.deslig_por_cargo ?? []).flatMap((r) => Object.keys(r).filter((k) => !["categoria", "nome", "total"].includes(k))),
+    ])
+  );
   const v = (n: number | undefined) => (d ? fmtNum(n ?? 0) : "—");
   const ubm = (d?.por_ubm ?? []).slice(0, ubmAll ? undefined : 12);
 
@@ -185,7 +191,7 @@ export default function Dashboard() {
               <TabsList><TabsTrigger value="ano" data-testid="desligamentos-tab-ano">Por ano</TabsTrigger><TabsTrigger value="cargo" data-testid="desligamentos-tab-cargo">Por cargo</TabsTrigger></TabsList>
             </Tabs>
           }>
-          {d && d.deslig_por_ano.length ? (
+          {d && (desligView === "ano" ? d.deslig_por_ano.length : d.deslig_por_cargo.length) ? (
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={desligView === "ano" ? d.deslig_por_ano : d.deslig_por_cargo}>
                 <CartesianGrid stroke="#1E2C42" vertical={false} />

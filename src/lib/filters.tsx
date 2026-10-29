@@ -1,5 +1,5 @@
 /* oxlint-disable react/only-export-components -- context + hook live together */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
 export interface GlobalFilters {
   ano: string;
@@ -22,21 +22,9 @@ interface Ctx {
 }
 
 const FiltersCtx = createContext<Ctx | null>(null);
-const KEY = "cbmmt.filtros";
 
 export function FiltersProvider({ children }: { children: ReactNode }) {
-  const [filters, setFilters] = useState<GlobalFilters>(() => {
-    try {
-      const raw = sessionStorage.getItem(KEY);
-      return raw ? { ...EMPTY_FILTERS, ...(JSON.parse(raw) as Partial<GlobalFilters>) } : EMPTY_FILTERS;
-    } catch {
-      return EMPTY_FILTERS;
-    }
-  });
-
-  useEffect(() => {
-    sessionStorage.setItem(KEY, JSON.stringify(filters));
-  }, [filters]);
+  const [filters, setFilters] = useState<GlobalFilters>(EMPTY_FILTERS);
 
   const setFilter = useCallback((k: keyof GlobalFilters, v: string) => {
     setFilters((f) => {
@@ -65,3 +53,4 @@ export function useFilters(): Ctx {
   if (!c) throw new Error("useFilters fora do FiltersProvider");
   return c;
 }
+

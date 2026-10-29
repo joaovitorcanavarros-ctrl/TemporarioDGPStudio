@@ -40,8 +40,22 @@ export interface MilitarPage { items: Militar[]; total: number; page: number; pa
 export interface MatriculaCheck { existe: boolean; militar_id: string | null; nome_completo: string | null }
 
 export interface HistoricoAlteracao {
-  id: string; entidade: string; entidade_id: string | null; matricula: string | null; operacao: string;
-  usuario_nome: string; timestamp: string; antes: Record<string, unknown> | null; depois: Record<string, unknown> | null;
+  id: string;
+  entidade: string;
+  entidade_id: string | null;
+  matricula: string | null;
+  operacao: string;
+  usuario_nome: string;
+  usuario_email?: string | null;
+  timestamp: string;
+  data_hora?: string | null;
+  antes: Record<string, unknown> | null;
+  depois: Record<string, unknown> | null;
+  detalhes?: {
+    antes?: Record<string, unknown> | null;
+    depois?: Record<string, unknown> | null;
+    descricao?: string | null;
+  } | null;
 }
 export interface HistoricoSituacao {
   id: string; militar_id: string; matricula: string; nome_completo: string;
@@ -49,7 +63,7 @@ export interface HistoricoSituacao {
   documento: string | null; justificativa: string | null; observacoes: string | null; usuario_nome: string; timestamp: string;
 }
 export interface MilitarHistorico { alteracoes: HistoricoAlteracao[]; situacao: HistoricoSituacao[] }
-export interface AuditoriaPage { items: HistoricoAlteracao[]; total: number }
+export interface AuditoriaPage { items: HistoricoAlteracao[]; total: number; limit?: number; has_more?: boolean }
 export interface SituacaoPage { items: HistoricoSituacao[]; total: number }
 
 export interface CountItem { chave: string; nome: string; total: number }

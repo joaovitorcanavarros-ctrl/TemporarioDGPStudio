@@ -12,9 +12,9 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiDelete, apiGet, apiPost, apiPut } from "@/lib/api";
-import { errMsg, fmtDateTime } from "@/lib/format";
+import { errMsg } from "@/lib/format";
 import { PERFIL_LABEL, isAdmin, useCatalogos, useMe } from "@/lib/hooks";
-import type { AuditoriaPage, Config, UserOut, UsuarioIn } from "@/lib/types";
+import type { Config, UserOut } from "@/lib/types";
 import Auditoria from "@/pages/Auditoria";
 
 type Row = Record<string, unknown> & { id: string };
@@ -47,6 +47,8 @@ function CrudTab({ title, rows, fields, endpoint, invalidateKey, canEdit, canDel
     onSuccess: () => {
       toast.success("Registro salvo");
       void qc.invalidateQueries({ queryKey: [invalidateKey] });
+      void qc.invalidateQueries({ queryKey: ["usuarios"] });
+      void qc.invalidateQueries({ queryKey: ["me"] });
       void qc.invalidateQueries({ queryKey: ["catalogos"] });
       void qc.invalidateQueries({ queryKey: ["auditoria"] });
       void qc.invalidateQueries({ queryKey: ["meta"] });
@@ -60,12 +62,13 @@ function CrudTab({ title, rows, fields, endpoint, invalidateKey, canEdit, canDel
     onSuccess: () => {
       toast.success("Registro excluído com sucesso");
       void qc.invalidateQueries({ queryKey: [invalidateKey] });
+      void qc.invalidateQueries({ queryKey: ["usuarios"] });
+      void qc.invalidateQueries({ queryKey: ["me"] });
       void qc.invalidateQueries({ queryKey: ["catalogos"] });
       void qc.invalidateQueries({ queryKey: ["auditoria"] });
       void qc.invalidateQueries({ queryKey: ["meta"] });
       setDeletar(null);
     },
-
     onError: (e) => toast.error(errMsg(e, "Erro ao excluir")),
   });
 
@@ -204,7 +207,13 @@ export default function Configuracoes() {
   const admin = isAdmin(me.data);
   const c = cat.data;
   const [alerta, setAlerta] = useState<string>("");
-  const usuarios = useQuery({ queryKey: ["usuarios"], queryFn: () => apiGet<UserOut[]>("/usuarios"), enabled: admin });
+  const usuarios = useQuery({
+    queryKey: ["usuarios"],
+    queryFn: () => apiGet<UserOut[]>("/usuarios"),
+    enabled: admin,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
   const saveCfg = useMutation({
 
     mutationFn: (b: Config) => apiPut<Config>("/config", b),
@@ -288,16 +297,15 @@ export default function Configuracoes() {
                 • <strong>Sincronização em Tempo Real:</strong> Todas as alterações nos cadastros e permissões são salvas na nuvem e propagadas instantaneamente para todos os dispositivos conectados.
               </p>
             </div>
-            <CrudTab title="Usuários Cadastrados" testId="usuarios" endpoint="/usuarios" invalidateKey="usuarios" canEdit
+            <CrudTab title="Usuários Cadastrados" testId="usuarios" endpoint="/usuarios" invalidateKey="usuarios" canEdit canDelete={admin}
               rows={(usuarios.data ?? []) as unknown as Row[]}
               fields={[
                 { key: "nome", label: "Nome", type: "text" }, { key: "email", label: "E-mail", type: "text" },
                 { key: "perfil", label: "Perfil", type: "select", options: Object.entries(PERFIL_LABEL).map(([value, label]) => ({ value, label })) },
                 { key: "senha", label: "Senha (mín. 8, letras e números)", type: "password" }, { key: "ativo", label: "Ativo", type: "bool" },
               ]}
-              display={[{ key: "nome", label: "Nome" }, { key: "email", label: "E-mail" }, { key: "perfil", label: "Perfil", render: (r) => PERFIL_LABEL[String(r.perfil)] }, ativoCol]} />
+              display={[{ key: "nome", label: "Nome" }, { key: "email", label: "E-mail" }, { key: "perfil", label: "Perfil", render: (r) => PERFIL_LABEL[String(r.perfil)] || (String(r.perfil) === "ADMIN" ? "Administrador" : String(r.perfil) === "GESTOR" ? "Gestor de Pessoal" : "Consulta") }, ativoCol]} />
             <p className="mt-2 text-xs text-slate-500">Perfis: Administrador (usuários, configurações, reativações) · Gestor de Pessoal (cadastro, edição, importação, desligamentos) · Consulta (somente leitura).</p>
-            <span className="hidden">{JSON.stringify({} as UsuarioIn)}</span>
           </TabsContent>
         )}
         {admin && (

@@ -90,9 +90,9 @@ export function DesligamentoDialog({ militar, onClose }: { militar: Militar | nu
               <Err msg={e.data_desligamento?.message} />
             </div>
             <div className="space-y-1.5">
-              <Label>Motivo *</Label>
+              <Label>Status de desligamento *</Label>
               <Controller control={form.control} name="motivo_id" render={({ field }) => (
-                <FieldSelect testId="desligamento-motivo-select" value={field.value} onChange={field.onChange} placeholder="Selecione o motivo"
+                <FieldSelect testId="desligamento-motivo-select" value={field.value} onChange={field.onChange} placeholder="Selecione o status de desligamento"
                   options={(cat.data?.motivos ?? []).filter((m) => m.ativo).map((m) => ({ value: m.id, label: m.nome }))} />
               )} />
               <Err msg={e.motivo_id?.message} />
@@ -103,8 +103,8 @@ export function DesligamentoDialog({ militar, onClose }: { militar: Militar | nu
             <Input id="doc-deslig" placeholder="Ex.: SEI 00000/2026" data-testid="desligamento-documento-input" {...form.register("documento")} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="obs-deslig">Observações complementares</Label>
-            <Textarea id="obs-deslig" rows={3} data-testid="desligamento-observacoes-input" {...form.register("observacoes")} />
+            <Label htmlFor="obs-deslig">Motivo do desligamento</Label>
+            <Textarea id="obs-deslig" rows={3} placeholder="Descreva o motivo detalhado ou justificativa do desligamento..." data-testid="desligamento-observacoes-input" {...form.register("observacoes")} />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose} data-testid="desligamento-cancel-button">Cancelar</Button>

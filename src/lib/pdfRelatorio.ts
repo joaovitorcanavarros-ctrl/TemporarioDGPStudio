@@ -79,10 +79,42 @@ async function getAssets() {
   };
 }
 
+function fmtIsoDateTimeBr(iso?: string | null): string {
+  if (!iso || typeof iso !== "string") return "—";
+  const s = iso.trim();
+  if (!s || s === "-" || s === "—") return "—";
+  if (/^\d{2}\/\d{2}\/\d{4}\s+às\s+\d{2}:\d{2}/.test(s)) return s;
+  const fixedUtcMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})T(00:00|08:00|10:00|12:00):\d{2}(?:\.\d+)?Z$/);
+  if (fixedUtcMatch) {
+    return `${fixedUtcMatch[3]}/${fixedUtcMatch[2]}/${fixedUtcMatch[1]} às ${fixedUtcMatch[4]}`;
+  }
+  const dt = new Date(s);
+  if (!isNaN(dt.getTime())) {
+    const parts = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Cuiaba",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(dt);
+    const get = (type: string) => parts.find((p) => p.type === type)?.value || "00";
+    return `${get("day")}/${get("month")}/${get("year")} às ${get("hour")}:${get("minute")}`;
+  }
+  if (s.length >= 16) {
+    return `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)} às ${s.slice(11, 16)}`;
+  }
+  return s;
+}
+
 const fmtCellVal = (v: string | number | null | undefined): string => {
   if (v === null || v === undefined) return "—";
-  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) return fmtDate(v);
-  return String(v);
+  const str = String(v).trim();
+  if (!str || str === "-") return "—";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return fmtDate(str);
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(str)) return fmtIsoDateTimeBr(str);
+  return str;
 };
 
 export async function gerarPdfRelatorio(relatorio: Relatorio, filtrosDescricao?: string): Promise<void> {
@@ -105,12 +137,11 @@ export async function gerarPdfRelatorio(relatorio: Relatorio, filtrosDescricao?:
   const contentWidth = pageWidth - marginLeft - marginRight;
 
   // Draw Header
-  const headerHeight = 36;
   let currentY = marginTop;
 
   // Header Brasão / Logo (top center or top left)
   if (logo) {
-    // 16mm x 16mm logo at top left
+    // 15mm x 15mm logo at top left
     doc.addImage(logo, "PNG", marginLeft, currentY, 15, 15);
   }
 
@@ -155,7 +186,13 @@ export async function gerarPdfRelatorio(relatorio: Relatorio, filtrosDescricao?:
   }
 
   const infoFiltros = filtrosDescricao || relatorio.filtros || "Todos os registros";
-  const emissao = relatorio.gerado_em ? `Gerado em: ${relatorio.gerado_em}` : `Emitido em: ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+  const geradoFmt =
+    relatorio.gerado_em && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(relatorio.gerado_em)
+      ? fmtIsoDateTimeBr(relatorio.gerado_em)
+      : relatorio.gerado_em;
+  const emissao = geradoFmt
+    ? `Gerado em: ${geradoFmt}`
+    : `Emitido em: ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
   const totalLinhas = `${relatorio.linhas.length} registro(s)`;
   doc.text(`Filtros: ${infoFiltros}   |   ${emissao}   |   Total: ${totalLinhas}`, marginLeft, currentY);
 
@@ -164,8 +201,17 @@ export async function gerarPdfRelatorio(relatorio: Relatorio, filtrosDescricao?:
   // If militar details are provided (e.g. Ficha Funcional Individual), print official identification card
   if (relatorio.militar) {
     const m = relatorio.militar;
+    const rawObs = m.observacoes ? String(m.observacoes).trim() : "";
+    const hasObs = Boolean(rawObs && rawObs !== "-" && rawObs !== "—" && rawObs.toLowerCase() !== "null");
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    const obsLines: string[] = hasObs
+      ? doc.splitTextToSize(`OBSERVAÇÕES: ${rawObs}`, contentWidth - 7)
+      : [];
+
     const boxY = currentY;
-    const boxHeight = 23;
+    const boxHeight = hasObs ? 23 + obsLines.length * 3.8 + 1.5 : 23;
     doc.setFillColor(244, 247, 252);
     doc.setDrawColor(195, 210, 230);
     doc.setLineWidth(0.3);
@@ -175,30 +221,63 @@ export async function gerarPdfRelatorio(relatorio: Relatorio, filtrosDescricao?:
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8.5);
     doc.setTextColor(18, 32, 58);
-    doc.text(`MILITAR: ${m.nome_completo.toUpperCase()}`, marginLeft + 3.5, boxY + 4.8);
-    doc.text(`MATRÍCULA: ${m.matricula}`, marginLeft + contentWidth - 46, boxY + 4.8);
+    doc.text(`MILITAR: ${String(m.nome_completo || "—").toUpperCase()}`, marginLeft + 3.5, boxY + 4.8);
+    doc.text(`MATRÍCULA: ${m.matricula || "—"}`, marginLeft + contentWidth - 46, boxY + 4.8);
 
     // Line 2: Cargo & UBM
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(45, 60, 80);
-    doc.text(`Cargo / Função: ${m.cargo_nome}`, marginLeft + 3.5, boxY + 10);
-    doc.text(`Lotação / UBM: ${m.lotacao_nome}`, marginLeft + (contentWidth / 2), boxY + 10);
+    doc.text(`Cargo / Função: ${m.cargo_nome || "—"}`, marginLeft + 3.5, boxY + 10);
+    doc.text(`Lotação / UBM: ${m.lotacao_nome || "—"}`, marginLeft + contentWidth / 2, boxY + 10);
 
-    // Line 3: Edital, Inclusão, Vencimento & Situação
-    doc.text(`Edital: ${m.edital_nome}${m.doe_incorporacao && m.doe_incorporacao !== "-" ? ` (DOE: ${m.doe_incorporacao})` : ""}`, marginLeft + 3.5, boxY + 15);
-    doc.text(`Inclusão: ${fmtDate(m.data_inclusao)}   |   Vencimento: ${fmtDate(m.data_vencimento_contrato)}`, marginLeft + (contentWidth / 2), boxY + 15);
+    // Line 3: Edital, Inclusão, Vencimento
+    const doeStr = m.doe_incorporacao ? String(m.doe_incorporacao).trim() : "";
+    doc.text(
+      `Edital: ${m.edital_nome || "—"}${doeStr && doeStr !== "-" && doeStr !== "—" ? ` (DOE: ${doeStr})` : ""}`,
+      marginLeft + 3.5,
+      boxY + 15
+    );
+    doc.text(
+      `Inclusão: ${fmtDate(m.data_inclusao)}   |   Vencimento: ${fmtDate(m.data_vencimento_contrato)}`,
+      marginLeft + contentWidth / 2,
+      boxY + 15
+    );
 
     // Line 4: Situação
     doc.setFont("helvetica", "bold");
-    doc.text(`SITUAÇÃO ATUAL: ${m.status}${m.sub_judice ? " (SUB JÚDICE)" : ""}`, marginLeft + 3.5, boxY + 20);
+    doc.text(`SITUAÇÃO ATUAL: ${m.status || "ATIVO"}${m.sub_judice ? " (SUB JÚDICE)" : ""}`, marginLeft + 3.5, boxY + 20);
     if (m.data_desligamento) {
-      doc.text(`Desligamento: ${fmtDate(m.data_desligamento)} (${m.motivo_desligamento_nome || "—"})`, marginLeft + (contentWidth / 2), boxY + 20);
+      doc.text(`Desligamento: ${fmtDate(m.data_desligamento)} (${m.motivo_desligamento_nome || "—"})`, marginLeft + contentWidth / 2, boxY + 20);
+    }
+
+    // Line 5+: OBSERVAÇÕES (when present on the militar's active functional record)
+    if (hasObs && obsLines.length > 0) {
+      doc.setDrawColor(215, 225, 238);
+      doc.setLineWidth(0.2);
+      doc.line(marginLeft + 3.5, boxY + 21.8, marginLeft + contentWidth - 3.5, boxY + 21.8);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(30, 45, 70);
+      obsLines.forEach((lineText, idx) => {
+        if (idx === 0 && lineText.startsWith("OBSERVAÇÕES: ")) {
+          const prefix = "OBSERVAÇÕES: ";
+          const rest = lineText.slice(prefix.length);
+          doc.setFont("helvetica", "bold");
+          doc.text(prefix, marginLeft + 3.5, boxY + 25.2 + idx * 3.8);
+          const prefixW = doc.getTextWidth(prefix);
+          doc.setFont("helvetica", "normal");
+          doc.text(rest, marginLeft + 3.5 + prefixW, boxY + 25.2 + idx * 3.8);
+        } else {
+          doc.setFont("helvetica", "normal");
+          doc.text(lineText, marginLeft + 3.5, boxY + 25.2 + idx * 3.8);
+        }
+      });
     }
 
     currentY = boxY + boxHeight + 4;
   }
-
 
   // Table Columns & Data
   const headCols = relatorio.colunas.map((c) => c.label);
@@ -206,16 +285,25 @@ export async function gerarPdfRelatorio(relatorio: Relatorio, filtrosDescricao?:
     relatorio.colunas.map((col) => fmtCellVal(row[col.key]))
   );
 
-  // Column alignments
-  const columnStyles: Record<number, { halign?: "left" | "center" | "right" }> = {};
-  relatorio.colunas.forEach((col, idx) => {
-    const key = col.key.toLowerCase();
-    if (key === "total" || key === "ativos" || key === "desligados" || key === "dias_para_vencer" || key === "quantidade") {
-      columnStyles[idx] = { halign: "right" };
-    } else if (key === "matricula" || key === "data_inclusao" || key === "data_vencimento_contrato" || key === "data_desligamento" || key === "quando" || key === "data_efetiva" || key === "status") {
-      columnStyles[idx] = { halign: "center" };
-    }
-  });
+  // Column alignments & widths (100% contentWidth = 182mm on A4 portrait)
+  const columnStyles: Record<number, { halign?: "left" | "center" | "right"; cellWidth?: number }> = {};
+  if (relatorio.tipo === "historico" && relatorio.colunas.length === 5) {
+    // 5 columns filling 100% of contentWidth (30 + 32 + 22 + 56 + 42 = 182mm)
+    columnStyles[0] = { halign: "center", cellWidth: 30 }; // Data/hora do registro
+    columnStyles[1] = { halign: "left", cellWidth: 32 };   // Evento
+    columnStyles[2] = { halign: "center", cellWidth: 22 }; // Data efetiva
+    columnStyles[3] = { halign: "left", cellWidth: 56 };   // Detalhes
+    columnStyles[4] = { halign: "left", cellWidth: 42 };   // Observações
+  } else {
+    relatorio.colunas.forEach((col, idx) => {
+      const key = col.key.toLowerCase();
+      if (key === "total" || key === "ativos" || key === "desligados" || key === "dias_para_vencer" || key === "quantidade") {
+        columnStyles[idx] = { halign: "right" };
+      } else if (key === "matricula" || key === "data_inclusao" || key === "data_vencimento_contrato" || key === "data_desligamento" || key === "quando" || key === "data_efetiva" || key === "status") {
+        columnStyles[idx] = { halign: "center" };
+      }
+    });
+  }
 
   // Background watermark dimensions
   const watermarkSize = isLandscape ? 110 : 95;
@@ -225,28 +313,35 @@ export async function gerarPdfRelatorio(relatorio: Relatorio, filtrosDescricao?:
   // AutoTable
   autoTable(doc, {
     startY: currentY,
+    tableWidth: contentWidth,
     head: [headCols],
     body: bodyRows,
     margin: { top: 22, left: marginLeft, right: marginRight, bottom: marginBottom },
     styles: {
       font: "helvetica",
       fontSize: 8,
-      cellPadding: 2,
+      cellPadding: 2.2,
       textColor: [30, 41, 59],
       lineColor: [226, 232, 240],
       lineWidth: 0.1,
+      overflow: "linebreak",
+      valign: "middle",
     },
     headStyles: {
       fillColor: [24, 44, 76], // #182C4C Dark institutional navy
       textColor: [255, 255, 255],
       fontStyle: "bold",
       fontSize: 8.5,
+      valign: "middle",
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252],
     },
     columnStyles,
     didParseCell: (data) => {
+      if (data.section === "head" && columnStyles[data.column.index]?.halign) {
+        data.cell.styles.halign = columnStyles[data.column.index].halign!;
+      }
       // Highlight TOTAL row
       const isTotalRow = Object.values(relatorio.linhas[data.row.index] || {}).some(
         (val) => String(val).toUpperCase() === "TOTAL"
@@ -364,8 +459,8 @@ export async function gerarPdfRelatorio(relatorio: Relatorio, filtrosDescricao?:
 
   // File naming
   const slug = relatorio.militar
-    ? `HistoricoFuncional_${relatorio.militar.matricula.replace(/[^a-zA-Z0-9]/g, "_")}`
-    : `Relatorio_${relatorio.tipo.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`;
+    ? `HistoricoFuncional_${String(relatorio.militar.matricula || "militar").replace(/[^a-zA-Z0-9]/g, "_")}`
+    : `Relatorio_${String(relatorio.tipo || "geral").toLowerCase().replace(/[^a-z0-9]+/g, "_")}`;
   const dateStr = new Date().toISOString().slice(0, 10);
   const fileName = `CBMMT_${slug}_${dateStr}.pdf`;
 

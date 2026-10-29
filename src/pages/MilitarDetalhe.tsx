@@ -13,8 +13,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
 import { apiGet, apiDelete } from "@/lib/api";
-import { fmtDate, fmtDateTime } from "@/lib/format";
+import { errMsg, fmtDate, fmtDateTime } from "@/lib/format";
 import { isAdmin, podeEditar, useMe } from "@/lib/hooks";
 import type { Militar, MilitarHistorico } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -46,8 +47,18 @@ export default function MilitarDetalhe() {
   const [excluirModalOpen, setExcluirModalOpen] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
 
-  const q = useQuery({ queryKey: ["militar", id], queryFn: () => apiGet<Militar>(`/militares/${id}`) });
-  const h = useQuery({ queryKey: ["militar", id, "historico"], queryFn: () => apiGet<MilitarHistorico>(`/militares/${id}/historico`) });
+  const q = useQuery({
+    queryKey: ["militar", id],
+    queryFn: () => apiGet<Militar>(`/militares/${id}`),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+  const h = useQuery({
+    queryKey: ["militar", id, "historico"],
+    queryFn: () => apiGet<MilitarHistorico>(`/militares/${id}/historico`),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
   const m = q.isError ? undefined : q.data;
 
   const handleExcluir = async () => {
@@ -55,11 +66,14 @@ export default function MilitarDetalhe() {
     setExcluindo(true);
     try {
       await apiDelete(`/militares/${m.id}`);
-      qc.invalidateQueries({ queryKey: ["militares"] });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      toast.success("Cadastro do militar excluído com sucesso.");
+      void qc.invalidateQueries({ queryKey: ["militares"] });
+      void qc.invalidateQueries({ queryKey: ["dashboard"] });
+      void qc.invalidateQueries({ queryKey: ["auditoria"] });
       nav("/temporarios", { replace: true });
     } catch (err: any) {
       console.error("Erro ao excluir militar:", err);
+      toast.error(errMsg(err, "Erro ao excluir cadastro do militar"));
     } finally {
       setExcluindo(false);
       setExcluirModalOpen(false);
@@ -112,11 +126,11 @@ export default function MilitarDetalhe() {
             {m.status === "DESLIGADO" && (
               <>
                 <Info label="Data do desligamento"><span className="num text-red-300">{fmtDate(m.data_desligamento)}</span></Info>
-                <Info label="Motivo">{m.motivo_desligamento_nome ?? "—"}</Info>
+                <Info label="Status de desligamento">{m.motivo_desligamento_nome ?? "—"}</Info>
                 <Info label="Documento / processo">{m.documento_desligamento ?? "—"}</Info>
               </>
             )}
-            <div className="sm:col-span-2 lg:col-span-4"><Info label="Observações"><span className="whitespace-pre-line">{m.observacoes || "—"}</span></Info></div>
+            <div className="sm:col-span-2 lg:col-span-4"><Info label={m.status === "DESLIGADO" ? "Motivo do desligamento" : "Observações"}><span className="whitespace-pre-line">{m.observacoes || "—"}</span></Info></div>
           </dl>
 
           <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-[#1E2C42] pt-3 text-xs text-slate-500">
