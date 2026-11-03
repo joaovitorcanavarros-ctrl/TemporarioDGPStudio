@@ -21,15 +21,15 @@ export default function Temporarios() {
   const cat = useCatalogos();
   const queryClient = useQueryClient();
 
-  // Local search and filter states
+  // Local search and filter states (padrão inicial: "Somente ativos")
   const [qInput, setQInput] = useState("");
   const [qApplied, setQApplied] = useState("");
   const [venc, setVenc] = useState("");
+  const [situacao, setSituacao] = useState<"ATIVO" | "DESLIGADO" | "TODOS">("ATIVO");
   const [resetKey, setResetKey] = useState(0);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const catNome = cat.data?.categorias.find((c) => c.codigo === categoria)?.nome ?? categoria;
-  const situacao = filters.status || "TODOS";
 
   // Debounced search input handler (500ms debounce para economizar requisições)
   const handleSearchChange = (value: string) => {
@@ -57,7 +57,8 @@ export default function Temporarios() {
     // 3. Reset expiration filter dropdown
     setVenc("");
 
-    // 4. Reset situation / status tabs to default
+    // 4. Reset situation / status tabs to default ("Somente ativos")
+    setSituacao("ATIVO");
     setFilter("status", "");
 
     // 5. Reset all global filters (ano, cargo, lotação, edital, datas)
@@ -83,6 +84,7 @@ export default function Temporarios() {
   // Query parameters passed to MilitaresTable
   const params = {
     ...filterParams(filters),
+    status: situacao === "TODOS" ? undefined : situacao,
     categoria,
     q: qApplied || undefined,
     venc: venc || undefined,
@@ -93,7 +95,7 @@ export default function Temporarios() {
     qInput ||
     qApplied ||
     venc ||
-    filters.status ||
+    situacao !== "ATIVO" ||
     filters.ano ||
     (!categoria && filters.cargo_id) ||
     filters.lotacao_id ||
@@ -189,7 +191,7 @@ export default function Temporarios() {
 
         <Tabs
           value={situacao}
-          onValueChange={(v) => setFilter("status", v === "TODOS" ? "" : String(v))}
+          onValueChange={(v) => setSituacao(String(v) as "ATIVO" | "DESLIGADO" | "TODOS")}
         >
           <TabsList>
             <TabsTrigger value="ATIVO" data-testid="view-ativos">Somente ativos</TabsTrigger>
