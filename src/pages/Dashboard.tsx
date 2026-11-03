@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Legend, Line, Pie, PieChart,
+  Area, AreaChart, Bar, CartesianGrid, Cell, ComposedChart, Legend, Line, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { Activity, Briefcase, Scale, Building2, Clock, HeartPulse, RotateCw, Shield, Stethoscope, Truck, UserCheck, UserMinus } from "lucide-react";
@@ -13,13 +13,18 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiGet, apiPost } from "@/lib/api";
 import { fmtDate, fmtNum, qs } from "@/lib/format";
 import { useFilters, type GlobalFilters } from "@/lib/filters";
-import type { ChartRow, Dashboard as D } from "@/lib/types";
+import type { ChartRow, CountItem, Dashboard as D } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export const CAT_COLOR: Record<string, string> = {
-  AUXILIAR: "#3B82F6", CONDUTOR: "#818CF8", TEC_ENFERMAGEM: "#14B8A6", ENFERMEIRO: "#22D3EE", MEDICO: "#A78BFA", OUTROS: "#94A3B8",
+  AUXILIAR: "#3B82F6",       // Azul Royal
+  CONDUTOR: "#F59E0B",       // Laranja / Âmbar
+  TEC_ENFERMAGEM: "#10B981", // Verde Esmeralda
+  ENFERMEIRO: "#A855F7",     // Roxo / Violeta
+  MEDICO: "#F43F5E",         // Vermelho Coral / Rubi
+  OUTROS: "#94A3B8",         // Cinza Azulado
 };
-const PALETTE = ["#EF4444", "#F59E0B", "#3B82F6", "#10B981", "#A78BFA", "#22D3EE", "#F472B6", "#94A3B8"];
+const PALETTE = ["#3B82F6", "#F59E0B", "#10B981", "#A855F7", "#F43F5E", "#06B6D4", "#EAB308", "#94A3B8"];
 const catColor = (c: string, i: number) => CAT_COLOR[c] ?? PALETTE[i % PALETTE.length];
 
 const tooltipStyle = {
@@ -81,6 +86,718 @@ function ChartCard({ id, title, desc, children, action, className }: { id: strin
 
 function Empty({ text = "Sem registros para os filtros selecionados" }: { text?: string }) {
   return <div className="grid h-[260px] place-items-center text-sm text-slate-500">{text}</div>;
+}
+
+function getMotivoOrderAndColor(nome: string, index: number): { order: number; color: string } {
+  const n = (nome || "").toLowerCase();
+  if (n.includes("encerramento")) return { order: 0, color: "#EF4444" }; // Vermelha
+  if (n.includes("rescis") || n.includes("judicial") || n.includes("distrato")) return { order: 1, color: "#F59E0B" }; // Laranja
+  if (n.includes("pedido") || n.includes("desist")) return { order: 2, color: "#3B82F6" }; // Azul
+  if (n.includes("conduta") || n.includes("disciplinar") || n.includes("exclus") || n.includes("administrativo")) return { order: 3, color: "#10B981" }; // Verde
+  if (n.includes("abandono") || n.includes("deser") || n.includes("outra")) return { order: 4, color: "#A78BFA" }; // Roxa
+  return { order: 10 + index, color: PALETTE[index % PALETTE.length] };
+}
+
+function DesligamentosGroupedChart({
+  rows,
+  motivoKeys,
+  motivoNome,
+  desligView,
+  onSelectBar,
+}: {
+  rows: ChartRow[];
+  motivoKeys: string[];
+  motivoNome: (k: string) => string;
+  desligView: string;
+  onSelectBar: (row: ChartRow, motivoKey: string) => void;
+}) {
+  const [hoveredMotivo, setHoveredMotivo] = useState<string | null>(null);
+  const [hoveredBar, setHoveredBar] = useState<{ groupKey: string; motivoKey: string } | null>(null);
+
+  const orderedMotivos = motivoKeys
+    .map((k, idx) => {
+      const nome = motivoNome(k);
+      const { order, color } = getMotivoOrderAndColor(nome, idx);
+      return { chave: k, nome, order, color };
+    })
+    .sort((a, b) => a.order - b.order);
+
+  // Determine maximum single bar value across all groups; preserve 0, 9, 18, 27, 36 scale when max <= 36
+  const maxVal = Math.max(
+    1,
+    ...rows.flatMap((r) => orderedMotivos.map((m) => Number(r[m.chave] || 0)))
+  );
+  const step = maxVal <= 36 ? 9 : Math.ceil(maxVal / 4);
+  const maxScale = step * 4;
+  const yTicks = [maxScale, step * 3, step * 2, step, 0];
+  const plotHeight = 196;
+
+  return (
+    <div className="flex flex-col select-none" data-testid="desligamentos-grouped-chart">
+      {/* Main Chart Plot Area */}
+      <div className="relative flex pt-5 pb-1">
+        {/* Y-Axis Labels */}
+        <div
+          className="flex flex-col justify-between pr-3 text-right num text-[11px] font-medium text-[#64748B]"
+          style={{ height: plotHeight }}
+        >
+          {yTicks.map((t) => (
+            <span key={t} className="leading-none -translate-y-1">
+              {fmtNum(t)}
+            </span>
+          ))}
+        </div>
+
+        {/* Grid & Grouped Columns */}
+        <div className="relative flex-1" style={{ height: plotHeight }}>
+          {/* Discrete Horizontal Grid Lines */}
+          <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+            {yTicks.map((t, idx) => (
+              <div
+                key={t}
+                className={cn(
+                  "w-full border-t",
+                  idx === yTicks.length - 1 ? "border-[#263854]" : "border-[#1E2C42]/80 border-dashed"
+                )}
+              />
+            ))}
+          </div>
+
+          {/* Groups (Years or Cargos) */}
+          <div className="relative z-10 flex h-full items-end justify-around px-3 sm:px-6 gap-4">
+            {rows.map((row) => {
+              const groupLabel = String(desligView === "ano" ? row.ano : row.nome);
+              const activeBars = orderedMotivos
+                .map((m) => ({
+                  ...m,
+                  valor: Number(row[m.chave] || 0),
+                }))
+                .filter((b) => b.valor > 0);
+
+              return (
+                <div
+                  key={groupLabel}
+                  className="flex h-full flex-1 flex-col items-center justify-end"
+                >
+                  {/* Side-by-side columns container */}
+                  <div className="flex h-full items-end justify-center gap-2 sm:gap-3.5 px-2">
+                    {activeBars.map((bar) => {
+                      const ratio = Math.min(1, bar.valor / maxScale);
+                      const barHeight = Math.max(8, Math.round(ratio * plotHeight));
+                      const isDimmed =
+                        (hoveredMotivo !== null && hoveredMotivo !== bar.chave) ||
+                        (hoveredBar !== null &&
+                          (hoveredBar.groupKey !== groupLabel || hoveredBar.motivoKey !== bar.chave));
+                      const isHighlighted =
+                        hoveredMotivo === bar.chave ||
+                        (hoveredBar?.groupKey === groupLabel && hoveredBar?.motivoKey === bar.chave);
+
+                      return (
+                        <button
+                          key={bar.chave}
+                          type="button"
+                          onClick={() => onSelectBar(row, bar.chave)}
+                          onMouseEnter={() =>
+                            setHoveredBar({ groupKey: groupLabel, motivoKey: bar.chave })
+                          }
+                          onMouseLeave={() => setHoveredBar(null)}
+                          data-testid={`bar-${groupLabel}-${bar.chave}`}
+                          title={`${groupLabel} · ${bar.nome}: ${fmtNum(bar.valor)}`}
+                          className={cn(
+                            "group/bar relative flex flex-col items-center justify-end focus:outline-none transition-all duration-200 cursor-pointer",
+                            isDimmed ? "opacity-35" : "opacity-100"
+                          )}
+                        >
+                          {/* Floating Value Tag / Balloon right above the column */}
+                          <div
+                            className={cn(
+                              "mb-1.5 flex items-center justify-center rounded-md border px-2 py-0.5 num text-[11px] font-bold leading-tight text-white shadow-sm transition-transform duration-150",
+                              isHighlighted && "scale-110 shadow-md"
+                            )}
+                            style={{
+                              backgroundColor: "#162234",
+                              borderColor: `${bar.color}88`,
+                              boxShadow: isHighlighted ? `0 0 12px ${bar.color}40` : undefined,
+                            }}
+                          >
+                            {fmtNum(bar.valor)}
+                          </div>
+
+                          {/* Column Bar */}
+                          <div
+                            className={cn(
+                              "w-6 sm:w-8 md:w-9 rounded-t-md transition-all duration-200",
+                              isHighlighted && "brightness-110 ring-1 ring-white/40"
+                            )}
+                            style={{
+                              height: `${barHeight}px`,
+                              background: `linear-gradient(180deg, ${bar.color} 0%, ${bar.color}CC 100%)`,
+                              boxShadow: `0 4px 14px -2px ${bar.color}33`,
+                            }}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* X-Axis Group Labels */}
+      <div className="flex pl-9 pt-2.5">
+        <div className="flex flex-1 items-center justify-around px-3 sm:px-6 gap-4">
+          {rows.map((row) => {
+            const groupLabel = String(desligView === "ano" ? row.ano : row.nome);
+            return (
+              <div key={groupLabel} className="flex-1 text-center">
+                <span className="font-sans text-xs font-semibold tracking-wide text-slate-200">
+                  {groupLabel}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Redesigned Legend Footer */}
+      <div
+        className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5 border-t border-[#1E2C42]/80 pt-3.5 px-2"
+        data-testid="desligamentos-legend"
+      >
+        {orderedMotivos.map((m) => {
+          const active = hoveredMotivo === m.chave;
+          return (
+            <button
+              key={m.chave}
+              type="button"
+              onMouseEnter={() => setHoveredMotivo(m.chave)}
+              onMouseLeave={() => setHoveredMotivo(null)}
+              onClick={() =>
+                setHoveredMotivo((prev) => (prev === m.chave ? null : m.chave))
+              }
+              className={cn(
+                "inline-flex items-center gap-2 rounded-md px-2 py-1 text-left transition-colors",
+                active ? "bg-[#182335] text-white" : "text-slate-300 hover:bg-[#182335]/60 hover:text-white"
+              )}
+            >
+              <span
+                className="size-3 shrink-0 rounded-[3px] shadow-xs"
+                style={{
+                  backgroundColor: m.color,
+                  boxShadow: `0 0 0 1px ${m.color}55`,
+                }}
+              />
+              <span className="font-sans text-xs font-medium tracking-tight text-slate-200">
+                {m.nome}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function EfetivoCargoGroupedChart({
+  rows,
+  cats,
+  onSelectBar,
+}: {
+  rows: ChartRow[];
+  cats: CountItem[];
+  onSelectBar: (row: ChartRow, cat: CountItem) => void;
+}) {
+  const [hoveredCat, setHoveredCat] = useState<string | null>(null);
+  const [hoveredBar, setHoveredBar] = useState<{ ano: string; catKey: string } | null>(null);
+
+  const catMeta = cats.map((c, i) => ({
+    ...c,
+    color: catColor(c.chave, i),
+  }));
+
+  const maxVal = Math.max(
+    1,
+    ...rows.flatMap((r) => catMeta.map((c) => Number(r[c.chave] || 0)))
+  );
+  const rawStep = Math.ceil(maxVal / 4);
+  const step = rawStep <= 10 ? Math.max(1, rawStep) : Math.ceil(rawStep / 10) * 10;
+  const maxScale = step * 4;
+  const yTicks = [maxScale, step * 3, step * 2, step, 0];
+  const plotHeight = 196;
+
+  return (
+    <div className="flex flex-col select-none" data-testid="efetivo-cargo-grouped-chart">
+      {/* Main Chart Plot Area */}
+      <div className="relative flex pt-5 pb-1">
+        {/* Y-Axis Labels */}
+        <div
+          className="flex flex-col justify-between pr-3 text-right num text-[11px] font-medium text-[#64748B]"
+          style={{ height: plotHeight }}
+        >
+          {yTicks.map((t) => (
+            <span key={t} className="leading-none -translate-y-1">
+              {fmtNum(t)}
+            </span>
+          ))}
+        </div>
+
+        {/* Grid & Grouped Columns */}
+        <div className="relative flex-1" style={{ height: plotHeight }}>
+          {/* Discrete Horizontal Grid Lines */}
+          <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+            {yTicks.map((t, idx) => (
+              <div
+                key={t}
+                className={cn(
+                  "w-full border-t",
+                  idx === yTicks.length - 1 ? "border-[#263854]" : "border-[#1E2C42]/80 border-dashed"
+                )}
+              />
+            ))}
+          </div>
+
+          {/* Groups by Year */}
+          <div className="relative z-10 flex h-full items-end justify-around px-2 sm:px-4 gap-2 sm:gap-4">
+            {rows.map((row) => {
+              const anoLabel = String(row.ano);
+              const activeBars = catMeta
+                .map((c) => ({
+                  ...c,
+                  valor: Number(row[c.chave] || 0),
+                }))
+                .filter((b) => b.valor > 0);
+
+              return (
+                <div
+                  key={anoLabel}
+                  className="flex h-full flex-1 flex-col items-center justify-end min-w-0"
+                >
+                  <div className="flex h-full items-end justify-center gap-1.5 sm:gap-2.5 px-1">
+                    {activeBars.map((bar) => {
+                      const ratio = Math.min(1, bar.valor / maxScale);
+                      const barHeight = Math.max(8, Math.round(ratio * plotHeight));
+                      const isDimmed =
+                        (hoveredCat !== null && hoveredCat !== bar.chave) ||
+                        (hoveredBar !== null &&
+                          (hoveredBar.ano !== anoLabel || hoveredBar.catKey !== bar.chave));
+                      const isHighlighted =
+                        hoveredCat === bar.chave ||
+                        (hoveredBar?.ano === anoLabel && hoveredBar?.catKey === bar.chave);
+
+                      return (
+                        <button
+                          key={bar.chave}
+                          type="button"
+                          onClick={() => onSelectBar(row, bar)}
+                          onMouseEnter={() =>
+                            setHoveredBar({ ano: anoLabel, catKey: bar.chave })
+                          }
+                          onMouseLeave={() => setHoveredBar(null)}
+                          data-testid={`efetivo-bar-${anoLabel}-${bar.chave}`}
+                          title={`${anoLabel} · ${bar.nome}: ${fmtNum(bar.valor)}`}
+                          className={cn(
+                            "group/bar relative flex flex-col items-center justify-end focus:outline-none transition-all duration-200 cursor-pointer",
+                            isDimmed ? "opacity-35" : "opacity-100"
+                          )}
+                        >
+                          {/* Floating Value Tag / Balloon right above the column */}
+                          <div
+                            className={cn(
+                              "mb-1.5 flex items-center justify-center rounded-md border px-1.5 py-0.5 num text-[10px] sm:text-[11px] font-bold leading-tight text-white shadow-sm transition-transform duration-150",
+                              isHighlighted && "scale-110 shadow-md"
+                            )}
+                            style={{
+                              backgroundColor: "#162234",
+                              borderColor: `${bar.color}88`,
+                              boxShadow: isHighlighted ? `0 0 12px ${bar.color}40` : undefined,
+                            }}
+                          >
+                            {fmtNum(bar.valor)}
+                          </div>
+
+                          {/* Column Bar */}
+                          <div
+                            className={cn(
+                              "w-5 sm:w-7 md:w-8 rounded-t-md transition-all duration-200",
+                              isHighlighted && "brightness-110 ring-1 ring-white/40"
+                            )}
+                            style={{
+                              height: `${barHeight}px`,
+                              background: `linear-gradient(180deg, ${bar.color} 0%, ${bar.color}CC 100%)`,
+                              boxShadow: `0 4px 14px -2px ${bar.color}33`,
+                            }}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* X-Axis Year Labels */}
+      <div className="flex pl-9 pt-2.5">
+        <div className="flex flex-1 items-center justify-around px-2 sm:px-4 gap-2 sm:gap-4">
+          {rows.map((row) => {
+            const anoLabel = String(row.ano);
+            return (
+              <div key={anoLabel} className="flex-1 text-center">
+                <span className="font-sans text-xs font-semibold tracking-wide text-slate-200">
+                  {anoLabel}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Redesigned Legend Footer */}
+      <div
+        className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5 border-t border-[#1E2C42]/80 pt-3.5 px-2"
+        data-testid="efetivo-cargo-legend"
+      >
+        {catMeta.map((c) => {
+          const active = hoveredCat === c.chave;
+          return (
+            <button
+              key={c.chave}
+              type="button"
+              onMouseEnter={() => setHoveredCat(c.chave)}
+              onMouseLeave={() => setHoveredCat(null)}
+              onClick={() =>
+                setHoveredCat((prev) => (prev === c.chave ? null : c.chave))
+              }
+              className={cn(
+                "inline-flex items-center gap-2 rounded-md px-2 py-1 text-left transition-colors",
+                active ? "bg-[#182335] text-white" : "text-slate-300 hover:bg-[#182335]/60 hover:text-white"
+              )}
+            >
+              <span
+                className="size-3 shrink-0 rounded-[3px] shadow-xs"
+                style={{
+                  backgroundColor: c.color,
+                  boxShadow: `0 0 0 1px ${c.color}55`,
+                }}
+              />
+              <span className="font-sans text-xs font-medium tracking-tight text-slate-200">
+                {c.nome}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function EfetivoUbmStyledChart({
+  items,
+  ubmAll,
+  onSelectUbm,
+}: {
+  items: CountItem[];
+  ubmAll: boolean;
+  onSelectUbm: (item: CountItem) => void;
+}) {
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  const barColor = "#3B82F6";
+
+  const maxVal = Math.max(1, ...items.map((x) => Number(x.total || 0)));
+  const rawStep = Math.ceil(maxVal / 4);
+  const step = rawStep <= 5 ? Math.max(1, rawStep) : Math.ceil(rawStep / 5) * 5;
+  const maxScale = step * 4;
+  const xTicks = [0, step, step * 2, step * 3, maxScale];
+
+  return (
+    <div className="flex flex-col select-none" data-testid="efetivo-ubm-styled-chart">
+      <div className={cn("relative", ubmAll && "max-h-[520px] overflow-y-auto pr-1")}>
+        <div className="relative space-y-2 py-1">
+          {items.map((item) => {
+            const ratio = Math.min(1, item.total / maxScale);
+            const widthPct = Math.max(3, Math.round(ratio * 100));
+            const isDimmed = hoveredKey !== null && hoveredKey !== item.chave;
+            const isHighlighted = hoveredKey === item.chave;
+
+            return (
+              <button
+                key={item.chave}
+                type="button"
+                onClick={() => onSelectUbm(item)}
+                onMouseEnter={() => setHoveredKey(item.chave)}
+                onMouseLeave={() => setHoveredKey(null)}
+                data-testid={`ubm-bar-${item.chave}`}
+                title={`${item.nome}: ${fmtNum(item.total)} ativos`}
+                className={cn(
+                  "group/ubm flex w-full items-center gap-3 rounded-lg px-1.5 py-1 text-left transition-all duration-150 focus:outline-none cursor-pointer",
+                  isHighlighted && "bg-[#182335]/70",
+                  isDimmed ? "opacity-40" : "opacity-100"
+                )}
+              >
+                {/* UBM Name */}
+                <span className="w-[155px] sm:w-[195px] shrink-0 truncate text-right font-sans text-[11px] font-medium text-slate-300 group-hover/ubm:text-white">
+                  {item.nome}
+                </span>
+
+                {/* Horizontal Bar + Floating Value Tag */}
+                <div className="relative flex flex-1 items-center pr-12">
+                  {/* Subtle background track */}
+                  <div className="pointer-events-none absolute inset-y-0 left-0 right-12 flex justify-between">
+                    {xTicks.map((t, idx) => (
+                      <div
+                        key={t}
+                        className={cn(
+                          "h-full border-l",
+                          idx === 0 ? "border-[#263854]" : "border-[#1E2C42]/60 border-dashed"
+                        )}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Bar */}
+                  <div
+                    className={cn(
+                      "relative z-10 h-5 rounded-r-md transition-all duration-200",
+                      isHighlighted && "brightness-110 ring-1 ring-white/40"
+                    )}
+                    style={{
+                      width: `${widthPct}%`,
+                      background: `linear-gradient(90deg, ${barColor}CC 0%, ${barColor} 100%)`,
+                      boxShadow: `0 2px 10px -2px ${barColor}44`,
+                    }}
+                  />
+
+                  {/* Value Tag / Balloon right next to bar */}
+                  <div
+                    className={cn(
+                      "relative z-10 ml-2 flex items-center justify-center rounded-md border px-2 py-0.5 num text-[11px] font-bold leading-tight text-white shadow-sm transition-transform duration-150",
+                      isHighlighted && "scale-105 shadow-md"
+                    )}
+                    style={{
+                      backgroundColor: "#162234",
+                      borderColor: `${barColor}88`,
+                      boxShadow: isHighlighted ? `0 0 12px ${barColor}40` : undefined,
+                    }}
+                  >
+                    {fmtNum(item.total)}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* X-Axis Scale Labels */}
+      <div className="mt-2 flex items-center pl-[167px] sm:pl-[207px] pr-14">
+        <div className="flex flex-1 justify-between num text-[11px] font-medium text-[#64748B]">
+          {xTicks.map((t) => (
+            <span key={t}>{fmtNum(t)}</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Redesigned Legend Footer */}
+      <div
+        className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-[#1E2C42]/80 pt-3.5 px-2"
+        data-testid="efetivo-ubm-legend"
+      >
+        <div className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-slate-200">
+          <span
+            className="size-3 shrink-0 rounded-[3px] shadow-xs"
+            style={{
+              backgroundColor: barColor,
+              boxShadow: `0 0 0 1px ${barColor}55`,
+            }}
+          />
+          <span className="font-sans text-xs font-medium tracking-tight text-slate-200">
+            Efetivo ativo por Lotação / UBM
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DistribuicaoStyledChart({
+  items,
+  distView,
+  onSelectSlice,
+}: {
+  items: CountItem[];
+  distView: string;
+  onSelectSlice: (item: CountItem) => void;
+}) {
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+
+  const enriched = items.map((x, i) => ({
+    ...x,
+    color: distView === "cargo" ? catColor(x.chave, i) : PALETTE[(i + 2) % PALETTE.length],
+  }));
+  const totalGeral = enriched.reduce((acc, cur) => acc + (cur.total || 0), 0);
+
+  const renderCustomLabel = (props: any) => {
+    const { cx, cy, midAngle, outerRadius, index, name, value, percent } = props;
+    const item = enriched[index];
+    if (!item || !value) return null;
+
+    const RADIAN = Math.PI / 180;
+    const sin = Math.sin(-RADIAN * midAngle);
+    const cos = Math.cos(-RADIAN * midAngle);
+    const sx = cx + (outerRadius + 4) * cos;
+    const sy = cy + (outerRadius + 4) * sin;
+    const mx = cx + (outerRadius + 18) * cos;
+    const my = cy + (outerRadius + 18) * sin;
+    const ex = mx + (cos >= 0 ? 1 : -1) * 10;
+    const ey = my;
+    const textAnchor = cos >= 0 ? "start" : "end";
+    const pct = Math.round((percent ?? 0) * 100);
+    const shortName = String(name ?? "").length > 20 ? `${String(name).slice(0, 19)}…` : String(name ?? "");
+    const badgeText = `${fmtNum(value)} (${pct}%)`;
+    const isDimmed = hoveredKey !== null && hoveredKey !== item.chave;
+    const isHighlighted = hoveredKey === item.chave;
+
+    return (
+      <g
+        style={{ opacity: isDimmed ? 0.35 : 1, transition: "opacity 180ms ease" }}
+        className="pointer-events-none"
+      >
+        <path
+          d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`}
+          stroke={item.color}
+          strokeWidth={isHighlighted ? 2 : 1.25}
+          fill="none"
+        />
+        <circle cx={ex} cy={ey} r={2.5} fill={item.color} />
+        <text
+          x={ex + (cos >= 0 ? 6 : -6)}
+          y={ey - 4}
+          textAnchor={textAnchor}
+          fill="#E2E8F0"
+          className="font-sans text-[10.5px] font-medium"
+        >
+          {shortName}
+        </text>
+        <text
+          x={ex + (cos >= 0 ? 6 : -6)}
+          y={ey + 9}
+          textAnchor={textAnchor}
+          fill="#FFFFFF"
+          className="num text-[11px] font-bold"
+        >
+          {badgeText}
+        </text>
+      </g>
+    );
+  };
+
+  return (
+    <div className="flex flex-col select-none" data-testid="distribuicao-styled-chart">
+      <div className="relative h-[270px] w-full">
+        {/* Center Donut Total Label */}
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <span className="num text-2xl font-extrabold text-white">
+            {fmtNum(totalGeral)}
+          </span>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            Ativos
+          </span>
+        </div>
+
+        <ResponsiveContainer width="100%" height={270}>
+          <PieChart>
+            <Pie
+              data={enriched}
+              dataKey="total"
+              nameKey="nome"
+              cx="50%"
+              cy="50%"
+              innerRadius={56}
+              outerRadius={86}
+              paddingAngle={3}
+              stroke="#121B28"
+              strokeWidth={2}
+              className="cursor-pointer focus:outline-none"
+              labelLine={false}
+              label={renderCustomLabel}
+              onMouseEnter={(_: unknown, idx: number) => {
+                if (enriched[idx]) setHoveredKey(enriched[idx].chave);
+              }}
+              onMouseLeave={() => setHoveredKey(null)}
+              onClick={(e: { payload?: CountItem }) => {
+                const p = e.payload;
+                if (p) onSelectSlice(p);
+              }}
+            >
+              {enriched.map((x) => {
+                const isDimmed = hoveredKey !== null && hoveredKey !== x.chave;
+                return (
+                  <Cell
+                    key={x.chave}
+                    fill={x.color}
+                    style={{
+                      opacity: isDimmed ? 0.35 : 1,
+                      filter: hoveredKey === x.chave ? `drop-shadow(0 0 8px ${x.color}66)` : undefined,
+                      transition: "opacity 180ms ease, filter 180ms ease",
+                    }}
+                  />
+                );
+              })}
+            </Pie>
+            <Tooltip {...tooltipStyle} formatter={(x: number) => [fmtNum(x), "Ativos"]} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Redesigned Legend Footer with Value Tags */}
+      <div
+        className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2.5 border-t border-[#1E2C42]/80 pt-3.5 px-2"
+        data-testid="distribuicao-legend"
+      >
+        {enriched.map((x) => {
+          const active = hoveredKey === x.chave;
+          return (
+            <button
+              key={x.chave}
+              type="button"
+              onMouseEnter={() => setHoveredKey(x.chave)}
+              onMouseLeave={() => setHoveredKey(null)}
+              onClick={() => onSelectSlice(x)}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-md px-2 py-1 text-left transition-colors cursor-pointer",
+                active ? "bg-[#182335] text-white" : "text-slate-300 hover:bg-[#182335]/60 hover:text-white"
+              )}
+            >
+              <span
+                className="size-3 shrink-0 rounded-[3px] shadow-xs"
+                style={{
+                  backgroundColor: x.color,
+                  boxShadow: `0 0 0 1px ${x.color}55`,
+                }}
+              />
+              <span className="font-sans text-xs font-medium tracking-tight text-slate-200">
+                {x.nome}
+              </span>
+              <span
+                className="rounded border px-1.5 py-0.5 num text-[10px] font-bold text-white"
+                style={{
+                  backgroundColor: "#162234",
+                  borderColor: `${x.color}77`,
+                }}
+              >
+                {fmtNum(x.total)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function Dashboard() {
@@ -166,22 +883,16 @@ export default function Dashboard() {
       <div className="grid gap-4 xl:grid-cols-2">
         <ChartCard id="efetivo-cargo-ano" title="Efetivo por cargo/função" desc="Estoque ao fim de cada ano (ano corrente: data de referência). Clique para listar.">
           {d && d.efetivo_cargo_ano.length ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={d.efetivo_cargo_ano}>
-                <CartesianGrid stroke="#1E2C42" vertical={false} />
-                <XAxis dataKey="ano" {...axis} />
-                <YAxis {...axis} allowDecimals={false} />
-                <Tooltip {...tooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                {cats.map((c, i) => (
-                  <Bar key={c.chave} dataKey={c.chave} name={c.nome} fill={catColor(c.chave, i)} radius={[3, 3, 0, 0]} className="cursor-pointer"
-                    onClick={(e: { payload?: ChartRow }) => {
-                      const row = e.payload;
-                      if (row) setDrill({ title: `${c.nome} — efetivo em ${fmtDate(String(row.data))}`, params: { ...base, categoria: c.chave, ativo_em: String(row.data) } });
-                    }} />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
+            <EfetivoCargoGroupedChart
+              rows={d.efetivo_cargo_ano}
+              cats={cats}
+              onSelectBar={(row, c) =>
+                setDrill({
+                  title: `${c.nome} — efetivo em ${fmtDate(String(row.data))}`,
+                  params: { ...base, categoria: c.chave, ativo_em: String(row.data) },
+                })
+              }
+            />
           ) : <Empty />}
         </ChartCard>
 
@@ -192,26 +903,22 @@ export default function Dashboard() {
             </Tabs>
           }>
           {d && (desligView === "ano" ? d.deslig_por_ano.length : d.deslig_por_cargo.length) ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={desligView === "ano" ? d.deslig_por_ano : d.deslig_por_cargo}>
-                <CartesianGrid stroke="#1E2C42" vertical={false} />
-                <XAxis dataKey={desligView === "ano" ? "ano" : "nome"} {...axis} />
-                <YAxis {...axis} allowDecimals={false} />
-                <Tooltip {...tooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                {motivoKeys.map((k, i) => (
-                  <Bar key={k} dataKey={k} stackId="m" name={motivoNome(k)} fill={PALETTE[i % PALETTE.length]} className="cursor-pointer"
-                    onClick={(e: { payload?: ChartRow }) => {
-                      const row = e.payload;
-                      if (!row) return;
-                      const extra = desligView === "ano"
-                        ? { deslig_ini: `${row.ano}-01-01`, deslig_fim: `${row.ano}-12-31` }
-                        : { categoria: String(row.categoria), deslig_ini: d.periodo_inicio, deslig_fim: d.periodo_fim };
-                      setDrill({ title: `Desligamentos — ${motivoNome(k)} — ${row.ano ?? row.nome}`, params: { ...base, status: "DESLIGADO", motivo_id: k, ...extra }, variant: "desligados" });
-                    }} />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
+            <DesligamentosGroupedChart
+              rows={desligView === "ano" ? d.deslig_por_ano : d.deslig_por_cargo}
+              motivoKeys={motivoKeys}
+              motivoNome={motivoNome}
+              desligView={desligView}
+              onSelectBar={(row, k) => {
+                const extra = desligView === "ano"
+                  ? { deslig_ini: `${row.ano}-01-01`, deslig_fim: `${row.ano}-12-31` }
+                  : { categoria: String(row.categoria), deslig_ini: d.periodo_inicio, deslig_fim: d.periodo_fim };
+                setDrill({
+                  title: `Desligamentos — ${motivoNome(k)} — ${row.ano ?? row.nome}`,
+                  params: { ...base, status: "DESLIGADO", motivo_id: k, ...extra },
+                  variant: "desligados",
+                });
+              }}
+            />
           ) : <Empty text="Nenhum desligamento registrado no período" />}
         </ChartCard>
 
@@ -222,56 +929,63 @@ export default function Dashboard() {
             </button>
           ) : undefined}>
           {ubm.length ? (
-            <div className={cn(ubmAll && "max-h-[560px] overflow-y-auto pr-1")}>
-              <ResponsiveContainer width="100%" height={Math.max(280, ubm.length * 26)}>
-                <BarChart data={ubm} layout="vertical" margin={{ left: 8, right: 24 }}>
-                  <CartesianGrid stroke="#1E2C42" horizontal={false} />
-                  <XAxis type="number" {...axis} allowDecimals={false} />
-                  <YAxis type="category" dataKey="nome" width={190} {...axis} tick={{ fill: "#CBD5E1", fontSize: 10 }} interval={0} />
-                  <Tooltip {...tooltipStyle} formatter={(x: number) => [fmtNum(x), "Ativos"]} />
-                  <Bar dataKey="total" fill="#3B82F6" radius={[0, 4, 4, 0]} className="cursor-pointer"
-                    onClick={(e: { payload?: { chave: string; nome: string } }) => {
-                      const p = e.payload;
-                      if (p) setDrill({ title: `${p.nome} — ativos`, params: { ...base, lotacao_id: p.chave, ativo_em: ref } });
-                    }} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <EfetivoUbmStyledChart
+              items={ubm}
+              ubmAll={ubmAll}
+              onSelectUbm={(p) =>
+                setDrill({
+                  title: `${p.nome} — ativos`,
+                  params: { ...base, lotacao_id: p.chave, ativo_em: ref },
+                })
+              }
+            />
           ) : <Empty />}
         </ChartCard>
 
         <ChartCard id="evolucao" title="Evolução do efetivo" desc="Inclusões e desligamentos por data do evento; efetivo ao fim de cada mês/ano."
+          className="flex flex-col"
           action={
             <Tabs value={evoView} onValueChange={(x) => setEvoView(String(x))}>
               <TabsList><TabsTrigger value="mensal" data-testid="evolucao-tab-mensal">Mensal</TabsTrigger><TabsTrigger value="anual" data-testid="evolucao-tab-anual">Anual</TabsTrigger></TabsList>
             </Tabs>
           }>
           {d && d.evolucao_mensal.length ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <ComposedChart data={evoView === "mensal" ? d.evolucao_mensal : d.evolucao_anual}>
-                <CartesianGrid stroke="#1E2C42" vertical={false} />
-                <XAxis dataKey={evoView === "mensal" ? "rotulo" : "ano"} {...axis} />
-                <YAxis yAxisId="l" {...axis} allowDecimals={false} />
-                <YAxis yAxisId="r" orientation="right" {...axis} allowDecimals={false} />
-                <Tooltip {...tooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar yAxisId="l" dataKey="inclusoes" name="Inclusões" fill="#10B981" radius={[3, 3, 0, 0]} className="cursor-pointer"
-                  onClick={(e: { payload?: ChartRow }) => {
-                    const r = e.payload;
-                    if (!r) return;
-                    const [ini, fim] = evoView === "mensal" ? [`${r.mes}-01`, `${r.mes}-31`] : [`${r.ano}-01-01`, `${r.ano}-12-31`];
-                    setDrill({ title: `Inclusões — ${r.rotulo ?? r.ano}`, params: { ...base, inclusao_ini: ini, inclusao_fim: fim } });
-                  }} />
-                <Bar yAxisId="l" dataKey="desligamentos" name="Desligamentos" fill="#EF4444" radius={[3, 3, 0, 0]} className="cursor-pointer"
-                  onClick={(e: { payload?: ChartRow }) => {
-                    const r = e.payload;
-                    if (!r) return;
-                    const [ini, fim] = evoView === "mensal" ? [`${r.mes}-01`, `${r.mes}-31`] : [`${r.ano}-01-01`, `${r.ano}-12-31`];
-                    setDrill({ title: `Desligamentos — ${r.rotulo ?? r.ano}`, params: { ...base, deslig_ini: ini, deslig_fim: fim }, variant: "desligados" });
-                  }} />
-                <Line yAxisId="r" type="monotone" dataKey="efetivo" name="Efetivo" stroke="#60A5FA" strokeWidth={2} dot={{ r: 3 }} />
-              </ComposedChart>
-            </ResponsiveContainer>
+            <div className="flex-1 min-h-[420px] w-full pt-2">
+              <ResponsiveContainer width="100%" height="100%" minHeight={420}>
+                <ComposedChart
+                  data={evoView === "mensal" ? d.evolucao_mensal : d.evolucao_anual}
+                  margin={{ top: 16, right: 12, left: 0, bottom: 8 }}
+                >
+                  <CartesianGrid stroke="#1E2C42" strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey={evoView === "mensal" ? "rotulo" : "ano"} {...axis} dy={6} />
+                  <YAxis yAxisId="l" {...axis} allowDecimals={false} width={36} />
+                  <YAxis yAxisId="r" orientation="right" {...axis} allowDecimals={false} width={40} />
+                  <Tooltip {...tooltipStyle} />
+                  <Legend
+                    verticalAlign="bottom"
+                    height={36}
+                    iconType="square"
+                    iconSize={10}
+                    wrapperStyle={{ fontSize: 12, paddingTop: 14, borderTop: "1px solid rgba(30, 44, 66, 0.8)" }}
+                  />
+                  <Bar yAxisId="l" dataKey="inclusoes" name="Inclusões" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={38} className="cursor-pointer"
+                    onClick={(e: { payload?: ChartRow }) => {
+                      const r = e.payload;
+                      if (!r) return;
+                      const [ini, fim] = evoView === "mensal" ? [`${r.mes}-01`, `${r.mes}-31`] : [`${r.ano}-01-01`, `${r.ano}-12-31`];
+                      setDrill({ title: `Inclusões — ${r.rotulo ?? r.ano}`, params: { ...base, inclusao_ini: ini, inclusao_fim: fim } });
+                    }} />
+                  <Bar yAxisId="l" dataKey="desligamentos" name="Desligamentos" fill="#EF4444" radius={[4, 4, 0, 0]} maxBarSize={38} className="cursor-pointer"
+                    onClick={(e: { payload?: ChartRow }) => {
+                      const r = e.payload;
+                      if (!r) return;
+                      const [ini, fim] = evoView === "mensal" ? [`${r.mes}-01`, `${r.mes}-31`] : [`${r.ano}-01-01`, `${r.ano}-12-31`];
+                      setDrill({ title: `Desligamentos — ${r.rotulo ?? r.ano}`, params: { ...base, deslig_ini: ini, deslig_fim: fim }, variant: "desligados" });
+                    }} />
+                  <Line yAxisId="r" type="monotone" dataKey="efetivo" name="Efetivo" stroke="#60A5FA" strokeWidth={2.5} dot={{ r: 3.5, fill: "#60A5FA", strokeWidth: 0 }} activeDot={{ r: 5 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
           ) : <Empty />}
         </ChartCard>
 
@@ -282,25 +996,20 @@ export default function Dashboard() {
             </Tabs>
           }>
           {d && (distView === "cargo" ? d.dist_categoria : d.dist_edital).length ? (
-            <ResponsiveContainer width="100%" height={320}>
-              <PieChart style={{ fontSize: 11 }}>
-                <Pie data={distView === "cargo" ? d.dist_categoria : d.dist_edital} dataKey="total" nameKey="nome" innerRadius={55} outerRadius={90} paddingAngle={2} stroke="#121B28" className="cursor-pointer"
-                  labelLine={{ stroke: "#475569" }}
-                  label={(p: { name?: string; value?: number; percent?: number }) =>
-                    `${String(p.name ?? "").slice(0, 24)}: ${fmtNum(p.value ?? 0)} (${Math.round((p.percent ?? 0) * 100)}%)`}
-                  onClick={(e: { payload?: { chave: string; nome: string } }) => {
-                    const p = e.payload;
-                    if (!p) return;
-                    setDrill({ title: `${p.nome} — ativos`, params: { ...base, ...(distView === "cargo" ? { categoria: p.chave } : { edital_id: p.chave }), ativo_em: ref } });
-                  }}>
-                  {(distView === "cargo" ? d.dist_categoria : d.dist_edital).map((x, i) => (
-                    <Cell key={x.chave} fill={distView === "cargo" ? catColor(x.chave, i) : PALETTE[(i + 2) % PALETTE.length]} />
-                  ))}
-                </Pie>
-                <Tooltip {...tooltipStyle} formatter={(x: number) => [fmtNum(x), "Ativos"]} />
-                <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} layout="horizontal" align="center" verticalAlign="bottom" />
-              </PieChart>
-            </ResponsiveContainer>
+            <DistribuicaoStyledChart
+              items={distView === "cargo" ? d.dist_categoria : d.dist_edital}
+              distView={distView}
+              onSelectSlice={(p) =>
+                setDrill({
+                  title: `${p.nome} — ativos`,
+                  params: {
+                    ...base,
+                    ...(distView === "cargo" ? { categoria: p.chave } : { edital_id: p.chave }),
+                    ativo_em: ref,
+                  },
+                })
+              }
+            />
           ) : <Empty />}
         </ChartCard>
 
