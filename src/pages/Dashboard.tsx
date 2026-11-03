@@ -868,7 +868,7 @@ export default function Dashboard() {
           onClick={() => setDrill({ title: "Temporários ativos", params: { ...base, status: "ATIVO", ativo_em: ref } })} />
         <Kpi id="desligamentos" label="Distratos / desligamentos" value={v(d?.kpis.desligamentos_periodo)} icon={UserMinus} tone="red" sub={periodoTxt}
           onClick={() => setDrill({ title: "Desligamentos no período", params: { ...deslParams, status: "DESLIGADO" }, variant: "desligados" })} />
-        <Kpi id="top-ubm" label="Efetivo por UBM (maior)" value={d ? fmtNum(d.kpis.top_ubm_total) : "—"} icon={Building2} tone="blue" sub={d?.kpis.top_ubm_nome ?? "—"}
+        <Kpi id="top-ubm" label="UBM DE MAIOR EFETIVO" value={d ? fmtNum(d.kpis.top_ubm_total) : "—"} icon={Building2} tone="blue" sub={d?.kpis.top_ubm_nome ?? "—"}
           onClick={() => d?.kpis.top_ubm_id && setDrill({ title: d.kpis.top_ubm_nome ?? "UBM", params: { ...base, status: "ATIVO", lotacao_id: d.kpis.top_ubm_id, ativo_em: ref } })} />
         <Kpi id="contratos-a-vencer" label="Contratos a vencer" value={v(d?.kpis.a_vencer)} icon={Clock} tone="amber" sub={`Próximos ${d?.alerta_dias ?? "—"} dias`}
           onClick={() => setDrill({ title: "Contratos a vencer", params: { ...base, status: "ATIVO", venc: "a_vencer" } })} />
