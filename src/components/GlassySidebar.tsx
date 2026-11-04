@@ -116,12 +116,6 @@ export default function GlassySidebar({
       end: true,
     },
     {
-      id: "quadro-destaque",
-      to: "/quadro/AUXILIAR",
-      label: "Efetivo & Lotação",
-      icon: Wallet,
-    },
-    {
       id: "desligamentos",
       to: "/desligamentos",
       label: "Desligamentos",
@@ -180,7 +174,7 @@ export default function GlassySidebar({
     return (
       <div
         key={item.id}
-        className="relative"
+        className="relative flex justify-center"
         onMouseEnter={() => setHoveredItem(item.id)}
         onMouseLeave={() => setHoveredItem(null)}
       >
@@ -192,7 +186,9 @@ export default function GlassySidebar({
           className={({ isActive }) =>
             cn(
               "group relative flex items-center rounded-2xl transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-              isExpanded ? "gap-3 px-3.5 py-2.5" : "mx-auto size-11 justify-center p-0",
+              isExpanded
+                ? "w-full gap-3 px-3.5 py-2.5"
+                : "size-11 justify-center p-0",
               isActive
                 ? "bg-blue-600/15 text-white ring-1 ring-blue-500/30 shadow-[0_8px_20px_-6px_rgba(0,0,0,0.45)]"
                 : "text-slate-400 hover:bg-[#182335] hover:text-slate-100"
@@ -227,10 +223,10 @@ export default function GlassySidebar({
               {/* Rótulo com transição suave e atraso leve na expansão */}
               <div
                 className={cn(
-                  "flex flex-1 items-center justify-between overflow-hidden whitespace-nowrap transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                  "items-center justify-between overflow-hidden whitespace-nowrap transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
                   isExpanded
-                    ? "w-auto opacity-100 delay-75"
-                    : "pointer-events-none w-0 opacity-0"
+                    ? "flex flex-1 w-auto opacity-100 delay-75"
+                    : "hidden pointer-events-none w-0 opacity-0"
                 )}
               >
                 <span
@@ -312,14 +308,17 @@ export default function GlassySidebar({
       <div
         className={cn(
           "relative flex items-center pt-4 pb-3 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
-          isExpanded ? "justify-between px-4" : "justify-center px-2"
+          isExpanded ? "justify-between px-4" : "justify-center px-0"
         )}
       >
         <Link
           to="/"
           onClick={onNavigate}
           data-testid="brand-link"
-          className="group flex min-w-0 items-center gap-3 focus:outline-none"
+          className={cn(
+            "group flex min-w-0 items-center focus:outline-none",
+            isExpanded ? "gap-3" : "justify-center"
+          )}
         >
           {/* Logo Circular Vermelho institucional */}
           <div className="relative flex size-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-red-500 via-red-600 to-red-700 shadow-[0_6px_16px_rgba(239,68,68,0.45)] ring-1 ring-white/25 transition-transform duration-300 group-hover:scale-105">
@@ -334,10 +333,10 @@ export default function GlassySidebar({
           {/* Título em duas linhas com fade-in/out suave */}
           <div
             className={cn(
-              "flex flex-col overflow-hidden whitespace-nowrap transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+              "overflow-hidden whitespace-nowrap transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
               isExpanded
-                ? "w-auto opacity-100 delay-75"
-                : "pointer-events-none w-0 opacity-0"
+                ? "flex flex-col w-auto opacity-100 delay-75"
+                : "hidden pointer-events-none w-0 opacity-0"
             )}
           >
             <span className="font-sans text-[15px] font-bold leading-tight tracking-tight text-white">
@@ -388,7 +387,12 @@ export default function GlassySidebar({
       </div>
 
       {/* 2. MENU CENTRAL (MAIN & WORKSPACE COM TREE-VIEW) */}
-      <nav className="flex-1 space-y-4 overflow-y-auto overflow-x-hidden px-3 py-2 scrollbar-none">
+      <nav
+        className={cn(
+          "flex-1 space-y-4 overflow-y-auto overflow-x-hidden py-2 scrollbar-none",
+          isExpanded ? "px-3" : "px-0"
+        )}
+      >
         {/* GRUPO MAIN */}
         <div className="space-y-1">
           <div
@@ -406,7 +410,7 @@ export default function GlassySidebar({
         </div>
 
         {/* Divisor quando colapsado */}
-        {!isExpanded && <div className="mx-3 h-px bg-[#1E2C42]" />}
+        {!isExpanded && <div className="mx-auto w-8 h-px bg-[#1E2C42]" />}
 
         {/* GRUPO WORKSPACE */}
         <div className="space-y-1">
@@ -427,7 +431,7 @@ export default function GlassySidebar({
           {/* Menu Retrátil tipo Árvore (Tree-View): Quadros de Efetivo */}
           <div className="space-y-1">
             <div
-              className="relative"
+              className="relative flex justify-center"
               onMouseEnter={() => setHoveredItem("__projects_tree__")}
               onMouseLeave={() => setHoveredItem(null)}
             >
@@ -443,10 +447,10 @@ export default function GlassySidebar({
                   }
                 }}
                 className={cn(
-                  "group relative flex w-full items-center rounded-2xl transition-all duration-300 cursor-pointer",
+                  "group relative flex items-center rounded-2xl transition-all duration-300 cursor-pointer",
                   isExpanded
-                    ? "gap-3 px-3.5 py-2.5"
-                    : "mx-auto size-11 justify-center p-0",
+                    ? "w-full gap-3 px-3.5 py-2.5"
+                    : "size-11 justify-center p-0",
                   isQuadroActive
                     ? "bg-blue-600/15 text-white ring-1 ring-blue-500/30"
                     : "text-slate-400 hover:bg-[#182335] hover:text-slate-100"
@@ -460,10 +464,10 @@ export default function GlassySidebar({
                 />
                 <div
                   className={cn(
-                    "flex flex-1 items-center justify-between overflow-hidden whitespace-nowrap transition-all duration-300",
+                    "items-center justify-between overflow-hidden whitespace-nowrap transition-all duration-300",
                     isExpanded
-                      ? "w-auto opacity-100 delay-75"
-                      : "pointer-events-none w-0 opacity-0"
+                      ? "flex flex-1 w-auto opacity-100 delay-75"
+                      : "hidden pointer-events-none w-0 opacity-0"
                   )}
                 >
                   <span
@@ -544,16 +548,16 @@ export default function GlassySidebar({
       </nav>
 
       {/* 3. RODAPÉ (CARD DE PERFIL DO USUÁRIO) */}
-      <div className="mt-auto border-t border-[#1E2C42] px-3 pt-2.5 pb-3.5">
+      <div className={cn("mt-auto border-t border-[#1E2C42] pt-2.5 pb-3.5", isExpanded ? "px-3" : "px-0")}>
         <div
-          className="relative"
+          className="relative flex justify-center"
           onMouseEnter={() => setHoveredItem("__user_profile__")}
           onMouseLeave={() => setHoveredItem(null)}
         >
           <div
             className={cn(
               "flex items-center rounded-2xl border border-[#1E2C42] bg-[#182335]/70 transition-all duration-300",
-              isExpanded ? "justify-between gap-2.5 p-2.5" : "mx-auto size-11 justify-center p-0"
+              isExpanded ? "w-full justify-between gap-2.5 p-2.5" : "size-11 justify-center p-0"
             )}
           >
             {/* Avatar redondo com ponto verde brilhante (status online) */}
@@ -570,10 +574,10 @@ export default function GlassySidebar({
             {/* Nome e E-mail */}
             <div
               className={cn(
-                "min-w-0 flex-1 overflow-hidden transition-all duration-300",
+                "min-w-0 overflow-hidden transition-all duration-300",
                 isExpanded
-                  ? "w-auto opacity-100 delay-75"
-                  : "pointer-events-none w-0 opacity-0"
+                  ? "flex-1 w-auto opacity-100 delay-75"
+                  : "hidden pointer-events-none w-0 opacity-0"
               )}
             >
               <p className="truncate font-sans text-[13px] font-bold leading-tight text-slate-100">

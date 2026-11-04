@@ -649,15 +649,15 @@ function DistribuicaoStyledChart({
     const RADIAN = Math.PI / 180;
     const sin = Math.sin(-RADIAN * midAngle);
     const cos = Math.cos(-RADIAN * midAngle);
-    const sx = cx + (outerRadius + 4) * cos;
-    const sy = cy + (outerRadius + 4) * sin;
-    const mx = cx + (outerRadius + 18) * cos;
-    const my = cy + (outerRadius + 18) * sin;
-    const ex = mx + (cos >= 0 ? 1 : -1) * 10;
+    const sx = cx + (outerRadius + 5) * cos;
+    const sy = cy + (outerRadius + 5) * sin;
+    const mx = cx + (outerRadius + 20) * cos;
+    const my = cy + (outerRadius + 20) * sin;
+    const ex = mx + (cos >= 0 ? 1 : -1) * 12;
     const ey = my;
     const textAnchor = cos >= 0 ? "start" : "end";
     const pct = Math.round((percent ?? 0) * 100);
-    const shortName = String(name ?? "").length > 20 ? `${String(name).slice(0, 19)}…` : String(name ?? "");
+    const shortName = String(name ?? "").length > 24 ? `${String(name).slice(0, 23)}…` : String(name ?? "");
     const badgeText = `${fmtNum(value)} (${pct}%)`;
     const isDimmed = hoveredKey !== null && hoveredKey !== item.chave;
     const isHighlighted = hoveredKey === item.chave;
@@ -670,25 +670,25 @@ function DistribuicaoStyledChart({
         <path
           d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`}
           stroke={item.color}
-          strokeWidth={isHighlighted ? 2 : 1.25}
+          strokeWidth={isHighlighted ? 2.25 : 1.5}
           fill="none"
         />
-        <circle cx={ex} cy={ey} r={2.5} fill={item.color} />
+        <circle cx={ex} cy={ey} r={3} fill={item.color} />
         <text
-          x={ex + (cos >= 0 ? 6 : -6)}
-          y={ey - 4}
+          x={ex + (cos >= 0 ? 7 : -7)}
+          y={ey - 5}
           textAnchor={textAnchor}
           fill="#E2E8F0"
-          className="font-sans text-[10.5px] font-medium"
+          className="font-sans text-[12px] font-semibold"
         >
           {shortName}
         </text>
         <text
-          x={ex + (cos >= 0 ? 6 : -6)}
-          y={ey + 9}
+          x={ex + (cos >= 0 ? 7 : -7)}
+          y={ey + 11}
           textAnchor={textAnchor}
           fill="#FFFFFF"
-          className="num text-[11px] font-bold"
+          className="num text-[12.5px] font-bold"
         >
           {badgeText}
         </text>
@@ -698,18 +698,18 @@ function DistribuicaoStyledChart({
 
   return (
     <div className="flex flex-col select-none" data-testid="distribuicao-styled-chart">
-      <div className="relative h-[270px] w-full">
+      <div className="relative h-[330px] w-full">
         {/* Center Donut Total Label */}
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="num text-2xl font-extrabold text-white">
+          <span className="num text-3xl font-extrabold text-white">
             {fmtNum(totalGeral)}
           </span>
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+          <span className="mt-0.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
             Ativos
           </span>
         </div>
 
-        <ResponsiveContainer width="100%" height={270}>
+        <ResponsiveContainer width="100%" height={330}>
           <PieChart>
             <Pie
               data={enriched}
@@ -717,8 +717,8 @@ function DistribuicaoStyledChart({
               nameKey="nome"
               cx="50%"
               cy="50%"
-              innerRadius={56}
-              outerRadius={86}
+              innerRadius={72}
+              outerRadius={112}
               paddingAngle={3}
               stroke="#121B28"
               strokeWidth={2}
@@ -756,7 +756,7 @@ function DistribuicaoStyledChart({
 
       {/* Redesigned Legend Footer with Value Tags */}
       <div
-        className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2.5 border-t border-[#1E2C42]/80 pt-3.5 px-2"
+        className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-3 border-t border-[#1E2C42]/80 pt-4 px-2"
         data-testid="distribuicao-legend"
       >
         {enriched.map((x) => {
@@ -769,22 +769,22 @@ function DistribuicaoStyledChart({
               onMouseLeave={() => setHoveredKey(null)}
               onClick={() => onSelectSlice(x)}
               className={cn(
-                "inline-flex items-center gap-2 rounded-md px-2 py-1 text-left transition-colors cursor-pointer",
+                "inline-flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors cursor-pointer",
                 active ? "bg-[#182335] text-white" : "text-slate-300 hover:bg-[#182335]/60 hover:text-white"
               )}
             >
               <span
-                className="size-3 shrink-0 rounded-[3px] shadow-xs"
+                className="size-3.5 shrink-0 rounded-[4px] shadow-xs"
                 style={{
                   backgroundColor: x.color,
                   boxShadow: `0 0 0 1px ${x.color}55`,
                 }}
               />
-              <span className="font-sans text-xs font-medium tracking-tight text-slate-200">
+              <span className="font-sans text-[13.5px] font-semibold tracking-tight text-slate-200">
                 {x.nome}
               </span>
               <span
-                className="rounded border px-1.5 py-0.5 num text-[10px] font-bold text-white"
+                className="rounded-md border px-2 py-0.5 num text-xs font-bold text-white"
                 style={{
                   backgroundColor: "#162234",
                   borderColor: `${x.color}77`,
