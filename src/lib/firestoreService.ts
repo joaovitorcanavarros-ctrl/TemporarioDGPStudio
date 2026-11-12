@@ -46,6 +46,7 @@ import type {
   UserOut,
   UsuarioIn,
 } from "./types";
+import { getInfoContrato } from "./types";
 
 export { exportFile };
 
@@ -76,6 +77,9 @@ export interface CloudCacheState {
     atualizado_em: string | null;
     criado_por: string | null;
     atualizado_por: string | null;
+    renovacao_contrato?: boolean;
+    ano_contrato?: number;
+    qtd_renovacoes?: number;
   }>;
   usuarios: Array<{
     id: string;
@@ -116,6 +120,14 @@ function cleanAvnm<T>(obj: T): T {
 
 function sanitizeMilitarRecord(raw: Record<string, any>): CloudCacheState["militares"][number] {
   const cleaned = cleanAvnm(raw);
+  const infoContrato = getInfoContrato({
+    data_inclusao: cleaned.data_inclusao,
+    data_vencimento_contrato: cleaned.data_vencimento_contrato,
+    renovacao_contrato: cleaned.renovacao_contrato,
+    ano_contrato: cleaned.ano_contrato,
+    qtd_renovacoes: cleaned.qtd_renovacoes,
+  });
+
   return {
     id: String(cleaned.id || `mil_${Date.now()}`),
     matricula: String(cleaned.matricula || "").trim(),
@@ -148,6 +160,9 @@ function sanitizeMilitarRecord(raw: Record<string, any>): CloudCacheState["milit
     atualizado_em: cleaned.atualizado_em ? String(cleaned.atualizado_em) : null,
     criado_por: cleaned.criado_por ? String(cleaned.criado_por) : null,
     atualizado_por: cleaned.atualizado_por ? String(cleaned.atualizado_por) : null,
+    renovacao_contrato: infoContrato.renovado,
+    ano_contrato: infoContrato.anoContrato,
+    qtd_renovacoes: infoContrato.qtdRenovacoes,
   };
 }
 
@@ -216,6 +231,8 @@ async function persistMilitarExplicitly(militar: CloudCacheState["militares"][nu
   void queryClient.invalidateQueries({ queryKey: ["militares"] });
   void queryClient.invalidateQueries({ queryKey: ["situacao"] });
   void queryClient.invalidateQueries({ queryKey: ["relatorio"] });
+  void queryClient.invalidateQueries({ queryKey: ["militar", sanitized.id] });
+  void queryClient.invalidateQueries({ queryKey: ["militar"] });
 }
 
 /**
@@ -573,6 +590,8 @@ function enrichMilitar(m: CloudCacheState["militares"][number], hoje: string, al
   const criador = state.usuarios.find((u) => u.id === m.criado_por);
   const atualizador = state.usuarios.find((u) => u.id === m.atualizado_por);
 
+  const infoContrato = getInfoContrato(m);
+
   return {
     ...m,
     data_inclusao: m.data_inclusao || "",
@@ -592,6 +611,9 @@ function enrichMilitar(m: CloudCacheState["militares"][number], hoje: string, al
     alerta: alertaContrato(m, hoje, alertaDias),
     criado_por_nome: criador?.nome || "Sistema",
     atualizado_por_nome: atualizador?.nome || "Sistema",
+    renovacao_contrato: infoContrato.renovado,
+    ano_contrato: infoContrato.anoContrato,
+    qtd_renovacoes: infoContrato.qtdRenovacoes,
   };
 }
 
@@ -1327,17 +1349,35 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     if (inclusao_ini) list = list.filter((m) => m.data_inclusao >= inclusao_ini);
     if (inclusao_fim) list = list.filter((m) => m.data_inclusao <= inclusao_fim);
 
-    const deslig_ini = searchParams.get("deslig_ini");
-    const deslig_fim = searchParams.get("deslig_fim");
-    if (deslig_ini) list = list.filter((m) => m.data_desligamento && m.data_desligamento >= deslig_ini);
-    if (deslig_fim) list = list.filter((m) => m.data_desligamento && m.data_desligamento <= deslig_fim);
-
     const ano = searchParams.get("ano");
     const data_inicio = searchParams.get("data_inicio");
     const data_fim = searchParams.get("data_fim");
+    const deslig_ini = searchParams.get("deslig_ini");
+    const deslig_fim = searchParams.get("deslig_fim");
+
+    const isDesligado = status === "DESLIGADO";
+    const eff_deslig_ini = deslig_ini || (isDesligado ? data_inicio : null);
+    const eff_deslig_fim = deslig_fim || (isDesligado ? data_fim : null);
+
+    if (eff_deslig_ini) {
+      list = list.filter((m) => {
+        const dt = m.data_desligamento || (m.atualizado_em ? m.atualizado_em.slice(0, 10) : null);
+        return Boolean(dt && dt >= eff_deslig_ini);
+      });
+    }
+    if (eff_deslig_fim) {
+      list = list.filter((m) => {
+        const dt = m.data_desligamento || (m.atualizado_em ? m.atualizado_em.slice(0, 10) : null);
+        return Boolean(dt && dt <= eff_deslig_fim);
+      });
+    }
 
     if (ano) {
       list = list.filter((m) => {
+        if (isDesligado) {
+          const dt = m.data_desligamento || (m.atualizado_em ? m.atualizado_em.slice(0, 10) : "");
+          return dt.startsWith(ano);
+        }
         const incAno = m.data_inclusao ? m.data_inclusao.slice(0, 4) : "";
         const edital = state.editais.find((e) => e.id === m.edital_id);
         const editalAno = edital?.ano ? String(edital.ano) : "";
@@ -1345,7 +1385,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
           m.data_inclusao <= `${ano}-12-31` && (!m.data_desligamento || m.data_desligamento >= `${ano}-01-01`);
         return incAno === ano || editalAno === ano || activeInYear;
       });
-    } else {
+    } else if (!isDesligado) {
       if (data_inicio) {
         list = list.filter(
           (m) =>
@@ -1426,6 +1466,11 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       atualizado_em: new Date().toISOString(),
       criado_por: user.id,
       atualizado_por: user.id,
+      renovacao_contrato: Boolean(
+        b.renovacao_contrato ||
+        (b.data_inclusao && String(b.data_inclusao).startsWith("2025") &&
+         b.data_vencimento_contrato && String(b.data_vencimento_contrato) >= "2027-01-01")
+      ),
     };
     state.militares.unshift(newDoc);
     state.situacoes.unshift({
@@ -1525,6 +1570,19 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       checkField("DOE Incorporação", doc.doe_incorporacao, b.doe_incorporacao);
       checkField("Observações", doc.observacoes, b.observacoes);
 
+      const isRenov =
+        b.renovacao_contrato !== undefined
+          ? Boolean(b.renovacao_contrato)
+          : doc.renovacao_contrato;
+
+      const infoAtualizada = getInfoContrato({
+        data_inclusao: b.data_inclusao,
+        data_vencimento_contrato: b.data_vencimento_contrato,
+        renovacao_contrato: isRenov,
+        ano_contrato: b.ano_contrato,
+        qtd_renovacoes: b.qtd_renovacoes,
+      });
+
       Object.assign(doc, {
         matricula: b.matricula.trim(),
         nome_completo: b.nome_completo.trim().toUpperCase(),
@@ -1540,9 +1598,18 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         data_desligamento: b.data_desligamento || null,
         motivo_desligamento_id: b.motivo_desligamento_id || null,
         documento_desligamento: b.documento_desligamento || null,
+        renovacao_contrato: infoAtualizada.renovado,
+        ano_contrato: infoAtualizada.anoContrato,
+        qtd_renovacoes: infoAtualizada.qtdRenovacoes,
         atualizado_em: new Date().toISOString(),
         atualizado_por: user.id,
       });
+
+      if (infoAtualizada.renovado) {
+        depois["Renovação de Contrato"] = `Sim (${infoAtualizada.rotuloCompleto} - ${infoAtualizada.qtdRenovacoes}ª renovação)`;
+      } else {
+        depois["Renovação de Contrato"] = "Não (Contrato inicial - 1º ano)";
+      }
 
       await logAudit({
         entidade: "Militar",
@@ -1581,6 +1648,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         void queryClient.invalidateQueries({ queryKey: ["militares"] });
         void queryClient.invalidateQueries({ queryKey: ["situacao"] });
         void queryClient.invalidateQueries({ queryKey: ["relatorio"] });
+        void queryClient.invalidateQueries({ queryKey: ["militar", id] });
+        void queryClient.invalidateQueries({ queryKey: ["militar"] });
         return { ok: true, id } as T;
       }
       throw { status: 404, body: { detail: "Militar não encontrado" } };
@@ -1622,6 +1691,26 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       antes["Observações"] = doc.observacoes || "—";
       depois["Observações"] = b.observacoes || "—";
       doc.observacoes = b.observacoes;
+    }
+    if (b.renovacao_contrato !== undefined) {
+      doc.renovacao_contrato = Boolean(b.renovacao_contrato);
+    }
+
+    const infoAtualizada = getInfoContrato({
+      data_inclusao: doc.data_inclusao,
+      data_vencimento_contrato: doc.data_vencimento_contrato,
+      renovacao_contrato: doc.renovacao_contrato,
+      ano_contrato: b.ano_contrato,
+      qtd_renovacoes: b.qtd_renovacoes,
+    });
+    doc.renovacao_contrato = infoAtualizada.renovado;
+    doc.ano_contrato = infoAtualizada.anoContrato;
+    doc.qtd_renovacoes = infoAtualizada.qtdRenovacoes;
+
+    if (infoAtualizada.renovado) {
+      depois["Renovação de Contrato"] = `Sim (${infoAtualizada.rotuloCompleto} - ${infoAtualizada.qtdRenovacoes}ª renovação)`;
+    } else {
+      depois["Renovação de Contrato"] = "Não (Contrato inicial - 1º ano)";
     }
 
     doc.atualizado_em = new Date().toISOString();
@@ -1777,7 +1866,16 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     const edital_id = searchParams.get("edital_id");
     if (edital_id) recs = recs.filter((m) => m.edital_id === edital_id);
     const status = searchParams.get("status");
-    if (status) recs = recs.filter((m) => m.status === status);
+    if (status && tipo !== "desligamentos") recs = recs.filter((m) => m.status === status);
+
+    const ano = searchParams.get("ano");
+    const mes_ano = searchParams.get("mes_ano");
+    const data_inicio = searchParams.get("data_inicio");
+    const data_fim = searchParams.get("data_fim");
+    const deslig_ini = searchParams.get("deslig_ini");
+    const deslig_fim = searchParams.get("deslig_fim");
+    const inclusao_ini = searchParams.get("inclusao_ini");
+    const inclusao_fim = searchParams.get("inclusao_fim");
 
     let titulo = "Relatório";
     let descricao = "";
@@ -1787,7 +1885,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     if (tipo === "efetivo-cargo") {
       titulo = "Efetivo ativo por cargo";
       descricao = "Militares ativos na data de referência, agrupados por cargo.";
-      const ativos = recs.filter((m) => m.status === "ATIVO");
+      const refDate = data_fim || (ano ? `${ano}-12-31` : hoje);
+      const ativos = recs.filter((m) => ativoEm(m, refDate, hoje));
       const counts: Record<string, { categoria: string; cargo: string; total: number }> = {};
       for (const m of ativos) {
         const k = `${m.categoria_nome}|${m.cargo_nome}`;
@@ -1804,7 +1903,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     } else if (tipo === "efetivo-ubm") {
       titulo = "Efetivo ativo por UBM";
       descricao = "Militares ativos na data de referência, agrupados por lotação.";
-      const ativos = recs.filter((m) => m.status === "ATIVO");
+      const refDate = data_fim || (ano ? `${ano}-12-31` : hoje);
+      const ativos = recs.filter((m) => ativoEm(m, refDate, hoje));
       const counts: Record<string, number> = {};
       for (const m of ativos) {
         counts[m.lotacao_nome] = (counts[m.lotacao_nome] || 0) + 1;
@@ -1820,8 +1920,15 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     } else if (tipo === "por-edital") {
       titulo = "Temporários por edital";
       descricao = "Registros que integraram o efetivo no período, por edital/processo seletivo.";
+      let filteredRecs = recs;
+      if (ano) {
+        filteredRecs = filteredRecs.filter((m) => {
+          const edital = state.editais.find((e) => e.id === m.edital_id);
+          return edital?.ano === Number(ano) || String(edital?.ano) === ano;
+        });
+      }
       const counts: Record<string, { edital: string; ativos: number; desligados: number; total: number }> = {};
-      for (const m of recs) {
+      for (const m of filteredRecs) {
         if (!counts[m.edital_nome]) {
           counts[m.edital_nome] = { edital: m.edital_nome, ativos: 0, desligados: 0, total: 0 };
         }
@@ -1839,8 +1946,10 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     } else if (tipo === "a-vencer") {
       titulo = "Contratos a vencer";
       descricao = `Contratos ativos com vencimento dentro do prazo de alerta configurado (${alertaDias} dias).`;
+      const vIni = data_inicio || (ano ? `${ano}-01-01` : null);
+      const vFim = data_fim || (ano ? `${ano}-12-31` : null);
       linhas = recs
-        .filter((m) => m.status === "ATIVO" && m.alerta === "A_VENCER")
+        .filter((m) => m.status === "ATIVO" && m.alerta === "A_VENCER" && noPeriodo(m.data_vencimento_contrato, vIni, vFim))
         .sort((a, b) => (a.data_vencimento_contrato || "").localeCompare(b.data_vencimento_contrato || ""));
       colunas = [
         { key: "matricula", label: "Matrícula" },
@@ -1854,8 +1963,10 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     } else if (tipo === "vencidos") {
       titulo = "Contratos vencidos pendentes de conferência";
       descricao = "Cadastros ativos cuja data final do vínculo já passou.";
+      const vIni = data_inicio || (ano ? `${ano}-01-01` : null);
+      const vFim = data_fim || (ano ? `${ano}-12-31` : null);
       linhas = recs
-        .filter((m) => m.status === "ATIVO" && m.alerta === "VENCIDO")
+        .filter((m) => m.status === "ATIVO" && m.alerta === "VENCIDO" && noPeriodo(m.data_vencimento_contrato, vIni, vFim))
         .sort((a, b) => (a.data_vencimento_contrato || "").localeCompare(b.data_vencimento_contrato || ""));
       colunas = [
         { key: "matricula", label: "Matrícula" },
@@ -1869,7 +1980,11 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     } else if (tipo === "inclusoes") {
       titulo = "Inclusões por período";
       descricao = "Militares cuja data de inclusão está no período selecionado.";
-      linhas = [...recs].sort((a, b) => (b.data_inclusao || "").localeCompare(a.data_inclusao || ""));
+      const iIni = inclusao_ini || data_inicio || (ano ? `${ano}-01-01` : null);
+      const iFim = inclusao_fim || data_fim || (ano ? `${ano}-12-31` : null);
+      linhas = recs
+        .filter((m) => noPeriodo(m.data_inclusao, iIni, iFim))
+        .sort((a, b) => (b.data_inclusao || "").localeCompare(a.data_inclusao || ""));
       colunas = [
         { key: "matricula", label: "Matrícula" },
         { key: "nome_completo", label: "Nome completo" },
@@ -1878,11 +1993,96 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         { key: "data_inclusao", label: "Inclusão" },
         { key: "status", label: "Situação" },
       ];
+    } else if (tipo === "renovacoes") {
+      titulo = "Renovação de contratos";
+      descricao = "Militares com renovação de contrato de prestação de serviço militar no período selecionado.";
+      const rIni = data_inicio || (ano ? `${ano}-01-01` : null);
+      const rFim = data_fim || (ano ? `${ano}-12-31` : null);
+
+      const todasRenovacoes: any[] = [];
+
+      for (const m of recs) {
+        const info = getInfoContrato(m);
+        if (!info.renovado || info.qtdRenovacoes <= 0) continue;
+
+        let incDate = m.data_inclusao ? String(m.data_inclusao).slice(0, 10) : "";
+        if (!incDate && m.data_vencimento_contrato) {
+          const vencYear = Number(String(m.data_vencimento_contrato).slice(0, 4));
+          const estIncYear = vencYear - info.anoContrato;
+          incDate = `${estIncYear}-04-29`;
+        }
+        if (!incDate) continue;
+
+        const parts = incDate.split("-").map(Number);
+        if (parts.length < 3 || isNaN(parts[0])) continue;
+        const [incAno, incMes, incDia] = parts;
+
+        const qtd = info.qtdRenovacoes;
+        for (let r = 1; r <= qtd; r++) {
+          const anoRenov = incAno + r;
+          const dtRenov = `${anoRenov}-${String(incMes).padStart(2, "0")}-${String(incDia).padStart(2, "0")}`;
+
+          // Filtra por mês/ano se informado (ex.: "2026-04") ou por ano (ex.: "2026")
+          if (mes_ano) {
+            if (!dtRenov.startsWith(mes_ano)) {
+              continue;
+            }
+          } else if (ano && String(anoRenov) !== String(ano) && !dtRenov.startsWith(String(ano))) {
+            continue;
+          }
+          // Filtra por período (data_inicio / data_fim)
+          if ((rIni || rFim) && !noPeriodo(dtRenov, rIni, rFim)) {
+            continue;
+          }
+
+          const dtVenc = (r === qtd && m.data_vencimento_contrato)
+            ? String(m.data_vencimento_contrato).slice(0, 10)
+            : `${anoRenov + 1}-${String(incMes).padStart(2, "0")}-${String(incDia).padStart(2, "0")}`;
+
+          todasRenovacoes.push({
+            matricula: m.matricula,
+            nome_completo: m.nome_completo,
+            cargo_nome: m.cargo_nome,
+            lotacao_nome: m.lotacao_nome,
+            edital_nome: m.edital_nome,
+            data_inclusao: incDate,
+            data_renovacao: dtRenov,
+            rotulo_ano: `${r + 1}º Ano de Contrato`,
+            nova_vigencia: dtVenc,
+            status: m.status,
+          });
+        }
+      }
+
+      linhas = todasRenovacoes.sort((a, b) => b.data_renovacao.localeCompare(a.data_renovacao));
+
+      colunas = [
+        { key: "matricula", label: "Matrícula" },
+        { key: "nome_completo", label: "Nome completo" },
+        { key: "cargo_nome", label: "Cargo" },
+        { key: "lotacao_nome", label: "Lotação/UBM" },
+        { key: "data_inclusao", label: "Inclusão" },
+        { key: "data_renovacao", label: "Data da renovação" },
+        { key: "rotulo_ano", label: "Ano do contrato" },
+        { key: "nova_vigencia", label: "Nova vigência" },
+        { key: "status", label: "Situação" },
+      ];
     } else if (tipo === "desligamentos") {
       titulo = "Desligamentos por período e motivo";
       descricao = "Desligamentos com data efetiva no período selecionado.";
+      const dIni = deslig_ini || data_inicio || (ano ? `${ano}-01-01` : null);
+      const dFim = deslig_fim || data_fim || (ano ? `${ano}-12-31` : null);
+
       linhas = recs
-        .filter((m) => m.status === "DESLIGADO")
+        .filter((m) => {
+          if (m.status !== "DESLIGADO") return false;
+          const dtDeslig = m.data_desligamento || (m.atualizado_em ? m.atualizado_em.slice(0, 10) : null);
+          return noPeriodo(dtDeslig, dIni, dFim);
+        })
+        .map((m) => ({
+          ...m,
+          data_desligamento: m.data_desligamento || (m.atualizado_em ? m.atualizado_em.slice(0, 10) : "—"),
+        }))
         .sort((a, b) => (b.data_desligamento || "").localeCompare(a.data_desligamento || ""));
       colunas = [
         { key: "matricula", label: "Matrícula" },
@@ -2082,6 +2282,65 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       return relatorio as T;
     }
 
+    const fmtBr = (d?: string | null) => {
+      if (!d || !/^\d{4}-\d{2}-\d{2}/.test(d)) return d || "";
+      const [y, m, dia] = d.slice(0, 10).split("-");
+      return `${dia}/${m}/${y}`;
+    };
+
+    const dIniEfetiva =
+      tipo === "desligamentos"
+        ? (deslig_ini || data_inicio || (ano ? `${ano}-01-01` : null))
+        : (tipo === "inclusoes" || tipo === "renovacoes" ? (inclusao_ini || data_inicio || (ano ? `${ano}-01-01` : null)) : data_inicio);
+    const dFimEfetiva =
+      tipo === "desligamentos"
+        ? (deslig_fim || data_fim || (ano ? `${ano}-12-31` : null))
+        : (tipo === "inclusoes" || tipo === "renovacoes" ? (inclusao_fim || data_fim || (ano ? `${ano}-12-31` : null)) : data_fim);
+
+    const filtrosDescParts: string[] = [];
+    if (tipo === "renovacoes" && mes_ano) {
+      if (/^\d{4}-\d{2}$/.test(mes_ano)) {
+        const [y, m] = mes_ano.split("-");
+        filtrosDescParts.push(`Mês/Ano: ${m}/${y}`);
+      } else {
+        filtrosDescParts.push(`Mês/Ano: ${mes_ano}`);
+      }
+    } else if (tipo === "renovacoes" && ano) {
+      filtrosDescParts.push(`Ano da renovação: ${ano}`);
+    } else if (ano) {
+      filtrosDescParts.push(`Ano: ${ano}`);
+    }
+
+    if (dIniEfetiva && dFimEfetiva && !ano) {
+      filtrosDescParts.push(`Período: ${fmtBr(dIniEfetiva)} a ${fmtBr(dFimEfetiva)}`);
+    } else if (dIniEfetiva && !ano) {
+      filtrosDescParts.push(`A partir de ${fmtBr(dIniEfetiva)}`);
+    } else if (dFimEfetiva && !ano) {
+      filtrosDescParts.push(`Até ${fmtBr(dFimEfetiva)}`);
+    }
+
+    if (cargo_id) {
+      const cObj = state.cargos.find((c) => c.id === cargo_id);
+      if (cObj) filtrosDescParts.push(`Cargo: ${cObj.nome}`);
+    }
+    if (lotacao_id) {
+      const lObj = state.lotacoes.find((l) => l.id === lotacao_id);
+      if (lObj) filtrosDescParts.push(`Lotação: ${lObj.nome}`);
+    }
+    if (edital_id) {
+      const eObj = state.editais.find((e) => e.id === edital_id);
+      if (eObj) filtrosDescParts.push(`Edital: ${eObj.nome}`);
+    }
+    if (categoria) {
+      const catObj = state.categorias.find((c) => c.codigo === categoria);
+      if (catObj) filtrosDescParts.push(`Categoria: ${catObj.nome}`);
+    }
+    if (status && tipo !== "desligamentos" && tipo !== "inclusoes") {
+      filtrosDescParts.push(`Situação: ${status === "ATIVO" ? "Ativos" : status === "DESLIGADO" ? "Desligados" : status}`);
+    }
+
+    const filtrosFormatados = filtrosDescParts.length > 0 ? filtrosDescParts.join(" · ") : "Todos os registros (sem filtros)";
+
     const rel: Relatorio = {
       tipo,
       titulo,
@@ -2089,7 +2348,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       colunas,
       linhas,
       gerado_em: fmtDateTimeBr(new Date().toISOString()),
-      filtros: "Filtros aplicados",
+      filtros: filtrosFormatados,
     };
     return rel as T;
   }

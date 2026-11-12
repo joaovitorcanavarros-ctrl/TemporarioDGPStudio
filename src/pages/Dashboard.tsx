@@ -839,7 +839,7 @@ export default function Dashboard() {
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-400">Visão geral</p>
           <h2 className="font-heading text-2xl font-extrabold text-white sm:text-3xl">Painel do efetivo temporário</h2>
           <p className="mt-1 text-sm text-slate-400" data-testid="dashboard-criteria">
-            Efetivo em <span className="num text-slate-200">{fmtDate(ref)}</span> · Movimentações: {periodoTxt} · Alerta de vencimento: {d?.alerta_dias ?? "—"} dias (fuso America/Cuiabá)
+            Efetivo em <span className="num text-slate-200">{fmtDate(ref)}</span> · Movimentações: {periodoTxt} · Alerta de vencimento: {d?.alerta_dias ?? "—"} dias (Cuiabá)
           </p>
         </div>
         <div className="flex items-center gap-2">

@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Clock, Pencil, RotateCcw, Trash2, UserMinus } from "lucide-react";
-import { DesligamentoDialog, ReativarDialog } from "@/components/MilitarDialogs";
+import { ArrowLeft, BadgeCheck, Clock, Pencil, RotateCcw, Trash2, UserMinus } from "lucide-react";
+import { DesligamentoDialog, QuickEditDialog, ReativarDialog } from "@/components/MilitarDialogs";
 import { AlertaBadge, StatusBadge } from "@/components/StatusBadge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { apiGet, apiDelete } from "@/lib/api";
 import { errMsg, fmtDate, fmtDateTime } from "@/lib/format";
 import { isAdmin, podeEditar, useMe } from "@/lib/hooks";
-import type { Militar, MilitarHistorico } from "@/lib/types";
+import { getInfoContrato, type Militar, type MilitarHistorico } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const TIPO_STYLE: Record<string, string> = {
@@ -44,14 +44,15 @@ export default function MilitarDetalhe() {
   const me = useMe();
   const [desl, setDesl] = useState<Militar | null>(null);
   const [reat, setReat] = useState<Militar | null>(null);
+  const [quickEdit, setQuickEdit] = useState<Militar | null>(null);
   const [excluirModalOpen, setExcluirModalOpen] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
 
   const q = useQuery({
     queryKey: ["militar", id],
     queryFn: () => apiGet<Militar>(`/militares/${id}`),
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
   const h = useQuery({
     queryKey: ["militar", id, "historico"],
@@ -90,11 +91,26 @@ export default function MilitarDetalhe() {
             <div>
               <p className="num text-sm text-blue-300" data-testid="detail-matricula">{m.matricula}</p>
               <h2 className="font-heading text-2xl font-extrabold text-white" data-testid="detail-nome">{m.nome_completo}</h2>
-              <div className="mt-2 flex flex-wrap items-center gap-2"><StatusBadge status={m.status} /><AlertaBadge m={m} /></div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <StatusBadge status={m.status} />
+                <AlertaBadge m={m} />
+              </div>
             </div>
             <div className="flex flex-wrap gap-2">
               {podeEditar(me.data) && (
-                <Link to={`/temporarios/${m.id}/editar`} className={buttonVariants({ variant: "outline" })} data-testid="detail-edit-button"><Pencil className="size-4" /> Editar</Link>
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => setQuickEdit(m)}
+                    data-testid="detail-quick-edit-button"
+                    className="border-blue-500/30 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 hover:text-white"
+                  >
+                    <Pencil className="size-4" /> Edição Rápida
+                  </Button>
+                  <Link to={`/temporarios/${m.id}/editar`} className={buttonVariants({ variant: "outline" })} data-testid="detail-edit-button">
+                    Editar Cadastro Completo
+                  </Link>
+                </>
               )}
               {podeEditar(me.data) && m.status === "ATIVO" && (
                 <Button className="bg-red-600 text-white hover:bg-red-700" onClick={() => setDesl(m)} data-testid="detail-desligar-button"><UserMinus className="size-4" /> Registrar Desligamento</Button>
@@ -120,9 +136,22 @@ export default function MilitarDetalhe() {
             <Info label="Lotação / UBM">{m.lotacao_nome}</Info>
             <Info label="Edital">{m.edital_nome}</Info>
             <Info label="Inclusão"><span className="num">{fmtDate(m.data_inclusao)}</span></Info>
-            <Info label="Vencimento do contrato"><span className="num">{fmtDate(m.data_vencimento_contrato)}</span></Info>
+            <Info label="Vencimento do contrato">
+              <span className="num">{fmtDate(m.data_vencimento_contrato)}</span>
+            </Info>
             <Info label="DOE — incorporação">{m.doe_incorporacao ?? "—"}</Info>
             <Info label="Sub judice"><span data-testid="detail-sub-judice" className={m.sub_judice ? "font-semibold text-amber-300" : ""}>{m.sub_judice ? "Sim" : "Não"}</span></Info>
+            {(() => {
+              const info = getInfoContrato(m);
+              return (
+                <Info label="Ano do contrato">
+                  <span className={cn("inline-flex items-center gap-1.5 font-semibold", info.renovado ? "text-cyan-300" : "text-slate-300")}>
+                    {info.renovado && <BadgeCheck className="size-3.5 text-cyan-400" />}
+                    <span>{info.rotuloCompleto}</span>
+                  </span>
+                </Info>
+              );
+            })()}
             {m.status === "DESLIGADO" && (
               <>
                 <Info label="Data do desligamento"><span className="num text-red-300">{fmtDate(m.data_desligamento)}</span></Info>
@@ -192,6 +221,7 @@ export default function MilitarDetalhe() {
       </div>
       <DesligamentoDialog militar={desl} onClose={() => setDesl(null)} />
       <ReativarDialog militar={reat} onClose={() => setReat(null)} />
+      <QuickEditDialog militar={quickEdit} onClose={() => setQuickEdit(null)} />
 
       <Dialog open={excluirModalOpen} onOpenChange={setExcluirModalOpen}>
         <DialogContent className="border-[#1E2C42] bg-[#121B28] text-white sm:max-w-md">

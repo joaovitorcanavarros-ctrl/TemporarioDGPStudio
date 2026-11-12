@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Download, History, Loader2, Pencil, RotateCcw, SquarePen, UserMinus } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, BadgeCheck, ChevronLeft, ChevronRight, Download, FileDown, History, Loader2, Pencil, RotateCcw, SquarePen, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import FieldSelect from "@/components/FieldSelect";
 import { DesligamentoDialog, QuickEditDialog, ReativarDialog } from "@/components/MilitarDialogs";
@@ -9,9 +9,9 @@ import { AlertaBadge, StatusBadge } from "@/components/StatusBadge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiGet } from "@/lib/api";
-import { exportFile, fmtDate, fmtNum, qs } from "@/lib/format";
+import { exportFile, fmtDate, fmtDateTime, fmtNum, qs } from "@/lib/format";
 import { isAdmin, podeEditar, useMe } from "@/lib/hooks";
-import type { Militar, MilitarPage } from "@/lib/types";
+import { getInfoContrato, type Militar, type MilitarPage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export type Params = Record<string, string | number | null | undefined>;
@@ -20,12 +20,24 @@ interface Col { key: string; label: string; className?: string; render: (m: Mili
 
 const COLS_BASE: Col[] = [
   { key: "matricula", label: "Matrícula", render: (m) => <span className="num text-[13px] text-slate-300">{m.matricula}</span> },
-  { key: "nome_completo", label: "Nome completo", render: (m) => (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <Link to={`/temporarios/${m.id}`} className="font-medium text-slate-100 hover:text-blue-300" data-testid={`row-name-link-${m.matricula}`}>{m.nome_completo}</Link>
-      {m.sub_judice && <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-300" data-testid="sub-judice-badge">Sub judice</span>}
-    </div>
-  ) },
+  { key: "nome_completo", label: "Nome completo", render: (m) => {
+    const info = getInfoContrato(m);
+    return (
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Link to={`/temporarios/${m.id}`} className="font-medium text-slate-100 hover:text-blue-300" data-testid={`row-name-link-${m.matricula}`}>{m.nome_completo}</Link>
+        {info.renovado && (
+          <span
+            className="inline-flex items-center text-cyan-400"
+            title={`Contrato Renovado (${info.rotuloCompleto} · ${info.qtdRenovacoes}ª renovação)`}
+            data-testid={`renovado-icon-${m.matricula}`}
+          >
+            <BadgeCheck className="size-3.5" />
+          </span>
+        )}
+        {m.sub_judice && <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-300" data-testid="sub-judice-badge">Sub judice</span>}
+      </div>
+    );
+  } },
   { key: "cargo_nome", label: "Cargo/Função", render: (m) => <span className="text-slate-300">{m.cargo_nome}</span> },
   { key: "lotacao_nome", label: "Lotação/UBM", render: (m) => <span className="text-slate-300">{m.lotacao_nome}</span> },
   { key: "edital_nome", label: "Edital", className: "hidden xl:table-cell", render: (m) => <span className="text-xs text-slate-400">{m.edital_nome}</span> },
@@ -54,7 +66,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
   const [desligar, setDesligar] = useState<Militar | null>(null);
   const [reativar, setReativar] = useState<Militar | null>(null);
   const [rapido, setRapido] = useState<Militar | null>(null);
-  const [exportando, setExportando] = useState<"csv" | "xlsx" | null>(null);
+  const [exportando, setExportando] = useState<"csv" | "xlsx" | "pdf" | null>(null);
   const paramsKey = JSON.stringify(params);
   const [lastKey, setLastKey] = useState(paramsKey);
   const [lastResetKey, setLastResetKey] = useState(resetKey);
@@ -82,7 +94,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
     else { setSort(k); setDirection("asc"); }
   };
 
-  const handleExport = async (formato: "csv" | "xlsx") => {
+  const handleExport = async (formato: "csv" | "xlsx" | "pdf") => {
     if (exportando) return;
     setExportando(formato);
     try {
@@ -95,6 +107,44 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
         return;
       }
 
+      if (formato === "pdf") {
+        const { gerarPdfRelatorio } = await import("@/lib/pdfRelatorio");
+        const titulo = variant === "desligados" ? "Desligamentos por período e motivo" : "Efetivo de Militares Temporários";
+        const descricao = variant === "desligados"
+          ? "Relação de desligamentos filtrados por período e critérios selecionados."
+          : "Relação de militares temporários conforme filtros selecionados.";
+        const colunas = variant === "desligados"
+          ? [
+              { key: "matricula", label: "Matrícula" },
+              { key: "nome_completo", label: "Nome completo" },
+              { key: "cargo_nome", label: "Cargo" },
+              { key: "lotacao_nome", label: "Lotação/UBM" },
+              { key: "data_desligamento", label: "Data do desligamento" },
+              { key: "motivo_desligamento_nome", label: "Status de desligamento" },
+            ]
+          : [
+              { key: "matricula", label: "Matrícula" },
+              { key: "nome_completo", label: "Nome completo" },
+              { key: "cargo_nome", label: "Cargo" },
+              { key: "lotacao_nome", label: "Lotação/UBM" },
+              { key: "data_inclusao", label: "Inclusão" },
+              { key: "data_vencimento_contrato", label: "Vencimento" },
+              { key: "status", label: "Situação" },
+            ];
+
+        await gerarPdfRelatorio({
+          tipo: variant === "desligados" ? "desligamentos" : "efetivo-geral",
+          titulo,
+          descricao,
+          colunas,
+          linhas: exportItems as unknown as Record<string, string | number>[],
+          gerado_em: fmtDateTime(new Date().toISOString()),
+          filtros: "Filtros aplicados da listagem",
+        });
+        toast.success(`Exportação concluída: ${fmtNum(exportItems.length)} registros em PDF.`);
+        return;
+      }
+
       const headers = [
         "Matrícula",
         "Nome completo",
@@ -104,6 +154,8 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
         "Edital/Processo seletivo",
         "Data de inclusão",
         "Vencimento do contrato",
+        "Ano do contrato",
+        "Contrato renovado",
         "Dias p/ vencer",
         "Situação",
         "Data do desligamento",
@@ -114,24 +166,29 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
         "Motivo do desligamento",
       ];
 
-      const rows = exportItems.map((m) => [
-        m.matricula,
-        m.nome_completo,
-        m.cargo_nome || "",
-        m.categoria_nome || "",
-        m.lotacao_nome || "",
-        m.edital_nome || "",
-        m.data_inclusao ? fmtDate(m.data_inclusao) : "",
-        m.data_vencimento_contrato ? fmtDate(m.data_vencimento_contrato) : "",
-        m.dias_para_vencer ?? "",
-        m.status,
-        m.data_desligamento ? fmtDate(m.data_desligamento) : "",
-        m.motivo_desligamento_nome || "",
-        m.documento_desligamento || "",
-        m.sub_judice ? "Sim" : "Não",
-        m.doe_incorporacao || "",
-        m.observacoes || "",
-      ]);
+      const rows = exportItems.map((m) => {
+        const inf = getInfoContrato(m);
+        return [
+          m.matricula,
+          m.nome_completo,
+          m.cargo_nome || "",
+          m.categoria_nome || "",
+          m.lotacao_nome || "",
+          m.edital_nome || "",
+          m.data_inclusao ? fmtDate(m.data_inclusao) : "",
+          m.data_vencimento_contrato ? fmtDate(m.data_vencimento_contrato) : "",
+          inf.rotuloCompleto,
+          inf.renovado ? "Sim (2º ano)" : "Não (1º ano)",
+          m.dias_para_vencer ?? "",
+          m.status,
+          m.data_desligamento ? fmtDate(m.data_desligamento) : "",
+          m.motivo_desligamento_nome || "",
+          m.documento_desligamento || "",
+          m.sub_judice ? "Sim" : "Não",
+          m.doe_incorporacao || "",
+          m.observacoes || "",
+        ];
+      });
 
       const dataHoje = new Date().toISOString().slice(0, 10);
       const prefixo = variant === "desligados" ? "desligados" : "temporarios";
@@ -184,6 +241,28 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
         </p>
         <div className="flex gap-2">
           <button
+            onClick={() => handleExport("pdf")}
+            disabled={exportando !== null}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "border-blue-500/30 text-blue-400 transition-all hover:bg-blue-500/10 disabled:opacity-60"
+            )}
+            data-testid="export-pdf-button"
+            title="Exportar todos os registros filtrados em PDF oficial CBMMT"
+          >
+            {exportando === "pdf" ? (
+              <>
+                <Loader2 className="size-4 animate-spin mr-1.5" />
+                <span>Gerando PDF...</span>
+              </>
+            ) : (
+              <>
+                <FileDown className="size-4 mr-1.5" />
+                <span>PDF</span>
+              </>
+            )}
+          </button>
+          <button
             onClick={() => handleExport("csv")}
             disabled={exportando !== null}
             className={cn(buttonVariants({ variant: "outline", size: "sm" }), "transition-all disabled:opacity-60")}
@@ -234,7 +313,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
                 </button>
               </TableHead>
             ))}
-            <TableHead className="bg-[#0F1724] text-right text-[11px] uppercase tracking-wider text-slate-400">Ações</TableHead>
+            <TableHead className="bg-[#0F1724] text-right text-[11px] uppercase tracking-wider text-slate-400 w-[245px] pr-4">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -249,31 +328,81 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
               )}
             >
               {cols.map((c) => <TableCell key={c.key} className={cn("py-2.5", c.className)}>{c.render(m)}</TableCell>)}
-              <TableCell className="py-2.5">
-                <div className="flex items-center justify-end gap-1">
-                  <Link to={`/temporarios/${m.id}`} title="Histórico" className={buttonVariants({ variant: "ghost", size: "icon-sm" })} data-testid={`action-historico-${m.matricula}`}>
-                    <History className="size-4" />
-                  </Link>
-                  {editar && (
-                    <>
-                      <Button variant="ghost" size="icon-sm" title="Edição rápida" onClick={() => setRapido(m)} data-testid={`action-quick-edit-${m.matricula}`}>
-                        <SquarePen className="size-4" />
+              <TableCell className="py-2.5 w-[245px]">
+                <div className="flex items-center justify-end gap-2 flex-nowrap">
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Link
+                      to={`/temporarios/${m.id}`}
+                      title="Histórico de alterações"
+                      className={cn(
+                        buttonVariants({ variant: "ghost", size: "icon-sm" }),
+                        "size-7 inline-flex items-center justify-center p-0 text-slate-400 hover:text-white hover:bg-slate-800/70 shrink-0"
+                      )}
+                      data-testid={`action-historico-${m.matricula}`}
+                    >
+                      <History className="size-4" />
+                    </Link>
+                    {editar && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          title="Edição rápida"
+                          onClick={() => setRapido(m)}
+                          className="size-7 inline-flex items-center justify-center p-0 text-slate-400 hover:text-white hover:bg-slate-800/70 shrink-0"
+                          data-testid={`action-quick-edit-${m.matricula}`}
+                        >
+                          <SquarePen className="size-4" />
+                        </Button>
+                        <Link
+                          to={`/temporarios/${m.id}/editar`}
+                          title="Editar cadastro completo"
+                          className={cn(
+                            buttonVariants({ variant: "ghost", size: "icon-sm" }),
+                            "size-7 inline-flex items-center justify-center p-0 text-slate-400 hover:text-white hover:bg-slate-800/70 shrink-0"
+                          )}
+                          data-testid={`action-edit-${m.matricula}`}
+                        >
+                          <Pencil className="size-4" />
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                  <div className="w-[140px] flex items-center justify-end shrink-0">
+                    {m.status === "ATIVO" && (() => {
+                      const info = getInfoContrato(m);
+                      return (
+                        <span
+                          className={cn(
+                            "w-[140px] h-7 inline-flex items-center justify-center gap-1.5 px-2 rounded-md text-xs font-semibold whitespace-nowrap shadow-sm select-none shrink-0",
+                            info.renovado
+                              ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+                              : "bg-slate-800/90 text-slate-300 border border-slate-700/60"
+                          )}
+                          title={
+                            info.renovado
+                              ? `Militar em ${info.rotuloCompleto} (${info.qtdRenovacoes}ª renovação aprovada)`
+                              : "Militar em 1º ano de contrato (Exercício inicial)"
+                          }
+                          data-testid={`action-ano-contrato-${m.matricula}`}
+                        >
+                          {info.renovado && <BadgeCheck className="size-3.5 text-cyan-400 shrink-0" />}
+                          <span>{info.rotuloCompleto}</span>
+                        </span>
+                      );
+                    })()}
+                    {admin && m.status === "DESLIGADO" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="w-[140px] h-7 text-emerald-300 hover:bg-emerald-500/10 justify-center"
+                        onClick={() => setReativar(m)}
+                        data-testid={`action-reativar-${m.matricula}`}
+                      >
+                        <RotateCcw className="size-4" /> <span>Reativar</span>
                       </Button>
-                      <Link to={`/temporarios/${m.id}/editar`} title="Editar cadastro" className={buttonVariants({ variant: "ghost", size: "icon-sm" })} data-testid={`action-edit-${m.matricula}`}>
-                        <Pencil className="size-4" />
-                      </Link>
-                    </>
-                  )}
-                  {editar && m.status === "ATIVO" && (
-                    <Button size="sm" variant="ghost" className="text-red-300 hover:bg-red-500/10 hover:text-red-200" onClick={() => setDesligar(m)} data-testid={`action-desligar-${m.matricula}`}>
-                      <UserMinus className="size-4" /> <span className="hidden 2xl:inline">Registrar Desligamento</span>
-                    </Button>
-                  )}
-                  {admin && m.status === "DESLIGADO" && (
-                    <Button size="sm" variant="ghost" className="text-emerald-300 hover:bg-emerald-500/10" onClick={() => setReativar(m)} data-testid={`action-reativar-${m.matricula}`}>
-                      <RotateCcw className="size-4" /> <span className="hidden 2xl:inline">Reativar</span>
-                    </Button>
-                  )}
+                    )}
+                  </div>
                 </div>
               </TableCell>
             </TableRow>

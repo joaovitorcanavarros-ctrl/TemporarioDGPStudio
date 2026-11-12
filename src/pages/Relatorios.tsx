@@ -1,23 +1,21 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, Download, FileDown, FileText, Loader2, Search, Shield, X } from "lucide-react";
+import { AlertCircle, BadgeCheck, Download, FileDown, FileText, Loader2, Search, Shield, X } from "lucide-react";
 import { toast } from "sonner";
-import FiltersBar from "@/components/FiltersBar";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiGet } from "@/lib/api";
 import { exportFile, fmtDate, qs } from "@/lib/format";
-import { useFilters } from "@/lib/filters";
 import { gerarPdfRelatorio } from "@/lib/pdfRelatorio";
 import type { MilitarPage, Relatorio } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { filterParams } from "@/pages/Dashboard";
 
 const TIPOS = [
   { id: "efetivo-cargo", label: "Efetivo ativo por cargo" },
   { id: "efetivo-ubm", label: "Efetivo ativo por UBM" },
   { id: "por-edital", label: "Temporários por edital" },
+  { id: "renovacoes", label: "Renovação de contratos" },
   { id: "inclusoes", label: "Inclusões por período" },
   { id: "a-vencer", label: "Contratos a vencer" },
   { id: "vencidos", label: "Contratos vencidos pendentes" },
@@ -40,14 +38,27 @@ const fmtCell = (v: string | number | null) => {
 };
 
 export default function Relatorios() {
-  const { filters } = useFilters();
   const [tipo, setTipo] = useState("efetivo-cargo");
   const [matricula, setMatricula] = useState("");
+  const [mesAno, setMesAno] = useState("");
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataFim, setDataFim] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [gerandoPdf, setGerandoPdf] = useState(false);
 
   const cleanMatricula = matricula.trim();
-  const params = tipo === "historico" ? { matricula: cleanMatricula } : filterParams(filters);
+  const params: Record<string, string | undefined> = {};
+  if (tipo === "historico") {
+    params.matricula = cleanMatricula;
+  } else if (tipo === "renovacoes") {
+    if (mesAno) {
+      params.mes_ano = mesAno;
+      params.ano = mesAno.slice(0, 4);
+    }
+  } else {
+    if (dataInicio) params.data_inicio = dataInicio;
+    if (dataFim) params.data_fim = dataFim;
+  }
   const enabled = tipo !== "historico" || cleanMatricula.length >= 2;
   const q = useQuery({
     queryKey: ["relatorio", tipo, params],
@@ -88,9 +99,7 @@ export default function Relatorios() {
       <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-400">Consultas oficiais</p>
         <h2 className="font-heading text-2xl font-extrabold text-white sm:text-3xl" data-testid="page-title">Relatórios</h2>
-        <p className="text-sm text-slate-400">Os relatórios aplicam os mesmos filtros do painel. Exportação em PDF oficial CBMMT, CSV e Excel.</p>
       </div>
-      <FiltersBar />
       <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
         <nav className="space-y-1 rounded-xl border border-[#1E2C42] bg-[#121B28] p-2" data-testid="report-types">
           {TIPOS.map((t) => (
@@ -183,6 +192,99 @@ export default function Relatorios() {
               </button>
             </div>
           </div>
+
+          {tipo === "renovacoes" && (
+            <div className="border-b border-[#1E2C42] bg-[#0E1622]/70 p-4" data-testid="report-renovacoes-filter">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-cyan-300">
+                    <BadgeCheck className="size-4 text-cyan-400" />
+                    Filtrar Renovações de Contrato por Mês/Ano
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Selecione o <strong>Mês/ano</strong> para visualizar apenas as renovações de contrato ocorridas no período.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 rounded-lg border border-[#24344D] bg-[#121B28] px-3 py-1.5 shadow-sm">
+                    <label htmlFor="filter-mes-ano" className="text-xs font-semibold text-slate-300 shrink-0">
+                      Mês/ano:
+                    </label>
+                    <Input
+                      id="filter-mes-ano"
+                      type="month"
+                      data-testid="report-renovacao-mes-ano-input"
+                      value={mesAno}
+                      onChange={(e) => setMesAno(e.target.value)}
+                      className="h-8 w-44 border-[#24344D] bg-[#0F1724] font-sans text-xs text-white [color-scheme:dark] cursor-pointer"
+                    />
+                    {mesAno && (
+                      <button
+                        type="button"
+                        onClick={() => setMesAno("")}
+                        className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+                        title="Limpar seleção de Mês/ano"
+                        data-testid="report-renovacao-clear-mes-ano"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {(tipo === "inclusoes" || tipo === "desligamentos" || tipo === "a-vencer" || tipo === "vencidos") && (
+            <div className="border-b border-[#1E2C42] bg-[#0E1622]/70 p-4" data-testid={`report-${tipo}-filter`}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                    Filtrar por período
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Defina uma data inicial e/ou final para filtrar os registros do relatório.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 rounded-lg border border-[#24344D] bg-[#121B28] px-2.5 py-1">
+                    <span className="text-xs text-slate-400">De:</span>
+                    <Input
+                      type="date"
+                      data-testid="report-data-inicio-input"
+                      value={dataInicio}
+                      onChange={(e) => setDataInicio(e.target.value)}
+                      className="h-8 w-36 border-[#24344D] bg-[#0F1724] text-xs text-white [color-scheme:dark]"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1.5 rounded-lg border border-[#24344D] bg-[#121B28] px-2.5 py-1">
+                    <span className="text-xs text-slate-400">Até:</span>
+                    <Input
+                      type="date"
+                      data-testid="report-data-fim-input"
+                      value={dataFim}
+                      onChange={(e) => setDataFim(e.target.value)}
+                      className="h-8 w-36 border-[#24344D] bg-[#0F1724] text-xs text-white [color-scheme:dark]"
+                    />
+                  </div>
+                  {(dataInicio || dataFim) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDataInicio("");
+                        setDataFim("");
+                      }}
+                      className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+                      title="Limpar período"
+                      data-testid="report-clear-dates"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {tipo === "historico" && (
             <div className="space-y-4 border-b border-[#1E2C42] bg-[#0E1622]/60 p-4">
@@ -347,7 +449,22 @@ export default function Relatorios() {
               <TableBody>
                 {(r?.linhas ?? []).map((li, i) => (
                   <TableRow key={i} className={cn("border-[#162234]", li[r?.colunas[0]?.key ?? ""] === "TOTAL" && "bg-blue-600/10 font-bold")} data-testid="report-row">
-                    {(r?.colunas ?? []).map((c) => <TableCell key={c.key} className={cn("py-2 text-slate-200", typeof li[c.key] === "number" && "num")}>{fmtCell(li[c.key])}</TableCell>)}
+                    {(r?.colunas ?? []).map((c) => (
+                      <TableCell key={c.key} className={cn("py-2 text-slate-200", typeof li[c.key] === "number" && "num")}>
+                        {c.key === "rotulo_ano" ? (
+                          <span className="inline-flex items-center gap-1 font-semibold text-cyan-300">
+                            <BadgeCheck className="size-3.5 text-cyan-400 shrink-0" />
+                            <span>{String(li[c.key])}</span>
+                          </span>
+                        ) : c.key === "status" && li[c.key] === "ATIVO" ? (
+                          <span className="font-semibold text-emerald-400">ATIVO</span>
+                        ) : c.key === "status" && li[c.key] === "DESLIGADO" ? (
+                          <span className="font-semibold text-red-400">DESLIGADO</span>
+                        ) : (
+                          fmtCell(li[c.key])
+                        )}
+                      </TableCell>
+                    ))}
                   </TableRow>
                 ))}
                 {r && r.linhas.length === 0 && <TableRow><TableCell className="py-10 text-center text-slate-500" colSpan={r.colunas.length || 1}>Nenhum registro para os filtros selecionados.</TableCell></TableRow>}

@@ -21,8 +21,19 @@ export interface MilitarIn {
   data_inclusao: string; data_vencimento_contrato: string; status: Status;
   observacoes?: string | null; doe_incorporacao?: string | null; sub_judice: boolean;
   data_desligamento?: string | null; motivo_desligamento_id?: string | null; documento_desligamento?: string | null;
+  renovacao_contrato?: boolean | null;
+  ano_contrato?: number | null;
+  qtd_renovacoes?: number | null;
 }
-export interface MilitarRapidoIn { lotacao_id?: string | null; edital_id?: string | null; data_vencimento_contrato?: string | null; observacoes?: string | null }
+export interface MilitarRapidoIn {
+  lotacao_id?: string | null;
+  edital_id?: string | null;
+  data_vencimento_contrato?: string | null;
+  observacoes?: string | null;
+  renovacao_contrato?: boolean | null;
+  ano_contrato?: number | null;
+  qtd_renovacoes?: number | null;
+}
 export interface DesligamentoIn { data_desligamento: string; motivo_id: string; documento?: string | null; observacoes?: string | null }
 export interface ReativacaoIn { justificativa: string; data_vencimento_contrato?: string | null; documento?: string | null }
 
@@ -35,6 +46,91 @@ export interface Militar {
   documento_desligamento: string | null; observacoes: string | null; doe_incorporacao: string | null; sub_judice: boolean;
   dias_para_vencer: number; alerta: "VENCIDO" | "A_VENCER" | null;
   criado_em: string | null; atualizado_em: string | null; criado_por_nome: string | null; atualizado_por_nome: string | null;
+  renovacao_contrato?: boolean | null;
+  ano_contrato?: number;
+  qtd_renovacoes?: number;
+}
+
+export interface InfoContrato {
+  renovado: boolean;
+  anoContrato: number;
+  qtdRenovacoes: number;
+  rotuloAno: string;
+  rotuloCompleto: string;
+  detalheRenovacao: string;
+}
+
+export function getInfoContrato(m?: {
+  data_inclusao?: string | null;
+  data_vencimento_contrato?: string | null;
+  renovacao_contrato?: boolean | null;
+  ano_contrato?: number | null;
+  qtd_renovacoes?: number | null;
+} | null): InfoContrato {
+  if (!m) {
+    return {
+      renovado: false,
+      anoContrato: 1,
+      qtdRenovacoes: 0,
+      rotuloAno: "1º Ano",
+      rotuloCompleto: "1º Ano de Contrato",
+      detalheRenovacao: "Contrato inicial (sem renovação)",
+    };
+  }
+
+  const dataInc = m.data_inclusao ? String(m.data_inclusao).slice(0, 10) : "";
+  const dataVenc = m.data_vencimento_contrato ? String(m.data_vencimento_contrato).slice(0, 10) : "";
+
+  let anosCalculados = 1;
+  if (dataInc && dataVenc) {
+    const inc = new Date(`${dataInc}T12:00:00`);
+    const venc = new Date(`${dataVenc}T12:00:00`);
+    const diffMs = venc.getTime() - inc.getTime();
+    const diffDias = Math.max(0, Math.round(diffMs / 86400000));
+
+    // Tolerância para ciclo de 365 dias/ano
+    if (diffDias > 395) {
+      anosCalculados = Math.max(1, Math.round(diffDias / 365.25));
+    } else if (diffDias > 330) {
+      anosCalculados = 1;
+    }
+    const calDiff = venc.getFullYear() - inc.getFullYear();
+    if (calDiff > anosCalculados) {
+      anosCalculados = calDiff;
+    }
+  }
+
+  if (typeof m.ano_contrato === "number" && m.ano_contrato >= 1 && m.renovacao_contrato) {
+    anosCalculados = Math.max(anosCalculados, m.ano_contrato);
+  }
+
+  const inc2025 = Boolean(dataInc && dataInc.startsWith("2025"));
+  const venc2027ouMais = Boolean(dataVenc && dataVenc >= "2027-01-01");
+
+  const renovado = Boolean(
+    m.renovacao_contrato === true ||
+    (m.renovacao_contrato !== false && (anosCalculados > 1 || (inc2025 && venc2027ouMais)))
+  );
+
+  const anoContrato = renovado ? Math.max(2, anosCalculados) : 1;
+  const qtdRenovacoes = typeof m.qtd_renovacoes === "number" && m.qtd_renovacoes >= 0 && m.renovacao_contrato
+    ? m.qtd_renovacoes
+    : renovado
+      ? Math.max(1, anoContrato - 1)
+      : 0;
+
+  const detalheRenovacao = qtdRenovacoes > 0
+    ? `${qtdRenovacoes}ª renovação (${anoContrato}º ano)`
+    : "Contrato inicial";
+
+  return {
+    renovado,
+    anoContrato,
+    qtdRenovacoes,
+    rotuloAno: `${anoContrato}º Ano`,
+    rotuloCompleto: `${anoContrato}º Ano de Contrato`,
+    detalheRenovacao,
+  };
 }
 export interface MilitarPage { items: Militar[]; total: number; page: number; page_size: number }
 export interface MatriculaCheck { existe: boolean; militar_id: string | null; nome_completo: string | null }

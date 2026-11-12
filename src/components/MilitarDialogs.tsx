@@ -14,7 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiPatch, apiPost } from "@/lib/api";
 import { errMsg, fmtDate } from "@/lib/format";
 import { MILITAR_KEYS, useCatalogos, useMeta } from "@/lib/hooks";
-import type { DesligamentoIn, Militar, MilitarRapidoIn, ReativacaoIn } from "@/lib/types";
+import { getInfoContrato, type DesligamentoIn, type Militar, type MilitarRapidoIn, type ReativacaoIn } from "@/lib/types";
+import { RenovacaoPrompt } from "@/components/RenovacaoPrompt";
 
 export function useInvalidateMilitares() {
   const qc = useQueryClient();
@@ -71,7 +72,12 @@ export function DesligamentoDialog({ militar, onClose }: { militar: Militar | nu
       form.setError("data_desligamento", { message: "A data não pode ser futura" });
       return;
     }
-    mut.mutate({ ...v, documento: v.documento || null, observacoes: v.observacoes || null });
+    mut.mutate({
+      data_desligamento: v.data_desligamento || hoje,
+      motivo_id: v.motivo_id || "",
+      documento: v.documento || null,
+      observacoes: v.observacoes || null,
+    });
   });
   const e = form.formState.errors;
   return (
@@ -182,6 +188,7 @@ const rapidoSchema = z.object({
   edital_id: z.string().min(1, "Selecione o edital"),
   data_vencimento_contrato: z.string().min(1, "Informe o vencimento"),
   observacoes: z.string().max(2000).optional(),
+  renovacao_contrato: z.boolean().optional(),
 });
 type RapidoForm = z.infer<typeof rapidoSchema>;
 
@@ -189,61 +196,110 @@ export function QuickEditDialog({ militar, onClose }: { militar: Militar | null;
   const cat = useCatalogos();
   const invalidate = useInvalidateMilitares();
   const form = useForm<RapidoForm>({ resolver: zodResolver(rapidoSchema) });
+
   useEffect(() => {
-    if (militar)
+    if (militar) {
+      const infoAtual = getInfoContrato(militar);
       form.reset({
-        lotacao_id: militar.lotacao_id, edital_id: militar.edital_id,
-        data_vencimento_contrato: militar.data_vencimento_contrato, observacoes: militar.observacoes ?? "",
+        lotacao_id: militar.lotacao_id,
+        edital_id: militar.edital_id,
+        data_vencimento_contrato: militar.data_vencimento_contrato,
+        observacoes: militar.observacoes ?? "",
+        renovacao_contrato: infoAtual.renovado,
       });
+    }
   }, [militar, form]);
+
+  const watchedVenc = form.watch("data_vencimento_contrato");
+  const watchedRenovacao = form.watch("renovacao_contrato");
+
   const mut = useMutation({
     mutationFn: (b: MilitarRapidoIn) => apiPatch<Militar>(`/militares/${militar?.id}/rapido`, b),
-    onSuccess: () => { toast.success("Alterações salvas e registradas no histórico"); invalidate(); onClose(); },
+    onSuccess: (updated) => {
+      const info = getInfoContrato(updated);
+      toast.success(
+        info.renovado
+          ? `Militar atualizado: ${info.rotuloCompleto} (${info.qtdRenovacoes}ª renovação gravada no Firestore)`
+          : "Alterações salvas e gravadas no Firestore"
+      );
+      invalidate();
+      onClose();
+    },
     onError: (e) => toast.error(errMsg(e)),
   });
+
   const submit = form.handleSubmit((v) => {
     if (militar && v.data_vencimento_contrato < militar.data_inclusao) {
       form.setError("data_vencimento_contrato", { message: "Anterior à data de inclusão" });
       return;
     }
-    mut.mutate({ ...v, observacoes: v.observacoes ?? null });
+    const isRenovado = Boolean(v.renovacao_contrato);
+    const info = getInfoContrato({
+      data_inclusao: militar?.data_inclusao,
+      data_vencimento_contrato: v.data_vencimento_contrato,
+      renovacao_contrato: isRenovado,
+    });
+    mut.mutate({
+      ...v,
+      observacoes: v.observacoes ?? null,
+      renovacao_contrato: isRenovado,
+      ano_contrato: isRenovado ? info.anoContrato : 1,
+      qtd_renovacoes: isRenovado ? info.qtdRenovacoes : 0,
+    });
   });
   const e = form.formState.errors;
+
   return (
     <Dialog open={!!militar} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="border-[#1E2C42] bg-[#121B28] sm:max-w-lg" data-testid="quick-edit-dialog">
+      <DialogContent className="border-[#1E2C42] bg-[#121B28] sm:max-w-xl max-h-[90vh] overflow-y-auto" data-testid="quick-edit-dialog">
         <DialogHeader>
-          <DialogTitle className="text-white">Edição rápida</DialogTitle>
-          <DialogDescription>{militar?.nome_completo} · <span className="num">{militar?.matricula}</span></DialogDescription>
+          <DialogTitle className="text-white text-lg font-bold">Edição rápida</DialogTitle>
+          <DialogDescription className="text-slate-300">
+            {militar?.nome_completo} · <span className="num font-semibold text-blue-300">{militar?.matricula}</span>
+          </DialogDescription>
         </DialogHeader>
-        <form onSubmit={submit} className="space-y-3">
-          <div className="space-y-1.5">
-            <Label>Lotação / UBM</Label>
-            <Controller control={form.control} name="lotacao_id" render={({ field }) => (
-              <FieldSelect testId="quick-edit-lotacao-select" value={field.value} onChange={field.onChange}
-                options={(cat.data?.lotacoes ?? []).filter((l) => l.ativo || l.id === field.value).map((l) => ({ value: l.id, label: l.nome }))} />
-            )} />
-            <Err msg={e.lotacao_id?.message} />
+        <form onSubmit={submit} className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Lotação / UBM</Label>
+              <Controller control={form.control} name="lotacao_id" render={({ field }) => (
+                <FieldSelect testId="quick-edit-lotacao-select" value={field.value} onChange={field.onChange}
+                  options={(cat.data?.lotacoes ?? []).filter((l) => l.ativo || l.id === field.value).map((l) => ({ value: l.id, label: l.nome }))} />
+              )} />
+              <Err msg={e.lotacao_id?.message} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Edital</Label>
+              <Controller control={form.control} name="edital_id" render={({ field }) => (
+                <FieldSelect testId="quick-edit-edital-select" value={field.value} onChange={field.onChange}
+                  options={(cat.data?.editais ?? []).filter((l) => l.ativo || l.id === field.value).map((l) => ({ value: l.id, label: l.nome }))} />
+              )} />
+            </div>
           </div>
-          <div className="space-y-1.5">
-            <Label>Edital</Label>
-            <Controller control={form.control} name="edital_id" render={({ field }) => (
-              <FieldSelect testId="quick-edit-edital-select" value={field.value} onChange={field.onChange}
-                options={(cat.data?.editais ?? []).filter((l) => l.ativo || l.id === field.value).map((l) => ({ value: l.id, label: l.nome }))} />
-            )} />
-          </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="qv">Vencimento do contrato</Label>
             <Input id="qv" type="date" className="[color-scheme:dark]" data-testid="quick-edit-vencimento-input" {...form.register("data_vencimento_contrato")} />
             <Err msg={e.data_vencimento_contrato?.message} />
           </div>
+
+          <RenovacaoPrompt
+            dataInclusao={militar?.data_inclusao}
+            dataVencimento={watchedVenc}
+            isRenovacao={Boolean(watchedRenovacao)}
+            onToggleRenovacao={(val) => form.setValue("renovacao_contrato", val, { shouldDirty: true })}
+          />
+
           <div className="space-y-1.5">
             <Label htmlFor="qo">Observações</Label>
-            <Textarea id="qo" rows={3} data-testid="quick-edit-observacoes-input" {...form.register("observacoes")} />
+            <Textarea id="qo" rows={2} data-testid="quick-edit-observacoes-input" {...form.register("observacoes")} />
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="mt-4">
             <Button type="button" variant="outline" onClick={onClose} data-testid="quick-edit-cancel-button">Cancelar</Button>
-            <Button type="submit" disabled={mut.isPending} className="bg-blue-600 hover:bg-blue-700" data-testid="quick-edit-save-button">Salvar</Button>
+            <Button type="submit" disabled={mut.isPending} className="bg-blue-600 hover:bg-blue-700" data-testid="quick-edit-save-button">
+              {mut.isPending ? "Gravando no Firestore..." : "Salvar Alterações"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

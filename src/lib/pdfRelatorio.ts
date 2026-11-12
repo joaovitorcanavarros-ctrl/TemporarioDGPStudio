@@ -299,7 +299,18 @@ export async function gerarPdfRelatorio(relatorio: Relatorio, filtrosDescricao?:
       const key = col.key.toLowerCase();
       if (key === "total" || key === "ativos" || key === "desligados" || key === "dias_para_vencer" || key === "quantidade") {
         columnStyles[idx] = { halign: "right" };
-      } else if (key === "matricula" || key === "data_inclusao" || key === "data_vencimento_contrato" || key === "data_desligamento" || key === "quando" || key === "data_efetiva" || key === "status") {
+      } else if (
+        key === "matricula" ||
+        key === "data_inclusao" ||
+        key === "data_vencimento_contrato" ||
+        key === "data_desligamento" ||
+        key === "quando" ||
+        key === "data_efetiva" ||
+        key === "status" ||
+        key === "data_renovacao" ||
+        key === "nova_vigencia" ||
+        key === "rotulo_ano"
+      ) {
         columnStyles[idx] = { halign: "center" };
       }
     });

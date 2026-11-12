@@ -15,7 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { ApiError, apiGet, apiPost, apiPut } from "@/lib/api";
 import { errMsg, qs } from "@/lib/format";
 import { podeEditar, useCatalogos, useMe, useMeta } from "@/lib/hooks";
-import type { MatriculaCheck, Militar, MilitarIn } from "@/lib/types";
+import { getInfoContrato, type MatriculaCheck, type Militar, type MilitarIn } from "@/lib/types";
+import { RenovacaoPrompt } from "@/components/RenovacaoPrompt";
 
 const schema = z
   .object({
@@ -33,6 +34,7 @@ const schema = z
     data_desligamento: z.string().optional(),
     motivo_desligamento_id: z.string().optional(),
     documento_desligamento: z.string().max(120).optional(),
+    renovacao_contrato: z.boolean().optional(),
   })
   .superRefine((v, ctx) => {
     if (v.data_inclusao && v.data_vencimento_contrato && v.data_vencimento_contrato < v.data_inclusao)
@@ -49,6 +51,7 @@ type F = z.infer<typeof schema>;
 const EMPTY: F = {
   matricula: "", nome_completo: "", cargo_id: "", lotacao_id: "", edital_id: "", data_inclusao: "", data_vencimento_contrato: "",
   status: "ATIVO", doe_incorporacao: "", sub_judice: "NAO", observacoes: "", data_desligamento: "", motivo_desligamento_id: "", documento_desligamento: "",
+  renovacao_contrato: false,
 };
 
 function Field({ label, error, children, req, className }: { label: string; error?: string; children: ReactNode; req?: boolean; className?: string }) {
@@ -83,8 +86,13 @@ export default function MilitarForm() {
         data_inclusao: m.data_inclusao, data_vencimento_contrato: m.data_vencimento_contrato, status: m.status,
         doe_incorporacao: m.doe_incorporacao ?? "", sub_judice: m.sub_judice ? "SIM" : "NAO", observacoes: m.observacoes ?? "", data_desligamento: m.data_desligamento ?? "",
         motivo_desligamento_id: m.motivo_desligamento_id ?? "", documento_desligamento: m.documento_desligamento ?? "",
+        renovacao_contrato: getInfoContrato(m).renovado,
       });
   }, [atual.data, form]);
+
+  const watchedInclusao = form.watch("data_inclusao");
+  const watchedVencimento = form.watch("data_vencimento_contrato");
+  const watchedRenovacao = form.watch("renovacao_contrato");
 
   const checkMatricula = async () => {
     const mat = form.getValues("matricula").trim();
@@ -102,7 +110,12 @@ export default function MilitarForm() {
       editing ? apiPut<Militar>(`/militares/${id}`, body) : apiPost<Militar>("/militares", body),
     onSuccess: (m, { outro }) => {
       invalidate();
-      toast.success(editing ? "Alterações salvas e registradas no histórico" : `Cadastro salvo: ${m.nome_completo}`);
+      const inf = getInfoContrato(m);
+      toast.success(
+        editing
+          ? `Cadastro de ${m.nome_completo} atualizado (${inf.rotuloCompleto} gravado no Firestore)`
+          : `Cadastro salvo com sucesso: ${m.nome_completo}`
+      );
       if (outro) { form.reset(EMPTY); setDup(null); window.scrollTo({ top: 0 }); }
       else nav(`/temporarios/${m.id}`);
     },
@@ -121,12 +134,30 @@ export default function MilitarForm() {
         form.setError("data_desligamento", { message: "A data não pode ser futura" });
         return;
       }
+      const isRenovado = Boolean(v.renovacao_contrato);
+      const info = getInfoContrato({
+        data_inclusao: v.data_inclusao,
+        data_vencimento_contrato: v.data_vencimento_contrato,
+        renovacao_contrato: isRenovado,
+      });
       const body: MilitarIn = {
-        ...v,
-        doe_incorporacao: v.doe_incorporacao || null, observacoes: v.observacoes || null, sub_judice: v.sub_judice === "SIM",
+        matricula: v.matricula,
+        nome_completo: v.nome_completo,
+        cargo_id: v.cargo_id,
+        lotacao_id: v.lotacao_id,
+        edital_id: v.edital_id,
+        data_inclusao: v.data_inclusao,
+        data_vencimento_contrato: v.data_vencimento_contrato,
+        status: v.status,
+        doe_incorporacao: v.doe_incorporacao || null,
+        observacoes: v.observacoes || null,
+        sub_judice: v.sub_judice === "SIM",
         data_desligamento: v.status === "DESLIGADO" ? v.data_desligamento || null : null,
         motivo_desligamento_id: v.status === "DESLIGADO" ? v.motivo_desligamento_id || null : null,
         documento_desligamento: v.status === "DESLIGADO" ? v.documento_desligamento || null : null,
+        renovacao_contrato: isRenovado,
+        ano_contrato: isRenovado ? info.anoContrato : 1,
+        qtd_renovacoes: isRenovado ? info.qtdRenovacoes : 0,
       };
       mut.mutate({ body, outro });
     });
@@ -209,6 +240,14 @@ export default function MilitarForm() {
             <Field label="Data de vencimento do contrato" req error={e.data_vencimento_contrato?.message}>
               <Input type="date" className="[color-scheme:dark]" data-testid="input-data-vencimento" {...form.register("data_vencimento_contrato")} />
             </Field>
+            <div className="sm:col-span-2">
+              <RenovacaoPrompt
+                dataInclusao={watchedInclusao}
+                dataVencimento={watchedVencimento}
+                isRenovacao={Boolean(watchedRenovacao)}
+                onToggleRenovacao={(val) => form.setValue("renovacao_contrato", val, { shouldDirty: true })}
+              />
+            </div>
           </div>
         </section>
 
