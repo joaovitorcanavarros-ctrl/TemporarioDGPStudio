@@ -354,24 +354,6 @@ export default function Relatorios() {
                     </div>
                   )}
                 </div>
-
-                {/* Quick suggestions / instructions */}
-                <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
-                  <span className="text-[11px] text-slate-400">Sugestões de teste rápido:</span>
-                  {["352112/02", "351666/03", "352285/02"].map((mat) => (
-                    <button
-                      key={mat}
-                      type="button"
-                      onClick={() => {
-                        setMatricula(mat);
-                        setShowDropdown(false);
-                      }}
-                      className="rounded border border-[#1E2C42] bg-[#15202E] px-2 py-0.5 font-mono text-[11px] text-blue-300 transition-colors hover:border-blue-500 hover:text-white"
-                    >
-                      {mat}
-                    </button>
-                  ))}
-                </div>
               </div>
 
               {/* Militar Identification Card when loaded */}
@@ -433,7 +415,7 @@ export default function Relatorios() {
               {cleanMatricula.length >= 2 && !q.isFetching && !r?.militar && (
                 <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
                   <AlertCircle className="size-4 shrink-0 text-amber-400" />
-                  <span>Nenhum militar localizado para a matrícula &quot;{matricula}&quot;. Verifique se os dígitos estão corretos ou escolha uma das sugestões acima.</span>
+                  <span>Nenhum militar localizado para a matrícula &quot;{matricula}&quot;. Verifique se os dígitos estão corretos ou busque pelo nome completo.</span>
                 </div>
               )}
             </div>

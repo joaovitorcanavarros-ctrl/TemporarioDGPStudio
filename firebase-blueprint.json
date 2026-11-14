@@ -37,7 +37,14 @@
         "criado_em": { "type": "string" },
         "atualizado_em": { "type": "string" },
         "criado_por": { "type": "string" },
-        "atualizado_por": { "type": "string" }
+        "criado_por_nome": { "type": "string" },
+        "atualizado_por": { "type": "string" },
+        "atualizado_por_nome": { "type": "string" },
+        "renovacao_contrato": { "type": "boolean" },
+        "ano_contrato": { "type": "number" },
+        "qtd_renovacoes": { "type": "number" },
+        "data_ultima_renovacao": { "type": "string" },
+        "renovacoes_datas": { "type": "array" }
       },
       "required": ["id", "matricula", "nome_completo", "status"]
     },

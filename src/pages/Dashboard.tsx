@@ -42,29 +42,160 @@ export function filterParams(f: GlobalFilters) {
   return { ...baseParams(f), ano: f.ano, data_inicio: f.data_inicio, data_fim: f.data_fim };
 }
 
-function Kpi({ id, label, value, sub, icon: Icon, tone, onClick }: {
-  id: string; label: string; value: ReactNode; sub?: ReactNode; icon: LucideIcon; tone: "green" | "red" | "blue" | "amber" | "sky"; onClick?: () => void;
+type KpiTone = "green" | "red" | "blue" | "amber" | "sky" | "purple" | "rose";
+
+const KPI_TONE_STYLE: Record<KpiTone, { hex: string; iconIdle: string; iconActive: string }> = {
+  green: {
+    hex: "#10B981",
+    iconIdle: "text-emerald-400/80 bg-emerald-500/10 ring-emerald-500/20",
+    iconActive: "text-emerald-300 bg-emerald-500/20 ring-emerald-400/50 shadow-[0_0_16px_rgba(16,185,129,0.35)]",
+  },
+  red: {
+    hex: "#EF4444",
+    iconIdle: "text-red-400/80 bg-red-500/10 ring-red-500/20",
+    iconActive: "text-red-300 bg-red-500/20 ring-red-400/50 shadow-[0_0_16px_rgba(239,68,68,0.35)]",
+  },
+  blue: {
+    hex: "#3B82F6",
+    iconIdle: "text-blue-400/80 bg-blue-500/10 ring-blue-500/20",
+    iconActive: "text-blue-300 bg-blue-500/20 ring-blue-400/50 shadow-[0_0_16px_rgba(59,130,246,0.4)]",
+  },
+  amber: {
+    hex: "#F59E0B",
+    iconIdle: "text-amber-400/80 bg-amber-500/10 ring-amber-500/20",
+    iconActive: "text-amber-300 bg-amber-500/20 ring-amber-400/50 shadow-[0_0_16px_rgba(245,158,11,0.35)]",
+  },
+  sky: {
+    hex: "#38BDF8",
+    iconIdle: "text-sky-300/80 bg-sky-500/10 ring-sky-500/20",
+    iconActive: "text-sky-200 bg-sky-500/20 ring-sky-400/50 shadow-[0_0_16px_rgba(56,189,248,0.35)]",
+  },
+  purple: {
+    hex: "#A855F7",
+    iconIdle: "text-purple-400/80 bg-purple-500/10 ring-purple-500/20",
+    iconActive: "text-purple-300 bg-purple-500/20 ring-purple-400/50 shadow-[0_0_16px_rgba(168,85,247,0.35)]",
+  },
+  rose: {
+    hex: "#F43F5E",
+    iconIdle: "text-rose-400/80 bg-rose-500/10 ring-rose-500/20",
+    iconActive: "text-rose-300 bg-rose-500/20 ring-rose-400/50 shadow-[0_0_16px_rgba(244,63,94,0.35)]",
+  },
+};
+
+function Kpi({
+  id,
+  label,
+  value,
+  sub,
+  icon: Icon,
+  tone,
+  onClick,
+  isHighlighted = false,
+  isDimmed = false,
+  onHoverChange,
+}: {
+  id: string;
+  label: string;
+  value: ReactNode;
+  sub?: ReactNode;
+  icon: LucideIcon;
+  tone: KpiTone;
+  onClick?: () => void;
+  isHighlighted?: boolean;
+  isDimmed?: boolean;
+  onHoverChange?: (hovering: boolean) => void;
 }) {
-  const tones = {
-    green: "text-emerald-400 bg-emerald-500/10 ring-emerald-500/20",
-    red: "text-red-400 bg-red-500/10 ring-red-500/20",
-    blue: "text-blue-400 bg-blue-500/10 ring-blue-500/20",
-    amber: "text-amber-400 bg-amber-500/10 ring-amber-500/20",
-    sky: "text-sky-300 bg-sky-500/10 ring-sky-500/20",
-  };
+  const palette = KPI_TONE_STYLE[tone];
+
   return (
     <button
       type="button"
       onClick={onClick}
+      onMouseEnter={() => onHoverChange?.(true)}
+      onMouseLeave={() => onHoverChange?.(false)}
+      onFocus={() => onHoverChange?.(true)}
+      onBlur={() => onHoverChange?.(false)}
       data-testid={`kpi-${id}`}
-      className="group animate-rise rounded-xl border border-[#1E2C42] bg-[#121B28] p-4 text-left transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-0.5 hover:border-[#2E4262] hover:shadow-lg hover:shadow-black/40"
+      style={{
+        background: "linear-gradient(180deg, #152031 0%, #101826 100%)",
+        borderColor: isHighlighted ? `${palette.hex}99` : "#1E2C42",
+        boxShadow: isHighlighted
+          ? `0 0 0 1px ${palette.hex}44, 0 14px 32px -10px ${palette.hex}55, 0 12px 24px -12px rgba(0, 0, 0, 0.78)`
+          : "inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 4px 14px -6px rgba(0, 0, 0, 0.45)",
+      }}
+      className={cn(
+        "group relative animate-rise overflow-hidden rounded-xl border px-4 pb-4 pt-3 text-left cursor-pointer focus-visible:outline-none",
+        "transition-[transform,opacity,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+        isHighlighted && "-translate-y-0.5",
+        isDimmed && "opacity-75"
+      )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{label}</p>
-        <span className={cn("grid size-8 place-items-center rounded-lg ring-1", tones[tone])}><Icon className="size-4" /></span>
+      {/* Brilho radial superior descendente (efeito holofote LED do card) */}
+      <span
+        aria-hidden="true"
+        className={cn(
+          "pointer-events-none absolute inset-0 transition-opacity duration-200",
+          isHighlighted ? "opacity-100" : "opacity-15"
+        )}
+        style={{
+          background: `radial-gradient(78% 64% at 50% 0%, ${palette.hex}38 0%, ${palette.hex}12 46%, transparent 100%)`,
+        }}
+      />
+
+      {/* Barra LED superior centralizada */}
+      <span
+        aria-hidden="true"
+        className={cn(
+          "relative z-10 mx-auto mb-3 block h-[4px] w-14 rounded-full transition-[transform,opacity,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          isHighlighted ? "scale-x-115 opacity-100" : "opacity-35"
+        )}
+        style={{
+          backgroundColor: palette.hex,
+          boxShadow: isHighlighted
+            ? `0 0 10px ${palette.hex}, 0 0 22px ${palette.hex}AA`
+            : "none",
+        }}
+      />
+
+      <div className="relative z-10">
+        <div className="flex items-start justify-between gap-2">
+          <p
+            className={cn(
+              "text-[11px] font-semibold uppercase tracking-wider transition-colors duration-200",
+              isHighlighted ? "text-slate-200" : "text-slate-400"
+            )}
+          >
+            {label}
+          </p>
+          <span
+            className={cn(
+              "grid size-8 shrink-0 place-items-center rounded-lg ring-1 transition-[transform,box-shadow,background-color,color] duration-200",
+              isHighlighted ? cn(palette.iconActive, "scale-105") : palette.iconIdle
+            )}
+          >
+            <Icon className="size-4" />
+          </span>
+        </div>
+        <p
+          className={cn(
+            "num mt-2 text-3xl font-bold transition-colors duration-200",
+            isHighlighted ? "text-white" : "text-slate-100"
+          )}
+          data-testid={`kpi-${id}-value`}
+        >
+          {value}
+        </p>
+        {sub && (
+          <p
+            className={cn(
+              "mt-1 truncate text-xs transition-colors duration-200",
+              isHighlighted ? "text-slate-300" : "text-slate-400"
+            )}
+          >
+            {sub}
+          </p>
+        )}
       </div>
-      <p className="num mt-2 text-3xl font-bold text-white" data-testid={`kpi-${id}-value`}>{value}</p>
-      {sub && <p className="mt-1 truncate text-xs text-slate-400">{sub}</p>}
     </button>
   );
 }
@@ -807,6 +938,7 @@ export default function Dashboard() {
   const [evoView, setEvoView] = useState("mensal");
   const [distView, setDistView] = useState("cargo");
   const [ubmAll, setUbmAll] = useState(false);
+  const [hoveredKpi, setHoveredKpi] = useState<string | null>(null);
   const fp = filterParams(filters);
   const q = useQuery({
     queryKey: ["dashboard", fp],
@@ -831,6 +963,13 @@ export default function Dashboard() {
   const ubm = (d?.por_ubm ?? []).slice(0, ubmAll ? undefined : 12);
 
   const CAT_ICON: Record<string, LucideIcon> = { AUXILIAR: Shield, CONDUTOR: Truck, TEC_ENFERMAGEM: Activity, ENFERMEIRO: HeartPulse, MEDICO: Stethoscope };
+  const CAT_TONE: Record<string, KpiTone> = {
+    AUXILIAR: "blue",
+    CONDUTOR: "amber",
+    TEC_ENFERMAGEM: "green",
+    ENFERMEIRO: "purple",
+    MEDICO: "rose",
+  };
 
   return (
     <div className="space-y-6">
@@ -865,19 +1004,34 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         <Kpi id="ativos" label="Temporários ativos" value={v(d?.kpis.ativos)} icon={UserCheck} tone="green" sub={`Efetivo em ${fmtDate(ref)}`}
+          isHighlighted={hoveredKpi === "ativos"} isDimmed={hoveredKpi !== null && hoveredKpi !== "ativos"}
+          onHoverChange={(h) => setHoveredKpi(h ? "ativos" : null)}
           onClick={() => setDrill({ title: "Temporários ativos", params: { ...base, status: "ATIVO", ativo_em: ref } })} />
         <Kpi id="desligamentos" label="Distratos / desligamentos" value={v(d?.kpis.desligamentos_periodo)} icon={UserMinus} tone="red" sub={periodoTxt}
+          isHighlighted={hoveredKpi === "desligamentos"} isDimmed={hoveredKpi !== null && hoveredKpi !== "desligamentos"}
+          onHoverChange={(h) => setHoveredKpi(h ? "desligamentos" : null)}
           onClick={() => setDrill({ title: "Desligamentos no período", params: { ...deslParams, status: "DESLIGADO" }, variant: "desligados" })} />
         <Kpi id="top-ubm" label="UBM DE MAIOR EFETIVO" value={d ? fmtNum(d.kpis.top_ubm_total) : "—"} icon={Building2} tone="blue" sub={d?.kpis.top_ubm_nome ?? "—"}
+          isHighlighted={hoveredKpi === "top-ubm"} isDimmed={hoveredKpi !== null && hoveredKpi !== "top-ubm"}
+          onHoverChange={(h) => setHoveredKpi(h ? "top-ubm" : null)}
           onClick={() => d?.kpis.top_ubm_id && setDrill({ title: d.kpis.top_ubm_nome ?? "UBM", params: { ...base, status: "ATIVO", lotacao_id: d.kpis.top_ubm_id, ativo_em: ref } })} />
         <Kpi id="contratos-a-vencer" label="Contratos a vencer" value={v(d?.kpis.a_vencer)} icon={Clock} tone="amber" sub={`Próximos ${d?.alerta_dias ?? "—"} dias`}
+          isHighlighted={hoveredKpi === "contratos-a-vencer"} isDimmed={hoveredKpi !== null && hoveredKpi !== "contratos-a-vencer"}
+          onHoverChange={(h) => setHoveredKpi(h ? "contratos-a-vencer" : null)}
           onClick={() => setDrill({ title: "Contratos a vencer", params: { ...base, status: "ATIVO", venc: "a_vencer" } })} />
         <Kpi id="sub-judice" label="Militares sub judice" value={v(d?.kpis.sub_judice)} icon={Scale} tone="amber" sub={`Ativos em ${fmtDate(ref)}`}
+          isHighlighted={hoveredKpi === "sub-judice"} isDimmed={hoveredKpi !== null && hoveredKpi !== "sub-judice"}
+          onHoverChange={(h) => setHoveredKpi(h ? "sub-judice" : null)}
           onClick={() => setDrill({ title: "Militares sub judice", params: { ...base, status: "ATIVO", sub_judice: "true", ativo_em: ref } })} />
-        {(cats.length ? cats.filter((c) => c.chave !== "OUTROS" || c.total > 0) : []).map((c) => (
-          <Kpi key={c.chave} id={c.chave.toLowerCase().replace(/_/g, "-")} label={c.nome} value={fmtNum(c.total)} icon={CAT_ICON[c.chave] ?? Briefcase} tone="sky" sub="Ativos no cargo"
-            onClick={() => setDrill({ title: `${c.nome} — ativos`, params: { ...base, status: "ATIVO", categoria: c.chave, ativo_em: ref } })} />
-        ))}
+        {(cats.length ? cats.filter((c) => c.chave !== "OUTROS" || c.total > 0) : []).map((c) => {
+          const catId = c.chave.toLowerCase().replace(/_/g, "-");
+          return (
+            <Kpi key={c.chave} id={catId} label={c.nome} value={fmtNum(c.total)} icon={CAT_ICON[c.chave] ?? Briefcase} tone={CAT_TONE[c.chave] ?? "sky"} sub="Ativos no cargo"
+              isHighlighted={hoveredKpi === catId} isDimmed={hoveredKpi !== null && hoveredKpi !== catId}
+              onHoverChange={(h) => setHoveredKpi(h ? catId : null)}
+              onClick={() => setDrill({ title: `${c.nome} — ativos`, params: { ...base, status: "ATIVO", categoria: c.chave, ativo_em: ref } })} />
+          );
+        })}
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">

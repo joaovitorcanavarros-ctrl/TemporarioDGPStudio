@@ -168,21 +168,26 @@ export async function gerarPdfRelatorio(relatorio: Relatorio, filtrosDescricao?:
 
   currentY += 5;
 
-  // Report Title
+  // Report Title (wrapped safely to avoid horizontal overflow)
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   doc.setTextColor(15, 25, 45);
-  doc.text(relatorio.titulo.toUpperCase(), marginLeft, currentY);
-
-  currentY += 4.5;
+  const titleLines: string[] = doc.splitTextToSize(relatorio.titulo.toUpperCase(), contentWidth);
+  titleLines.forEach((lineText) => {
+    doc.text(lineText, marginLeft, currentY);
+    currentY += 4.8;
+  });
 
   // Report Description & Filter Info
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(90, 105, 120);
   if (relatorio.descricao) {
-    doc.text(relatorio.descricao, marginLeft, currentY);
-    currentY += 4;
+    const descLines: string[] = doc.splitTextToSize(relatorio.descricao, contentWidth);
+    descLines.forEach((lineText) => {
+      doc.text(lineText, marginLeft, currentY);
+      currentY += 3.8;
+    });
   }
 
   const infoFiltros = filtrosDescricao || relatorio.filtros || "Todos os registros";
@@ -194,9 +199,16 @@ export async function gerarPdfRelatorio(relatorio: Relatorio, filtrosDescricao?:
     ? `Gerado em: ${geradoFmt}`
     : `Emitido em: ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
   const totalLinhas = `${relatorio.linhas.length} registro(s)`;
-  doc.text(`Filtros: ${infoFiltros}   |   ${emissao}   |   Total: ${totalLinhas}`, marginLeft, currentY);
+  const metaLines: string[] = doc.splitTextToSize(
+    `Filtros: ${infoFiltros}   |   ${emissao}   |   Total: ${totalLinhas}`,
+    contentWidth
+  );
+  metaLines.forEach((lineText) => {
+    doc.text(lineText, marginLeft, currentY);
+    currentY += 3.8;
+  });
 
-  currentY += 4;
+  currentY += 1.5;
 
   // If militar details are provided (e.g. Ficha Funcional Individual), print official identification card
   if (relatorio.militar) {
@@ -204,60 +216,130 @@ export async function gerarPdfRelatorio(relatorio: Relatorio, filtrosDescricao?:
     const rawObs = m.observacoes ? String(m.observacoes).trim() : "";
     const hasObs = Boolean(rawObs && rawObs !== "-" && rawObs !== "—" && rawObs.toLowerCase() !== "null");
 
+    const cardPadX = 3.5;
+    const innerW = contentWidth - cardPadX * 2;
+    const colGap = 6;
+    const halfW = (innerW - colGap) / 2;
+    const leftX = marginLeft + cardPadX;
+    const rightColX = leftX + halfW + colGap;
+    const rightEdgeX = marginLeft + contentWidth - cardPadX;
+    const lineH = 3.8;
+
+    // Pre-calculate wrapped lines for each row so nothing ever overlaps horizontally
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    const matriculaText = `MATRÍCULA: ${m.matricula || "—"}`;
+    const matriculaW = doc.getTextWidth(matriculaText);
+    const nomeMaxW = Math.max(55, innerW - matriculaW - 6);
+    const nomeLines: string[] = doc.splitTextToSize(
+      `MILITAR: ${String(m.nome_completo || "—").toUpperCase()}`,
+      nomeMaxW
+    );
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    const cargoLines: string[] = doc.splitTextToSize(`Cargo / Função: ${m.cargo_nome || "—"}`, halfW);
+    const lotacaoLines: string[] = doc.splitTextToSize(`Lotação / UBM: ${m.lotacao_nome || "—"}`, halfW);
+
+    const doeStr = m.doe_incorporacao ? String(m.doe_incorporacao).trim() : "";
+    const editalText = `Edital: ${m.edital_nome || "—"}${doeStr && doeStr !== "-" && doeStr !== "—" ? ` (DOE: ${doeStr})` : ""}`;
+    const datasText = `Inclusão: ${fmtDate(m.data_inclusao)}   |   Vencimento: ${fmtDate(m.data_vencimento_contrato)}`;
+    const editalLines: string[] = doc.splitTextToSize(editalText, halfW);
+    const datasLines: string[] = doc.splitTextToSize(datasText, halfW);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    const sitText = `SITUAÇÃO ATUAL: ${m.status || "ATIVO"}${m.sub_judice ? " (SUB JÚDICE)" : ""}`;
+    const deslText = m.data_desligamento
+      ? `Desligamento: ${fmtDate(m.data_desligamento)} (${m.motivo_desligamento_nome || "—"})`
+      : "";
+    const sitLines: string[] = doc.splitTextToSize(sitText, deslText ? halfW : innerW);
+    const deslLines: string[] = deslText ? doc.splitTextToSize(deslText, halfW) : [];
+
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     const obsLines: string[] = hasObs
-      ? doc.splitTextToSize(`OBSERVAÇÕES: ${rawObs}`, contentWidth - 7)
+      ? doc.splitTextToSize(`OBSERVAÇÕES: ${rawObs}`, innerW)
       : [];
 
+    const row1Count = nomeLines.length;
+    const row2Count = Math.max(cargoLines.length, lotacaoLines.length);
+    const row3Count = Math.max(editalLines.length, datasLines.length);
+    const row4Count = Math.max(sitLines.length, deslLines.length);
+
+    const row1H = row1Count * 4.0 + 1.4;
+    const row2H = row2Count * lineH + 1.3;
+    const row3H = row3Count * lineH + 1.3;
+    const row4H = row4Count * lineH;
+
+    const baseContentOffset = 4.8 + row1H + row2H + row3H + row4H;
+    const lastBaselineOffset =
+      hasObs && obsLines.length > 0
+        ? baseContentOffset + 2.6 + (obsLines.length - 1) * lineH
+        : baseContentOffset - lineH;
+
     const boxY = currentY;
-    const boxHeight = hasObs ? 23 + obsLines.length * 3.8 + 1.5 : 23;
+    const boxHeight = lastBaselineOffset + 3.2;
+
     doc.setFillColor(244, 247, 252);
     doc.setDrawColor(195, 210, 230);
     doc.setLineWidth(0.3);
     doc.roundedRect(marginLeft, boxY, contentWidth, boxHeight, 1.5, 1.5, "FD");
 
-    // Line 1: Nome & Matrícula
+    let cursorY = boxY + 4.8;
+
+    // Row 1: Nome & Matrícula
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8.5);
     doc.setTextColor(18, 32, 58);
-    doc.text(`MILITAR: ${String(m.nome_completo || "—").toUpperCase()}`, marginLeft + 3.5, boxY + 4.8);
-    doc.text(`MATRÍCULA: ${m.matricula || "—"}`, marginLeft + contentWidth - 46, boxY + 4.8);
+    nomeLines.forEach((lineText, idx) => {
+      doc.text(lineText, leftX, cursorY + idx * 4.0);
+    });
+    doc.text(matriculaText, rightEdgeX, cursorY, { align: "right" });
+    cursorY += row1H;
 
-    // Line 2: Cargo & UBM
+    // Row 2: Cargo & UBM
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(45, 60, 80);
-    doc.text(`Cargo / Função: ${m.cargo_nome || "—"}`, marginLeft + 3.5, boxY + 10);
-    doc.text(`Lotação / UBM: ${m.lotacao_nome || "—"}`, marginLeft + contentWidth / 2, boxY + 10);
+    cargoLines.forEach((lineText, idx) => {
+      doc.text(lineText, leftX, cursorY + idx * lineH);
+    });
+    lotacaoLines.forEach((lineText, idx) => {
+      doc.text(lineText, rightColX, cursorY + idx * lineH);
+    });
+    cursorY += row2H;
 
-    // Line 3: Edital, Inclusão, Vencimento
-    const doeStr = m.doe_incorporacao ? String(m.doe_incorporacao).trim() : "";
-    doc.text(
-      `Edital: ${m.edital_nome || "—"}${doeStr && doeStr !== "-" && doeStr !== "—" ? ` (DOE: ${doeStr})` : ""}`,
-      marginLeft + 3.5,
-      boxY + 15
-    );
-    doc.text(
-      `Inclusão: ${fmtDate(m.data_inclusao)}   |   Vencimento: ${fmtDate(m.data_vencimento_contrato)}`,
-      marginLeft + contentWidth / 2,
-      boxY + 15
-    );
+    // Row 3: Edital/DOE & Inclusão/Vencimento (wrapped cleanly inside each column)
+    editalLines.forEach((lineText, idx) => {
+      doc.text(lineText, leftX, cursorY + idx * lineH);
+    });
+    datasLines.forEach((lineText, idx) => {
+      doc.text(lineText, rightColX, cursorY + idx * lineH);
+    });
+    cursorY += row3H;
 
-    // Line 4: Situação
+    // Row 4: Situação & Desligamento
     doc.setFont("helvetica", "bold");
-    doc.text(`SITUAÇÃO ATUAL: ${m.status || "ATIVO"}${m.sub_judice ? " (SUB JÚDICE)" : ""}`, marginLeft + 3.5, boxY + 20);
-    if (m.data_desligamento) {
-      doc.text(`Desligamento: ${fmtDate(m.data_desligamento)} (${m.motivo_desligamento_nome || "—"})`, marginLeft + contentWidth / 2, boxY + 20);
+    doc.setTextColor(18, 32, 58);
+    sitLines.forEach((lineText, idx) => {
+      doc.text(lineText, leftX, cursorY + idx * lineH);
+    });
+    if (deslLines.length > 0) {
+      deslLines.forEach((lineText, idx) => {
+        doc.text(lineText, rightColX, cursorY + idx * lineH);
+      });
     }
+    cursorY += row4H;
 
-    // Line 5+: OBSERVAÇÕES (when present on the militar's active functional record)
+    // Row 5+: OBSERVAÇÕES
     if (hasObs && obsLines.length > 0) {
+      const dividerY = cursorY - 1.2;
       doc.setDrawColor(215, 225, 238);
       doc.setLineWidth(0.2);
-      doc.line(marginLeft + 3.5, boxY + 21.8, marginLeft + contentWidth - 3.5, boxY + 21.8);
+      doc.line(leftX, dividerY, rightEdgeX, dividerY);
 
-      doc.setFont("helvetica", "bold");
+      const obsStartY = dividerY + 3.8;
       doc.setFontSize(7.5);
       doc.setTextColor(30, 45, 70);
       obsLines.forEach((lineText, idx) => {
@@ -265,13 +347,13 @@ export async function gerarPdfRelatorio(relatorio: Relatorio, filtrosDescricao?:
           const prefix = "OBSERVAÇÕES: ";
           const rest = lineText.slice(prefix.length);
           doc.setFont("helvetica", "bold");
-          doc.text(prefix, marginLeft + 3.5, boxY + 25.2 + idx * 3.8);
+          doc.text(prefix, leftX, obsStartY + idx * lineH);
           const prefixW = doc.getTextWidth(prefix);
           doc.setFont("helvetica", "normal");
-          doc.text(rest, marginLeft + 3.5 + prefixW, boxY + 25.2 + idx * 3.8);
+          doc.text(rest, leftX + prefixW, obsStartY + idx * lineH);
         } else {
           doc.setFont("helvetica", "normal");
-          doc.text(lineText, marginLeft + 3.5, boxY + 25.2 + idx * 3.8);
+          doc.text(lineText, leftX, obsStartY + idx * lineH);
         }
       });
     }
@@ -383,22 +465,25 @@ export async function gerarPdfRelatorio(relatorio: Relatorio, filtrosDescricao?:
       }
     },
     didDrawPage: (data) => {
-      // On page 2+, draw a subtle compact header
+      // On page 2+, draw a subtle compact header without horizontal collision
       if (data.pageNumber > 1) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
-        doc.setTextColor(80, 95, 115);
-        doc.text("CBMMT / DGP — " + relatorio.titulo.toUpperCase(), marginLeft, 13);
-
         doc.setFont("helvetica", "normal");
         doc.setFontSize(7);
         doc.setTextColor(130, 140, 155);
-        doc.text(
-          `Filtros: ${filtrosDescricao || relatorio.filtros || "Geral"}`,
-          pageWidth - marginRight,
-          13,
-          { align: "right" }
+        const rightFilterText = `Filtros: ${filtrosDescricao || relatorio.filtros || "Geral"}`;
+        const rightFilterW = Math.min(contentWidth * 0.35, doc.getTextWidth(rightFilterText));
+        const filterLine = doc.splitTextToSize(rightFilterText, contentWidth * 0.35)[0] || rightFilterText;
+        doc.text(filterLine, pageWidth - marginRight, 13, { align: "right" });
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(80, 95, 115);
+        const leftHeaderMaxW = contentWidth - rightFilterW - 6;
+        const leftHeaderLines: string[] = doc.splitTextToSize(
+          "CBMMT / DGP — " + relatorio.titulo.toUpperCase(),
+          leftHeaderMaxW
         );
+        doc.text(leftHeaderLines[0] || "", marginLeft, 13);
 
         doc.setDrawColor(215, 225, 235);
         doc.setLineWidth(0.3);

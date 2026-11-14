@@ -24,6 +24,8 @@ export interface MilitarIn {
   renovacao_contrato?: boolean | null;
   ano_contrato?: number | null;
   qtd_renovacoes?: number | null;
+  data_ultima_renovacao?: string | null;
+  renovacoes_datas?: string[] | null;
 }
 export interface MilitarRapidoIn {
   lotacao_id?: string | null;
@@ -33,6 +35,8 @@ export interface MilitarRapidoIn {
   renovacao_contrato?: boolean | null;
   ano_contrato?: number | null;
   qtd_renovacoes?: number | null;
+  data_ultima_renovacao?: string | null;
+  renovacoes_datas?: string[] | null;
 }
 export interface DesligamentoIn { data_desligamento: string; motivo_id: string; documento?: string | null; observacoes?: string | null }
 export interface ReativacaoIn { justificativa: string; data_vencimento_contrato?: string | null; documento?: string | null }
@@ -49,6 +53,8 @@ export interface Militar {
   renovacao_contrato?: boolean | null;
   ano_contrato?: number;
   qtd_renovacoes?: number;
+  data_ultima_renovacao?: string | null;
+  renovacoes_datas?: string[] | null;
 }
 
 export interface InfoContrato {
@@ -60,12 +66,24 @@ export interface InfoContrato {
   detalheRenovacao: string;
 }
 
+/**
+ * Soma (ou subtrai) dias em uma data ISO YYYY-MM-DD sem desvio de fuso horário.
+ * Ex.: addDaysToIsoDate("2026-06-01", 1) === "2026-06-02".
+ */
+export function addDaysToIsoDate(isoDate?: string | null, days = 1): string {
+  if (!isoDate || !/^\d{4}-\d{2}-\d{2}/.test(isoDate)) return "";
+  const [y, m, d] = isoDate.slice(0, 10).split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  return dt.toISOString().slice(0, 10);
+}
+
 export function getInfoContrato(m?: {
   data_inclusao?: string | null;
   data_vencimento_contrato?: string | null;
   renovacao_contrato?: boolean | null;
   ano_contrato?: number | null;
   qtd_renovacoes?: number | null;
+  renovacoes_datas?: string[] | null;
 } | null): InfoContrato {
   if (!m) {
     return {
@@ -82,21 +100,18 @@ export function getInfoContrato(m?: {
   const dataVenc = m.data_vencimento_contrato ? String(m.data_vencimento_contrato).slice(0, 10) : "";
 
   let anosCalculados = 1;
-  if (dataInc && dataVenc) {
-    const inc = new Date(`${dataInc}T12:00:00`);
-    const venc = new Date(`${dataVenc}T12:00:00`);
+  if (dataInc && dataVenc && /^\d{4}-\d{2}-\d{2}$/.test(dataInc) && /^\d{4}-\d{2}-\d{2}$/.test(dataVenc)) {
+    const inc = new Date(`${dataInc}T12:00:00Z`);
+    const venc = new Date(`${dataVenc}T12:00:00Z`);
     const diffMs = venc.getTime() - inc.getTime();
     const diffDias = Math.max(0, Math.round(diffMs / 86400000));
+    // O 1º ano encerra 1 dia antes do aniversário da inclusão (ex.: 02/06/2025 -> 01/06/2026 = 365 dias inclusivos).
+    const diasVigencia = diffDias + 1;
 
-    // Tolerância para ciclo de 365 dias/ano
     if (diffDias > 395) {
-      anosCalculados = Math.max(1, Math.round(diffDias / 365.25));
-    } else if (diffDias > 330) {
+      anosCalculados = Math.max(2, Math.round(diasVigencia / 365.25));
+    } else {
       anosCalculados = 1;
-    }
-    const calDiff = venc.getFullYear() - inc.getFullYear();
-    if (calDiff > anosCalculados) {
-      anosCalculados = calDiff;
     }
   }
 
@@ -112,12 +127,17 @@ export function getInfoContrato(m?: {
     (m.renovacao_contrato !== false && (anosCalculados > 1 || (inc2025 && venc2027ouMais)))
   );
 
-  const anoContrato = renovado ? Math.max(2, anosCalculados) : 1;
-  const qtdRenovacoes = typeof m.qtd_renovacoes === "number" && m.qtd_renovacoes >= 0 && m.renovacao_contrato
-    ? m.qtd_renovacoes
-    : renovado
-      ? Math.max(1, anoContrato - 1)
+  const qtdPorDatas = Array.isArray(m.renovacoes_datas) ? m.renovacoes_datas.length : 0;
+  const qtdExplicit =
+    typeof m.qtd_renovacoes === "number" && m.qtd_renovacoes >= 0 && m.renovacao_contrato
+      ? m.qtd_renovacoes
       : 0;
+
+  const anoBase = renovado ? Math.max(2, anosCalculados, qtdPorDatas + 1, qtdExplicit + 1) : 1;
+  const qtdRenovacoes = renovado
+    ? Math.max(1, anoBase - 1, qtdExplicit, qtdPorDatas)
+    : 0;
+  const anoContrato = renovado ? Math.max(anoBase, qtdRenovacoes + 1) : 1;
 
   const detalheRenovacao = qtdRenovacoes > 0
     ? `${qtdRenovacoes}ª renovação (${anoContrato}º ano)`

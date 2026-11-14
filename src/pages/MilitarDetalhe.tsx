@@ -51,8 +51,8 @@ export default function MilitarDetalhe() {
   const q = useQuery({
     queryKey: ["militar", id],
     queryFn: () => apiGet<Militar>(`/militares/${id}`),
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
   const h = useQuery({
     queryKey: ["militar", id, "historico"],

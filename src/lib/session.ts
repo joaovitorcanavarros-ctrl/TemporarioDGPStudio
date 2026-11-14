@@ -12,9 +12,11 @@ import {
 export async function beginSession(): Promise<void> {
   queryClient.clear();
   try {
-    await sincronizarUsuariosComFirestore(true);
-    await sincronizarMilitaresComFirestore(true);
-    await carregarMetadadosInstitucionaisFirestore(true);
+    await Promise.all([
+      sincronizarUsuariosComFirestore(false),
+      sincronizarMilitaresComFirestore(false),
+      carregarMetadadosInstitucionaisFirestore(false),
+    ]);
   } catch (e) {
     console.warn("Session begin sync error", e);
   }

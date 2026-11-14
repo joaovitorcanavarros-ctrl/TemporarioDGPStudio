@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertCircle, ArrowLeft, Eraser, Save, SaveAll } from "lucide-react";
+import { AlertCircle, ArrowLeft, BadgeCheck, Eraser, Save, SaveAll } from "lucide-react";
 import FieldSelect from "@/components/FieldSelect";
 import { useInvalidateMilitares } from "@/components/MilitarDialogs";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -13,10 +13,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, apiGet, apiPost, apiPut } from "@/lib/api";
-import { errMsg, qs } from "@/lib/format";
+import { errMsg, fmtDate, qs } from "@/lib/format";
 import { podeEditar, useCatalogos, useMe, useMeta } from "@/lib/hooks";
 import { getInfoContrato, type MatriculaCheck, type Militar, type MilitarIn } from "@/lib/types";
-import { RenovacaoPrompt } from "@/components/RenovacaoPrompt";
+import { RenovacaoFocusModal, type RenovacaoConfirmPayload } from "@/components/RenovacaoPrompt";
+import { cn } from "@/lib/utils";
 
 const schema = z
   .object({
@@ -73,6 +74,13 @@ export default function MilitarForm() {
   const meta = useMeta();
   const invalidate = useInvalidateMilitares();
   const [dup, setDup] = useState<{ id: string; msg: string } | null>(null);
+  const [renovModalOpen, setRenovModalOpen] = useState(false);
+  const [pendingSubmitOutro, setPendingSubmitOutro] = useState<boolean | null>(null);
+  const [renovDecision, setRenovDecision] = useState<{
+    decidedForDate: string;
+    payload: RenovacaoConfirmPayload;
+  } | null>(null);
+
   const atual = useQuery({ queryKey: ["militar", id], queryFn: () => apiGet<Militar>(`/militares/${id}`), enabled: editing });
   const form = useForm<F>({ resolver: zodResolver(schema), defaultValues: EMPTY });
   const status = useWatch({ control: form.control, name: "status" });
@@ -80,7 +88,7 @@ export default function MilitarForm() {
 
   useEffect(() => {
     const m = atual.data;
-    if (m)
+    if (m) {
       form.reset({
         matricula: m.matricula, nome_completo: m.nome_completo, cargo_id: m.cargo_id, lotacao_id: m.lotacao_id, edital_id: m.edital_id,
         data_inclusao: m.data_inclusao, data_vencimento_contrato: m.data_vencimento_contrato, status: m.status,
@@ -88,11 +96,17 @@ export default function MilitarForm() {
         motivo_desligamento_id: m.motivo_desligamento_id ?? "", documento_desligamento: m.documento_desligamento ?? "",
         renovacao_contrato: getInfoContrato(m).renovado,
       });
+      setRenovDecision(null);
+      setRenovModalOpen(false);
+      setPendingSubmitOutro(null);
+    }
   }, [atual.data, form]);
 
-  const watchedInclusao = form.watch("data_inclusao");
-  const watchedVencimento = form.watch("data_vencimento_contrato");
-  const watchedRenovacao = form.watch("renovacao_contrato");
+  const watchedInclusao = form.watch("data_inclusao") ?? "";
+  const watchedVencimento = form.watch("data_vencimento_contrato") ?? "";
+  const originalVencimento = atual.data?.data_vencimento_contrato ?? "";
+  const originalInfo = getInfoContrato(atual.data);
+  const vencRegister = form.register("data_vencimento_contrato");
 
   const checkMatricula = async () => {
     const mat = form.getValues("matricula").trim();
@@ -113,7 +127,7 @@ export default function MilitarForm() {
       const inf = getInfoContrato(m);
       toast.success(
         editing
-          ? `Cadastro de ${m.nome_completo} atualizado (${inf.rotuloCompleto} gravado no Firestore)`
+          ? `Cadastro de ${m.nome_completo} atualizado (${inf.rotuloCompleto})`
           : `Cadastro salvo com sucesso: ${m.nome_completo}`
       );
       if (outro) { form.reset(EMPTY); setDup(null); window.scrollTo({ top: 0 }); }
@@ -128,38 +142,84 @@ export default function MilitarForm() {
     },
   });
 
+  const executeMutation = (v: F, outro: boolean, decisionOverride?: { decidedForDate: string; payload: RenovacaoConfirmPayload } | null) => {
+    if (v.status === "DESLIGADO" && hoje && v.data_desligamento && v.data_desligamento > hoje) {
+      form.setError("data_desligamento", { message: "A data não pode ser futura" });
+      return;
+    }
+
+    let isRenovado = false;
+    let anoContrato = 1;
+    let qtdRenovacoes = 0;
+    let dataUltimaRenovacao: string | null = null;
+    let renovacoesDatas: string[] = [];
+
+    if (editing && atual.data) {
+      const existingDatas = Array.isArray(atual.data.renovacoes_datas) ? [...atual.data.renovacoes_datas] : [];
+      const activeDecision = decisionOverride ?? renovDecision;
+      const dateChanged = Boolean(originalVencimento && v.data_vencimento_contrato !== originalVencimento);
+
+      if (dateChanged && activeDecision && activeDecision.decidedForDate === v.data_vencimento_contrato) {
+        isRenovado = activeDecision.payload.isRenovacao;
+        anoContrato = activeDecision.payload.anoContrato;
+        qtdRenovacoes = activeDecision.payload.qtdRenovacoes;
+        if (activeDecision.payload.dataRenovacao) {
+          dataUltimaRenovacao = activeDecision.payload.dataRenovacao;
+          if (!existingDatas.includes(activeDecision.payload.dataRenovacao)) {
+            existingDatas.push(activeDecision.payload.dataRenovacao);
+          }
+          existingDatas.sort();
+          renovacoesDatas = existingDatas;
+        } else {
+          dataUltimaRenovacao = atual.data.data_ultima_renovacao ?? null;
+          renovacoesDatas = existingDatas;
+        }
+      } else {
+        isRenovado = originalInfo.renovado;
+        anoContrato = originalInfo.anoContrato;
+        qtdRenovacoes = originalInfo.qtdRenovacoes;
+        dataUltimaRenovacao = atual.data.data_ultima_renovacao ?? null;
+        renovacoesDatas = existingDatas;
+      }
+    }
+
+    const body: MilitarIn = {
+      matricula: v.matricula,
+      nome_completo: v.nome_completo,
+      cargo_id: v.cargo_id,
+      lotacao_id: v.lotacao_id,
+      edital_id: v.edital_id,
+      data_inclusao: v.data_inclusao,
+      data_vencimento_contrato: v.data_vencimento_contrato,
+      status: v.status,
+      doe_incorporacao: v.doe_incorporacao || null,
+      observacoes: v.observacoes || null,
+      sub_judice: v.sub_judice === "SIM",
+      data_desligamento: v.status === "DESLIGADO" ? v.data_desligamento || null : null,
+      motivo_desligamento_id: v.status === "DESLIGADO" ? v.motivo_desligamento_id || null : null,
+      documento_desligamento: v.status === "DESLIGADO" ? v.documento_desligamento || null : null,
+      renovacao_contrato: isRenovado,
+      ano_contrato: anoContrato,
+      qtd_renovacoes: qtdRenovacoes,
+      data_ultima_renovacao: dataUltimaRenovacao,
+      renovacoes_datas: renovacoesDatas,
+    };
+    mut.mutate({ body, outro });
+  };
+
   const submit = (outro: boolean) =>
     form.handleSubmit((v) => {
-      if (v.status === "DESLIGADO" && hoje && v.data_desligamento && v.data_desligamento > hoje) {
-        form.setError("data_desligamento", { message: "A data não pode ser futura" });
+      if (
+        editing &&
+        originalVencimento &&
+        v.data_vencimento_contrato !== originalVencimento &&
+        renovDecision?.decidedForDate !== v.data_vencimento_contrato
+      ) {
+        setPendingSubmitOutro(outro);
+        setRenovModalOpen(true);
         return;
       }
-      const isRenovado = Boolean(v.renovacao_contrato);
-      const info = getInfoContrato({
-        data_inclusao: v.data_inclusao,
-        data_vencimento_contrato: v.data_vencimento_contrato,
-        renovacao_contrato: isRenovado,
-      });
-      const body: MilitarIn = {
-        matricula: v.matricula,
-        nome_completo: v.nome_completo,
-        cargo_id: v.cargo_id,
-        lotacao_id: v.lotacao_id,
-        edital_id: v.edital_id,
-        data_inclusao: v.data_inclusao,
-        data_vencimento_contrato: v.data_vencimento_contrato,
-        status: v.status,
-        doe_incorporacao: v.doe_incorporacao || null,
-        observacoes: v.observacoes || null,
-        sub_judice: v.sub_judice === "SIM",
-        data_desligamento: v.status === "DESLIGADO" ? v.data_desligamento || null : null,
-        motivo_desligamento_id: v.status === "DESLIGADO" ? v.motivo_desligamento_id || null : null,
-        documento_desligamento: v.status === "DESLIGADO" ? v.documento_desligamento || null : null,
-        renovacao_contrato: isRenovado,
-        ano_contrato: isRenovado ? info.anoContrato : 1,
-        qtd_renovacoes: isRenovado ? info.qtdRenovacoes : 0,
-      };
-      mut.mutate({ body, outro });
+      executeMutation(v, outro);
     });
 
   if (me.data && !podeEditar(me.data)) {
@@ -238,16 +298,53 @@ export default function MilitarForm() {
               <Input type="date" className="[color-scheme:dark]" data-testid="input-data-inclusao" {...form.register("data_inclusao")} />
             </Field>
             <Field label="Data de vencimento do contrato" req error={e.data_vencimento_contrato?.message}>
-              <Input type="date" className="[color-scheme:dark]" data-testid="input-data-vencimento" {...form.register("data_vencimento_contrato")} />
-            </Field>
-            <div className="sm:col-span-2">
-              <RenovacaoPrompt
-                dataInclusao={watchedInclusao}
-                dataVencimento={watchedVencimento}
-                isRenovacao={Boolean(watchedRenovacao)}
-                onToggleRenovacao={(val) => form.setValue("renovacao_contrato", val, { shouldDirty: true })}
+              <Input
+                type="date"
+                className="[color-scheme:dark]"
+                data-testid="input-data-vencimento"
+                {...vencRegister}
+                onBlur={(ev) => {
+                  void vencRegister.onBlur(ev);
+                  if (!editing || !originalVencimento) return;
+                  const val = ev.target.value;
+                  if (
+                    val &&
+                    /^\d{4}-\d{2}-\d{2}$/.test(val) &&
+                    val !== originalVencimento &&
+                    (!watchedInclusao || val >= watchedInclusao) &&
+                    renovDecision?.decidedForDate !== val
+                  ) {
+                    setPendingSubmitOutro(null);
+                    setRenovModalOpen(true);
+                  }
+                }}
               />
-            </div>
+              {editing && renovDecision && renovDecision.decidedForDate === watchedVencimento && watchedVencimento !== originalVencimento && (
+                <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300" data-testid="renovacao-confirmed-summary">
+                  <span className="inline-flex items-center gap-1.5">
+                    <BadgeCheck className={cn("size-3.5", renovDecision.payload.dataRenovacao ? "text-cyan-400" : "text-slate-400")} />
+                    {renovDecision.payload.dataRenovacao ? (
+                      <span>
+                        Renovação confirmada ({renovDecision.payload.qtdRenovacoes}ª · {renovDecision.payload.anoContrato}º Ano · início em{" "}
+                        <strong className="num text-cyan-300">{fmtDate(renovDecision.payload.dataRenovacao)}</strong>)
+                      </span>
+                    ) : (
+                      <span>Ajuste de data confirmado (sem nova renovação)</span>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingSubmitOutro(null);
+                      setRenovModalOpen(true);
+                    }}
+                    className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2 cursor-pointer"
+                  >
+                    Alterar
+                  </button>
+                </div>
+              )}
+            </Field>
           </div>
         </section>
 
@@ -301,6 +398,36 @@ export default function MilitarForm() {
           </Button>
         </div>
       </form>
+
+      {editing && renovModalOpen && (
+        <RenovacaoFocusModal
+          open={renovModalOpen}
+          onOpenChange={(open) => {
+            setRenovModalOpen(open);
+            if (!open) setPendingSubmitOutro(null);
+          }}
+          dataInclusao={watchedInclusao}
+          dataVencimentoAnterior={originalVencimento}
+          dataVencimentoNova={watchedVencimento}
+          previousRenovado={originalInfo.renovado}
+          previousQtdRenovacoes={originalInfo.qtdRenovacoes}
+          initialSelection={
+            renovDecision && renovDecision.decidedForDate === watchedVencimento
+              ? Boolean(renovDecision.payload.dataRenovacao)
+              : true
+          }
+          onConfirm={(payload) => {
+            const decision = { decidedForDate: watchedVencimento, payload };
+            setRenovDecision(decision);
+            form.setValue("renovacao_contrato", payload.isRenovacao, { shouldDirty: true });
+            if (pendingSubmitOutro !== null) {
+              const outro = pendingSubmitOutro;
+              setPendingSubmitOutro(null);
+              void form.handleSubmit((v) => executeMutation(v, outro, decision))();
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -207,26 +207,32 @@ export default function Configuracoes() {
   const admin = isAdmin(me.data);
   const c = cat.data;
   const [alerta, setAlerta] = useState<string>("");
-  const usuarios = useQuery({
-    queryKey: ["usuarios"],
-    queryFn: () => apiGet<UserOut[]>("/usuarios"),
-    enabled: admin,
-    staleTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
-  const saveCfg = useMutation({
-
-    mutationFn: (b: Config) => apiPut<Config>("/config", b),
-    onSuccess: () => { toast.success("Configuração salva"); void qc.invalidateQueries(); },
-    onError: (e) => toast.error(errMsg(e)),
-  });
-  const catOpts = (c?.categorias ?? []).map((x) => ({ value: x.codigo, label: x.nome }));
-  const catNome = (cod: unknown) => c?.categorias.find((x) => x.codigo === cod)?.nome ?? String(cod);
-
   const [searchParams, setSearchParams] = useSearchParams();
   const rawTab = searchParams.get("tab") || "geral";
   const validTabs = ["geral", "categorias", "cargos", "lotacoes", "editais", "motivos", "usuarios", "auditoria"];
   const currentTab = validTabs.includes(rawTab) ? rawTab : "geral";
+
+  const usuarios = useQuery({
+    queryKey: ["usuarios"],
+    queryFn: () => apiGet<UserOut[]>("/usuarios"),
+    enabled: admin && currentTab === "usuarios",
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+  const saveCfg = useMutation({
+    mutationFn: (b: Config) => apiPut<Config>("/config", b),
+    onSuccess: () => {
+      toast.success("Configuração salva");
+      void qc.invalidateQueries({ queryKey: ["catalogos"] });
+      void qc.invalidateQueries({ queryKey: ["dashboard"] });
+      void qc.invalidateQueries({ queryKey: ["meta"] });
+      void qc.invalidateQueries({ queryKey: ["militares"] });
+      void qc.invalidateQueries({ queryKey: ["auditoria"] });
+    },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+  const catOpts = (c?.categorias ?? []).map((x) => ({ value: x.codigo, label: x.nome }));
+  const catNome = (cod: unknown) => c?.categorias.find((x) => x.codigo === cod)?.nome ?? String(cod);
 
   return (
     <div className="space-y-5">

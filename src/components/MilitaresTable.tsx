@@ -88,6 +88,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const editar = podeEditar(me.data);
   const admin = isAdmin(me.data);
+  const hasReativarCol = admin && items.some((x) => x.status === "DESLIGADO");
 
   const toggleSort = (k: string) => {
     if (sort === k) setDirection(direction === "asc" ? "desc" : "asc");
@@ -313,7 +314,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
                 </button>
               </TableHead>
             ))}
-            <TableHead className="bg-[#0F1724] text-right text-[11px] uppercase tracking-wider text-slate-400 w-[245px] pr-4">Ações</TableHead>
+            <TableHead className={cn("bg-[#0F1724] text-right text-[11px] uppercase tracking-wider text-slate-400 pr-4", hasReativarCol ? "w-[220px]" : "w-[120px]")}>Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -328,7 +329,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
               )}
             >
               {cols.map((c) => <TableCell key={c.key} className={cn("py-2.5", c.className)}>{c.render(m)}</TableCell>)}
-              <TableCell className="py-2.5 w-[245px]">
+              <TableCell className={cn("py-2.5 pr-4", hasReativarCol ? "w-[220px]" : "w-[120px]")}>
                 <div className="flex items-center justify-end gap-2 flex-nowrap">
                   <div className="flex items-center gap-1 shrink-0">
                     <Link
@@ -368,41 +369,21 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
                       </>
                     )}
                   </div>
-                  <div className="w-[140px] flex items-center justify-end shrink-0">
-                    {m.status === "ATIVO" && (() => {
-                      const info = getInfoContrato(m);
-                      return (
-                        <span
-                          className={cn(
-                            "w-[140px] h-7 inline-flex items-center justify-center gap-1.5 px-2 rounded-md text-xs font-semibold whitespace-nowrap shadow-sm select-none shrink-0",
-                            info.renovado
-                              ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
-                              : "bg-slate-800/90 text-slate-300 border border-slate-700/60"
-                          )}
-                          title={
-                            info.renovado
-                              ? `Militar em ${info.rotuloCompleto} (${info.qtdRenovacoes}ª renovação aprovada)`
-                              : "Militar em 1º ano de contrato (Exercício inicial)"
-                          }
-                          data-testid={`action-ano-contrato-${m.matricula}`}
+                  {hasReativarCol && (
+                    <div className="w-[100px] flex items-center justify-end shrink-0">
+                      {admin && m.status === "DESLIGADO" && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-emerald-300 hover:bg-emerald-500/10 justify-center"
+                          onClick={() => setReativar(m)}
+                          data-testid={`action-reativar-${m.matricula}`}
                         >
-                          {info.renovado && <BadgeCheck className="size-3.5 text-cyan-400 shrink-0" />}
-                          <span>{info.rotuloCompleto}</span>
-                        </span>
-                      );
-                    })()}
-                    {admin && m.status === "DESLIGADO" && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="w-[140px] h-7 text-emerald-300 hover:bg-emerald-500/10 justify-center"
-                        onClick={() => setReativar(m)}
-                        data-testid={`action-reativar-${m.matricula}`}
-                      >
-                        <RotateCcw className="size-4" /> <span>Reativar</span>
-                      </Button>
-                    )}
-                  </div>
+                          <RotateCcw className="size-4" /> <span>Reativar</span>
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </TableCell>
             </TableRow>

@@ -1,10 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { AlertTriangle, RotateCcw } from "lucide-react";
+import { AlertTriangle, BadgeCheck, RotateCcw } from "lucide-react";
 import FieldSelect from "@/components/FieldSelect";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -15,7 +15,8 @@ import { apiPatch, apiPost } from "@/lib/api";
 import { errMsg, fmtDate } from "@/lib/format";
 import { MILITAR_KEYS, useCatalogos, useMeta } from "@/lib/hooks";
 import { getInfoContrato, type DesligamentoIn, type Militar, type MilitarRapidoIn, type ReativacaoIn } from "@/lib/types";
-import { RenovacaoPrompt } from "@/components/RenovacaoPrompt";
+import { RenovacaoFocusModal, type RenovacaoConfirmPayload } from "@/components/RenovacaoPrompt";
+import { cn } from "@/lib/utils";
 
 export function useInvalidateMilitares() {
   const qc = useQueryClient();
@@ -195,7 +196,22 @@ type RapidoForm = z.infer<typeof rapidoSchema>;
 export function QuickEditDialog({ militar, onClose }: { militar: Militar | null; onClose: () => void }) {
   const cat = useCatalogos();
   const invalidate = useInvalidateMilitares();
-  const form = useForm<RapidoForm>({ resolver: zodResolver(rapidoSchema) });
+  const form = useForm<RapidoForm>({
+    resolver: zodResolver(rapidoSchema),
+    defaultValues: {
+      lotacao_id: "",
+      edital_id: "",
+      data_vencimento_contrato: "",
+      observacoes: "",
+      renovacao_contrato: false,
+    },
+  });
+  const [renovModalOpen, setRenovModalOpen] = useState(false);
+  const [pendingSubmit, setPendingSubmit] = useState(false);
+  const [renovDecision, setRenovDecision] = useState<{
+    decidedForDate: string;
+    payload: RenovacaoConfirmPayload;
+  } | null>(null);
 
   useEffect(() => {
     if (militar) {
@@ -207,11 +223,16 @@ export function QuickEditDialog({ militar, onClose }: { militar: Militar | null;
         observacoes: militar.observacoes ?? "",
         renovacao_contrato: infoAtual.renovado,
       });
+      setRenovDecision(null);
+      setRenovModalOpen(false);
+      setPendingSubmit(false);
     }
   }, [militar, form]);
 
-  const watchedVenc = form.watch("data_vencimento_contrato");
-  const watchedRenovacao = form.watch("renovacao_contrato");
+  const watchedVenc = form.watch("data_vencimento_contrato") ?? "";
+  const originalVenc = militar?.data_vencimento_contrato ?? "";
+  const originalInfo = getInfoContrato(militar);
+  const vencRegister = form.register("data_vencimento_contrato");
 
   const mut = useMutation({
     mutationFn: (b: MilitarRapidoIn) => apiPatch<Militar>(`/militares/${militar?.id}/rapido`, b),
@@ -228,81 +249,191 @@ export function QuickEditDialog({ militar, onClose }: { militar: Militar | null;
     onError: (e) => toast.error(errMsg(e)),
   });
 
+  const executeMutation = (
+    v: RapidoForm,
+    decisionOverride?: { decidedForDate: string; payload: RenovacaoConfirmPayload } | null
+  ) => {
+    if (militar && v.data_vencimento_contrato < militar.data_inclusao) {
+      form.setError("data_vencimento_contrato", { message: "Anterior à data de inclusão" });
+      return;
+    }
+
+    const existingDatas = Array.isArray(militar?.renovacoes_datas) ? [...militar.renovacoes_datas] : [];
+    const activeDecision = decisionOverride ?? renovDecision;
+    const dateChanged = Boolean(originalVenc && v.data_vencimento_contrato !== originalVenc);
+
+    let isRenovado = originalInfo.renovado;
+    let anoContrato = originalInfo.anoContrato;
+    let qtdRenovacoes = originalInfo.qtdRenovacoes;
+    let dataUltimaRenovacao: string | null = militar?.data_ultima_renovacao ?? null;
+    let renovacoesDatas: string[] = existingDatas;
+
+    if (dateChanged && activeDecision && activeDecision.decidedForDate === v.data_vencimento_contrato) {
+      isRenovado = activeDecision.payload.isRenovacao;
+      anoContrato = activeDecision.payload.anoContrato;
+      qtdRenovacoes = activeDecision.payload.qtdRenovacoes;
+      if (activeDecision.payload.dataRenovacao) {
+        dataUltimaRenovacao = activeDecision.payload.dataRenovacao;
+        if (!renovacoesDatas.includes(activeDecision.payload.dataRenovacao)) {
+          renovacoesDatas.push(activeDecision.payload.dataRenovacao);
+        }
+        renovacoesDatas.sort();
+      }
+    }
+
+    mut.mutate({
+      ...v,
+      observacoes: v.observacoes ?? null,
+      renovacao_contrato: isRenovado,
+      ano_contrato: anoContrato,
+      qtd_renovacoes: qtdRenovacoes,
+      data_ultima_renovacao: dataUltimaRenovacao,
+      renovacoes_datas: renovacoesDatas,
+    });
+  };
+
   const submit = form.handleSubmit((v) => {
     if (militar && v.data_vencimento_contrato < militar.data_inclusao) {
       form.setError("data_vencimento_contrato", { message: "Anterior à data de inclusão" });
       return;
     }
-    const isRenovado = Boolean(v.renovacao_contrato);
-    const info = getInfoContrato({
-      data_inclusao: militar?.data_inclusao,
-      data_vencimento_contrato: v.data_vencimento_contrato,
-      renovacao_contrato: isRenovado,
-    });
-    mut.mutate({
-      ...v,
-      observacoes: v.observacoes ?? null,
-      renovacao_contrato: isRenovado,
-      ano_contrato: isRenovado ? info.anoContrato : 1,
-      qtd_renovacoes: isRenovado ? info.qtdRenovacoes : 0,
-    });
+    if (
+      originalVenc &&
+      v.data_vencimento_contrato !== originalVenc &&
+      renovDecision?.decidedForDate !== v.data_vencimento_contrato
+    ) {
+      setPendingSubmit(true);
+      setRenovModalOpen(true);
+      return;
+    }
+    executeMutation(v);
   });
   const e = form.formState.errors;
 
   return (
-    <Dialog open={!!militar} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="border-[#1E2C42] bg-[#121B28] sm:max-w-xl max-h-[90vh] overflow-y-auto" data-testid="quick-edit-dialog">
-        <DialogHeader>
-          <DialogTitle className="text-white text-lg font-bold">Edição rápida</DialogTitle>
-          <DialogDescription className="text-slate-300">
-            {militar?.nome_completo} · <span className="num font-semibold text-blue-300">{militar?.matricula}</span>
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={submit} className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Lotação / UBM</Label>
-              <Controller control={form.control} name="lotacao_id" render={({ field }) => (
-                <FieldSelect testId="quick-edit-lotacao-select" value={field.value} onChange={field.onChange}
-                  options={(cat.data?.lotacoes ?? []).filter((l) => l.ativo || l.id === field.value).map((l) => ({ value: l.id, label: l.nome }))} />
-              )} />
-              <Err msg={e.lotacao_id?.message} />
+    <>
+      <Dialog open={!!militar} onOpenChange={(o) => !o && !renovModalOpen && onClose()}>
+        <DialogContent className="border-[#1E2C42] bg-[#121B28] sm:max-w-xl max-h-[90vh] overflow-y-auto" data-testid="quick-edit-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-white text-lg font-bold">Edição rápida</DialogTitle>
+            <DialogDescription className="text-slate-300">
+              {militar?.nome_completo} · <span className="num font-semibold text-blue-300">{militar?.matricula}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submit} className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>Lotação / UBM</Label>
+                <Controller control={form.control} name="lotacao_id" render={({ field }) => (
+                  <FieldSelect testId="quick-edit-lotacao-select" value={field.value ?? ""} onChange={field.onChange}
+                    options={(cat.data?.lotacoes ?? []).filter((l) => l.ativo || l.id === field.value).map((l) => ({ value: l.id, label: l.nome }))} />
+                )} />
+                <Err msg={e.lotacao_id?.message} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Edital</Label>
+                <Controller control={form.control} name="edital_id" render={({ field }) => (
+                  <FieldSelect testId="quick-edit-edital-select" value={field.value ?? ""} onChange={field.onChange}
+                    options={(cat.data?.editais ?? []).filter((l) => l.ativo || l.id === field.value).map((l) => ({ value: l.id, label: l.nome }))} />
+                )} />
+              </div>
             </div>
+
             <div className="space-y-1.5">
-              <Label>Edital</Label>
-              <Controller control={form.control} name="edital_id" render={({ field }) => (
-                <FieldSelect testId="quick-edit-edital-select" value={field.value} onChange={field.onChange}
-                  options={(cat.data?.editais ?? []).filter((l) => l.ativo || l.id === field.value).map((l) => ({ value: l.id, label: l.nome }))} />
-              )} />
+              <Label htmlFor="qv">Vencimento do contrato</Label>
+              <Input
+                id="qv"
+                type="date"
+                className="[color-scheme:dark]"
+                data-testid="quick-edit-vencimento-input"
+                {...vencRegister}
+                onBlur={(ev) => {
+                  void vencRegister.onBlur(ev);
+                  if (!originalVenc) return;
+                  const val = ev.target.value;
+                  if (
+                    val &&
+                    /^\d{4}-\d{2}-\d{2}$/.test(val) &&
+                    val !== originalVenc &&
+                    (!militar?.data_inclusao || val >= militar.data_inclusao) &&
+                    renovDecision?.decidedForDate !== val
+                  ) {
+                    setPendingSubmit(false);
+                    setRenovModalOpen(true);
+                  }
+                }}
+              />
+              <Err msg={e.data_vencimento_contrato?.message} />
+              {renovDecision && renovDecision.decidedForDate === watchedVenc && watchedVenc !== originalVenc && (
+                <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300" data-testid="quick-renovacao-confirmed-summary">
+                  <span className="inline-flex items-center gap-1.5">
+                    <BadgeCheck className={cn("size-3.5", renovDecision.payload.dataRenovacao ? "text-cyan-400" : "text-slate-400")} />
+                    {renovDecision.payload.dataRenovacao ? (
+                      <span>
+                        Renovação confirmada ({renovDecision.payload.qtdRenovacoes}ª · {renovDecision.payload.anoContrato}º Ano · início em{" "}
+                        <strong className="num text-cyan-300">{fmtDate(renovDecision.payload.dataRenovacao)}</strong>)
+                      </span>
+                    ) : (
+                      <span>Ajuste de data confirmado (sem nova renovação)</span>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingSubmit(false);
+                      setRenovModalOpen(true);
+                    }}
+                    className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2 cursor-pointer"
+                  >
+                    Alterar
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="qv">Vencimento do contrato</Label>
-            <Input id="qv" type="date" className="[color-scheme:dark]" data-testid="quick-edit-vencimento-input" {...form.register("data_vencimento_contrato")} />
-            <Err msg={e.data_vencimento_contrato?.message} />
-          </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="qo">Observações</Label>
+              <Textarea id="qo" rows={2} data-testid="quick-edit-observacoes-input" {...form.register("observacoes")} />
+            </div>
 
-          <RenovacaoPrompt
-            dataInclusao={militar?.data_inclusao}
-            dataVencimento={watchedVenc}
-            isRenovacao={Boolean(watchedRenovacao)}
-            onToggleRenovacao={(val) => form.setValue("renovacao_contrato", val, { shouldDirty: true })}
-          />
+            <DialogFooter className="mt-4">
+              <Button type="button" variant="outline" onClick={onClose} data-testid="quick-edit-cancel-button">Cancelar</Button>
+              <Button type="submit" disabled={mut.isPending} className="bg-blue-600 hover:bg-blue-700" data-testid="quick-edit-save-button">
+                {mut.isPending ? "Gravando no Firestore..." : "Salvar Alterações"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="qo">Observações</Label>
-            <Textarea id="qo" rows={2} data-testid="quick-edit-observacoes-input" {...form.register("observacoes")} />
-          </div>
-
-          <DialogFooter className="mt-4">
-            <Button type="button" variant="outline" onClick={onClose} data-testid="quick-edit-cancel-button">Cancelar</Button>
-            <Button type="submit" disabled={mut.isPending} className="bg-blue-600 hover:bg-blue-700" data-testid="quick-edit-save-button">
-              {mut.isPending ? "Gravando no Firestore..." : "Salvar Alterações"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      {militar && renovModalOpen && (
+        <RenovacaoFocusModal
+          open={renovModalOpen}
+          onOpenChange={(open) => {
+            setRenovModalOpen(open);
+            if (!open) setPendingSubmit(false);
+          }}
+          dataInclusao={militar.data_inclusao}
+          dataVencimentoAnterior={originalVenc}
+          dataVencimentoNova={watchedVenc}
+          previousRenovado={originalInfo.renovado}
+          previousQtdRenovacoes={originalInfo.qtdRenovacoes}
+          initialSelection={
+            renovDecision && renovDecision.decidedForDate === watchedVenc
+              ? Boolean(renovDecision.payload.dataRenovacao)
+              : true
+          }
+          onConfirm={(payload) => {
+            const decision = { decidedForDate: watchedVenc, payload };
+            setRenovDecision(decision);
+            form.setValue("renovacao_contrato", payload.isRenovacao, { shouldDirty: true });
+            if (pendingSubmit) {
+              setPendingSubmit(false);
+              void form.handleSubmit((v) => executeMutation(v, decision))();
+            }
+          }}
+        />
+      )}
+    </>
   );
 }

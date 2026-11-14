@@ -11,14 +11,21 @@ import {
 } from "firebase/auth";
 import {
   getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   doc,
   getDoc,
+  getDocFromCache,
   getDocFromServer,
   getDocs,
+  getDocsFromCache,
+  getDocsFromServer,
   setDoc,
-  updateDoc,
   addDoc,
   deleteDoc,
+  writeBatch,
+  onSnapshot,
   collection,
   query,
   orderBy,
@@ -26,16 +33,66 @@ import {
   startAfter,
   where,
   serverTimestamp,
+  type Firestore,
   type QueryDocumentSnapshot,
   type DocumentData,
 } from "firebase/firestore";
 import { toast } from "sonner";
 import firebaseConfig from "../../firebase-applet-config.json";
 
-// 1. Instância dedicada e isolada para o Cloud Firestore
+// 1. Instância dedicada e isolada para o Cloud Firestore com persistência local IndexedDB multi-abas
 const existingFirestoreApp = getApps().find((a) => a.name === "cbmmt-firestore");
 const firestoreApp = existingFirestoreApp || initializeApp(firebaseConfig, "cbmmt-firestore");
-export const db = getFirestore(firestoreApp, firebaseConfig.firestoreDatabaseId);
+
+let dbInstance: Firestore;
+let indexedDbPersistenceActive = false;
+
+if (typeof window !== "undefined") {
+  try {
+    dbInstance = initializeFirestore(
+      firestoreApp,
+      {
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager(),
+        }),
+      },
+      firebaseConfig.firestoreDatabaseId
+    );
+    indexedDbPersistenceActive = true;
+  } catch {
+    // Em HMR ou se o IndexedDB estiver indisponível no navegador, reaproveita instância existente
+    dbInstance = getFirestore(firestoreApp, firebaseConfig.firestoreDatabaseId);
+    indexedDbPersistenceActive = true;
+  }
+} else {
+  dbInstance = getFirestore(firestoreApp, firebaseConfig.firestoreDatabaseId);
+}
+
+export const db = dbInstance;
+export const isIndexedDbPersistenceActive = indexedDbPersistenceActive;
+
+const DELTA_TS_STORAGE_KEY = `cbmmt_militares_delta_ts_${firebaseConfig.firestoreDatabaseId}`;
+
+function readMilitaresDeltaTs(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(DELTA_TS_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeMilitaresDeltaTs(ts: string): void {
+  if (typeof window === "undefined" || !ts) return;
+  try {
+    const current = window.localStorage.getItem(DELTA_TS_STORAGE_KEY);
+    if (!current || ts > current) {
+      window.localStorage.setItem(DELTA_TS_STORAGE_KEY, ts);
+    }
+  } catch {
+    // ignora restrições de storage
+  }
+}
 
 // 2. Instância padrão para serviços de autenticação do Firebase
 const existingDefaultApp = getApps().find((a) => a.name === "[DEFAULT]");
@@ -100,15 +157,26 @@ export function handleFirestoreError(
   return errInfo;
 }
 
-// Validação de conectividade inicial com o Cloud Firestore
+// Validação de conectividade inicial com o Cloud Firestore (e reaproveitamento da leitura inicial)
+let bootDadosPromise: Promise<Record<string, any> | null> | null = null;
+let bootDadosConsumed = false;
+
 if (typeof window !== "undefined") {
-  void (async function validateFirestoreConnection() {
+  bootDadosPromise = (async function validateFirestoreConnection() {
     try {
-      await getDocFromServer(doc(db, "corporacao", "dados"));
+      const snap = await getDocFromServer(doc(db, "corporacao", "dados"));
+      if (snap.exists()) {
+        const data = snap.data() as Record<string, any>;
+        if (data && (data.cargos || data.lotacoes || data.categorias || data.config)) {
+          return data;
+        }
+      }
+      return null;
     } catch (error) {
       if (error instanceof Error && error.message.includes("the client is offline")) {
         console.error("Please check your Firebase configuration.");
       }
+      return null;
     }
   })();
 
@@ -203,36 +271,6 @@ export async function salvarMilitarFirestore(militar: Record<string, any>): Prom
 }
 
 /**
- * Atualização parcial direta (updateDoc / setDoc merge) de campos de um militar em 'militares/${militarId}'.
- */
-export async function atualizarCamposMilitarFirestore(
-  militarId: string,
-  campos: Record<string, any>
-): Promise<boolean> {
-  if (!militarId) return false;
-  const path = `militares/${militarId}`;
-  try {
-    const ref = doc(db, "militares", String(militarId));
-    const cleanPayload = JSON.parse(
-      JSON.stringify({
-        ...campos,
-        atualizado_em: new Date().toISOString(),
-      })
-    );
-    try {
-      await updateDoc(ref, cleanPayload);
-    } catch {
-      await setDoc(ref, cleanPayload, { merge: true });
-    }
-    return true;
-  } catch (err: any) {
-    handleFirestoreError(err, OperationType.UPDATE, path);
-    toast.error("Não foi possível atualizar os dados do militar no Cloud Firestore.");
-    return false;
-  }
-}
-
-/**
  * Exclusão direta e definitiva do documento do militar em 'militares/${militarId}' no Firestore.
  */
 export async function excluirMilitarFirestore(militarId: string): Promise<boolean> {
@@ -250,15 +288,90 @@ export async function excluirMilitarFirestore(militarId: string): Promise<boolea
 }
 
 /**
- * Busca pontual (getDoc) diretamente no documento do militar em 'militares/${militarId}'.
+ * Gravação granular direta em lote (writeBatch) na coleção 'militares' para importações em massa.
+ */
+export async function salvarMilitaresEmLoteFirestore(
+  militares: Array<Record<string, any>>
+): Promise<{ ok: boolean; count: number }> {
+  if (!Array.isArray(militares) || militares.length === 0) return { ok: true, count: 0 };
+  const CHUNK_SIZE = 400;
+  let savedCount = 0;
+  try {
+    for (let i = 0; i < militares.length; i += CHUNK_SIZE) {
+      const chunk = militares.slice(i, i + CHUNK_SIZE);
+      const batch = writeBatch(db);
+      for (const militar of chunk) {
+        if (!militar?.id) continue;
+        const ref = doc(db, "militares", String(militar.id));
+        const cleanPayload = JSON.parse(JSON.stringify(militar));
+        cleanPayload.atualizado_em = cleanPayload.atualizado_em || new Date().toISOString();
+        cleanPayload.data_desligamento = cleanPayload.data_desligamento ?? null;
+        cleanPayload.doe_incorporacao = cleanPayload.doe_incorporacao ?? null;
+        cleanPayload.observacoes = cleanPayload.observacoes ?? null;
+        batch.set(ref, cleanPayload, { merge: true });
+        savedCount++;
+      }
+      await batch.commit();
+    }
+    return { ok: true, count: savedCount };
+  } catch (err: any) {
+    handleFirestoreError(err, OperationType.WRITE, "militares/batch");
+    toast.error("Erro ao gravar lote de militares no Cloud Firestore.");
+    return { ok: false, count: savedCount };
+  }
+}
+
+/**
+ * Verificação pontual no Firestore se já existe militar com a mesma matrícula (concorrência multiusuário).
+ * Consome no máximo 1 leitura de rede quando há registro correspondente.
+ */
+export async function verificarMatriculaFirestore(
+  matricula: string,
+  excluirId?: string | null
+): Promise<Record<string, any> | null> {
+  const trimmed = String(matricula || "").trim();
+  if (!trimmed) return null;
+  const upperNoSpace = trimmed.replace(/\s+/g, "").toUpperCase();
+  const variants = Array.from(new Set([trimmed, trimmed.toUpperCase(), upperNoSpace])).filter(Boolean);
+  try {
+    const colRef = collection(db, "militares");
+    const q = query(colRef, where("matricula", "in", variants.slice(0, 10)), limit(5));
+    const snap = await getDocs(q);
+    for (const d of snap.docs) {
+      if (!excluirId || d.id !== excluirId) {
+        return { id: d.id, ...d.data() } as Record<string, any>;
+      }
+    }
+    return null;
+  } catch (err: any) {
+    handleFirestoreError(err, OperationType.GET, `militares?matricula=${trimmed}`);
+    return null;
+  }
+}
+
+/**
+ * Busca pontual (cache IndexedDB primeiro, fallback servidor) no documento 'militares/${militarId}'.
  * NUNCA dispara escrita automática.
  */
-export async function buscarMilitarFirestore(militarId: string): Promise<Record<string, any> | null> {
+export async function buscarMilitarFirestore(
+  militarId: string,
+  forceServer = false
+): Promise<Record<string, any> | null> {
   if (!militarId) return null;
   const path = `militares/${militarId}`;
+  const ref = doc(db, "militares", String(militarId));
   try {
-    const ref = doc(db, "militares", String(militarId));
-    const snap = await getDoc(ref);
+    if (!forceServer && typeof window !== "undefined") {
+      try {
+        const cached = await getDocFromCache(ref);
+        if (cached.exists()) {
+          return { id: cached.id, ...cached.data() } as Record<string, any>;
+        }
+      } catch {
+        // Documento ainda não está no cache local; busca na rede/cache padrão
+      }
+    }
+    const snap = forceServer ? await getDocFromServer(ref) : await getDoc(ref);
     if (snap.exists()) {
       return { id: snap.id, ...snap.data() } as Record<string, any>;
     }
@@ -269,126 +382,187 @@ export async function buscarMilitarFirestore(militarId: string): Promise<Record<
   }
 }
 
-// Cache de cursores (QueryDocumentSnapshot) por chave de consulta e página para paginação via startAfter
-const militaresCursorCache = new Map<string, QueryDocumentSnapshot<DocumentData>>();
-
-export interface PaginacaoMilitaresResult {
-  items: Array<Record<string, any>>;
-  lastDoc: QueryDocumentSnapshot<DocumentData> | null;
-  hasMore: boolean;
-}
-
 /**
- * Consulta paginada por cursor (`getDocs` + `limit(20 | 30)` + `startAfter`) na coleção `militares`.
+ * Busca otimizada da coleção 'militares':
+ * 1) Quando !forceServer e há cache local IndexedDB + timestamp delta, lê tudo do IndexedDB (0 leituras de rede)
+ *    e consulta na rede apenas documentos com `atualizado_em > lastDeltaTs`.
+ * 2) Em força bruta (botão "Sincronizar Firestore") ou primeiro acesso no dispositivo, lê da rede e atualiza o marcador delta.
  */
-export async function buscarMilitaresPaginadosFirestore(options: {
-  pageSize?: number;
-  page?: number;
-  sortField?: string;
-  sortDir?: "asc" | "desc";
-  cursorKey?: string;
-}): Promise<PaginacaoMilitaresResult> {
-  const safeLimit = Math.min(30, Math.max(1, options.pageSize || 20));
-  const page = Math.max(1, options.page || 1);
-  const sortField = options.sortField || "nome_completo";
-  const sortDir = options.sortDir || "asc";
-  const baseKey = options.cursorKey || `${sortField}:${sortDir}:${safeLimit}`;
-
-  try {
-    const colRef = collection(db, "militares");
-    const prevCursor = page > 1 ? militaresCursorCache.get(`${baseKey}:p${page - 1}`) : undefined;
-
-    const q = prevCursor
-      ? query(colRef, orderBy(sortField, sortDir), startAfter(prevCursor), limit(safeLimit))
-      : query(colRef, orderBy(sortField, sortDir), limit(safeLimit));
-
-    const snap = await getDocs(q);
-    const items: Array<Record<string, any>> = [];
-    snap.forEach((docSnap) => {
-      if (docSnap.exists()) {
-        items.push({ id: docSnap.id, ...docSnap.data() });
-      }
-    });
-
-    const lastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
-    if (lastDoc) {
-      militaresCursorCache.set(`${baseKey}:p${page}`, lastDoc);
-    }
-
-    return {
-      items,
-      lastDoc,
-      hasMore: snap.docs.length === safeLimit,
-    };
-  } catch (err: any) {
-    handleFirestoreError(err, OperationType.LIST, "militares");
-    return { items: [], lastDoc: null, hasMore: false };
-  }
-}
-
-/**
- * Busca de documentos da coleção 'militares' no Firestore para agregações consolidadas e exportações sob demanda.
- */
-export async function buscarTodosMilitaresFirestore(): Promise<Array<Record<string, any>>> {
-  try {
-    const colRef = collection(db, "militares");
-    const snap = await getDocs(colRef);
-    const results: Array<Record<string, any>> = [];
-    snap.forEach((docSnap) => {
-      if (docSnap.exists()) {
-        results.push({ id: docSnap.id, ...docSnap.data() } as Record<string, any>);
-      }
-    });
-    return results;
-  } catch (err: any) {
-    handleFirestoreError(err, OperationType.LIST, "militares");
-    return [];
-  }
-}
-
-/**
- * Busca pontual com limite estrito (getDocs + limit(20..30)) diretamente na coleção 'militares'.
- */
-export async function buscarMilitaresLimitadosFirestore(
-  limiteResultados: number = 20,
-  termoBusca?: string
+export async function buscarTodosMilitaresFirestore(
+  forceServer = false
 ): Promise<Array<Record<string, any>>> {
-  const safeLimit = Math.min(30, Math.max(1, limiteResultados));
+  const colRef = collection(db, "militares");
   try {
-    const colRef = collection(db, "militares");
-    const snap = await getDocs(query(colRef, limit(safeLimit)));
-    const results: Array<Record<string, any>> = [];
-    snap.forEach((docSnap) => {
-      if (docSnap.exists()) {
-        results.push({ id: docSnap.id, ...docSnap.data() } as Record<string, any>);
-      }
-    });
-
-    if (termoBusca && termoBusca.trim().length >= 3) {
-      const termo = termoBusca.trim();
-      const jaContem = results.some(
-        (r) =>
-          r.matricula?.toLowerCase().includes(termo.toLowerCase()) ||
-          r.id === termo
-      );
-      if (!jaContem) {
+    if (!forceServer && typeof window !== "undefined") {
+      const lastDeltaTs = readMilitaresDeltaTs();
+      if (lastDeltaTs) {
         try {
-          const directSnap = await getDocs(query(colRef, where("matricula", "==", termo), limit(5)));
-          directSnap.forEach((docSnap) => {
-            if (docSnap.exists() && !results.some((r) => r.id === docSnap.id)) {
-              results.push({ id: docSnap.id, ...docSnap.data() } as Record<string, any>);
+          const cacheSnap = await getDocsFromCache(colRef);
+          if (!cacheSnap.empty) {
+            const docMap = new Map<string, Record<string, any>>();
+            let maxTs = lastDeltaTs;
+            cacheSnap.forEach((docSnap) => {
+              if (docSnap.exists()) {
+                const data = { id: docSnap.id, ...docSnap.data() } as Record<string, any>;
+                docMap.set(docSnap.id, data);
+                if (typeof data.atualizado_em === "string" && data.atualizado_em > maxTs) {
+                  maxTs = data.atualizado_em;
+                }
+              }
+            });
+
+            // Busca incremental apenas dos documentos alterados/inseridos desde o último sync
+            try {
+              const deltaQuery = query(colRef, where("atualizado_em", ">", lastDeltaTs));
+              const deltaSnap = await getDocs(deltaQuery);
+              deltaSnap.forEach((docSnap) => {
+                if (docSnap.exists()) {
+                  const data = { id: docSnap.id, ...docSnap.data() } as Record<string, any>;
+                  docMap.set(docSnap.id, data);
+                  if (typeof data.atualizado_em === "string" && data.atualizado_em > maxTs) {
+                    maxTs = data.atualizado_em;
+                  }
+                }
+              });
+            } catch {
+              // Se offline ou falha momentânea na delta query, retorna o cache IndexedDB integralmente
             }
-          });
+
+            if (maxTs) writeMilitaresDeltaTs(maxTs);
+            return Array.from(docMap.values());
+          }
         } catch {
-          // ignora caso não haja índice composto
+          // Cache IndexedDB vazio ou indisponível; segue para leitura completa abaixo
         }
       }
     }
+
+    let snap;
+    if (forceServer) {
+      try {
+        snap = await getDocsFromServer(colRef);
+      } catch {
+        snap = await getDocs(colRef);
+      }
+    } else {
+      snap = await getDocs(colRef);
+    }
+
+    const results: Array<Record<string, any>> = [];
+    let maxTs = "";
+    snap.forEach((docSnap) => {
+      if (docSnap.exists()) {
+        const data = { id: docSnap.id, ...docSnap.data() } as Record<string, any>;
+        results.push(data);
+        if (typeof data.atualizado_em === "string" && data.atualizado_em > maxTs) {
+          maxTs = data.atualizado_em;
+        }
+      }
+    });
+    if (maxTs) {
+      writeMilitaresDeltaTs(maxTs);
+    } else if (results.length > 0) {
+      writeMilitaresDeltaTs(new Date().toISOString());
+    }
     return results;
   } catch (err: any) {
     handleFirestoreError(err, OperationType.LIST, "militares");
     return [];
   }
+}
+
+export interface MilitaresRealtimeCallbacks {
+  onUpsert: (docs: Array<Record<string, any>>) => void;
+  onNewMilitar: (docData: Record<string, any>) => void;
+}
+
+/**
+ * Listener econômico em tempo real (apenas os 20 registros mais recentes por `atualizado_em desc`).
+ * Mantém todos os usuários logados sincronizados instantaneamente via Firestore Snapshots e
+ * dispara a notificação (Toast/pop-up) sempre que um novo militar for registrado no sistema.
+ */
+export function inscreverAtualizacoesMilitaresFirestore(
+  callbacks: MilitaresRealtimeCallbacks
+): () => void {
+  const colRef = collection(db, "militares");
+  const q = query(colRef, orderBy("atualizado_em", "desc"), limit(20));
+  const watcherArmedAtMs = Date.now();
+  const seenBaselineIds = new Set<string>();
+  const notifiedIds = new Set<string>();
+  let baselineProcessed = false;
+
+  const unsubscribe = onSnapshot(
+    q,
+    (snapshot) => {
+      if (!baselineProcessed) {
+        const initialDocs: Array<Record<string, any>> = [];
+        let maxTs = "";
+        snapshot.forEach((docSnap) => {
+          if (docSnap.exists()) {
+            seenBaselineIds.add(docSnap.id);
+            const data = { id: docSnap.id, ...docSnap.data() } as Record<string, any>;
+            initialDocs.push(data);
+            if (typeof data.atualizado_em === "string" && data.atualizado_em > maxTs) {
+              maxTs = data.atualizado_em;
+            }
+          }
+        });
+        baselineProcessed = true;
+        if (initialDocs.length > 0) {
+          callbacks.onUpsert(initialDocs);
+          if (maxTs && readMilitaresDeltaTs()) {
+            writeMilitaresDeltaTs(maxTs);
+          }
+        }
+        return;
+      }
+
+      const upserts: Array<Record<string, any>> = [];
+      let maxTs = "";
+
+      for (const change of snapshot.docChanges()) {
+        if (change.type === "removed") {
+          // Não remover da lista local quando um registro sai da janela top-20
+          continue;
+        }
+        const docSnap = change.doc;
+        if (!docSnap.exists()) continue;
+        const data = { id: docSnap.id, ...docSnap.data() } as Record<string, any>;
+        upserts.push(data);
+
+        if (typeof data.atualizado_em === "string" && data.atualizado_em > maxTs) {
+          maxTs = data.atualizado_em;
+        }
+
+        if (
+          change.type === "added" &&
+          !seenBaselineIds.has(docSnap.id) &&
+          !notifiedIds.has(docSnap.id)
+        ) {
+          seenBaselineIds.add(docSnap.id);
+          const criadoEmMs = typeof data.criado_em === "string" ? Date.parse(data.criado_em) : NaN;
+          const isRecentCreation = !isNaN(criadoEmMs) && criadoEmMs >= watcherArmedAtMs - 120_000;
+
+          if (isRecentCreation) {
+            notifiedIds.add(docSnap.id);
+            callbacks.onNewMilitar(data);
+          }
+        }
+      }
+
+      if (upserts.length > 0) {
+        callbacks.onUpsert(upserts);
+        if (maxTs && readMilitaresDeltaTs()) {
+          writeMilitaresDeltaTs(maxTs);
+        }
+      }
+    },
+    (err) => {
+      handleFirestoreError(err, OperationType.LIST, "militares/realtime", false);
+    }
+  );
+
+  return unsubscribe;
 }
 
 // ============================================================================
@@ -418,6 +592,8 @@ export async function salvarDadosCorporacaoFirestore(partialMeta: Record<string,
 
     const refDados = doc(db, "corporacao", "dados");
     await setDoc(refDados, cleanPayload, { merge: true });
+    bootDadosConsumed = true;
+    bootDadosPromise = null;
 
     // Mantém espelhamento em corporacao/metadados para compatibilidade com documentos já provisionados
     try {
@@ -434,17 +610,39 @@ export async function salvarDadosCorporacaoFirestore(partialMeta: Record<string,
   }
 }
 
-export const salvarMetadadosFirestore = salvarDadosCorporacaoFirestore;
-
 /**
- * Busca pontual (getDoc) dos dados institucionais e tabelas auxiliares em 'corporacao/dados'
- * (com fallback de leitura em 'corporacao/metadados').
+ * Busca pontual (cache IndexedDB primeiro quando !forceServer) dos dados institucionais
+ * em 'corporacao/dados' (reaproveitando o snapshot inicial e com fallback em 'corporacao/metadados').
  * NUNCA dispara gravações automáticas durante a leitura.
  */
-export async function buscarDadosCorporacaoFirestore(): Promise<Record<string, any> | null> {
+export async function buscarDadosCorporacaoFirestore(
+  forceServer = false
+): Promise<Record<string, any> | null> {
   try {
+    if (!forceServer && !bootDadosConsumed && bootDadosPromise) {
+      bootDadosConsumed = true;
+      const bootData = await bootDadosPromise;
+      if (bootData) {
+        return bootData;
+      }
+    }
+
     const refDados = doc(db, "corporacao", "dados");
-    const snapDados = await getDoc(refDados);
+    if (!forceServer && typeof window !== "undefined") {
+      try {
+        const cachedDados = await getDocFromCache(refDados);
+        if (cachedDados.exists()) {
+          const data = cachedDados.data() as Record<string, any>;
+          if (data && (data.cargos || data.lotacoes || data.categorias || data.config)) {
+            return data;
+          }
+        }
+      } catch {
+        // Sem cache local; segue para rede
+      }
+    }
+
+    const snapDados = forceServer ? await getDocFromServer(refDados) : await getDoc(refDados);
     if (snapDados.exists()) {
       const data = snapDados.data() as Record<string, any>;
       if (data && (data.cargos || data.lotacoes || data.categorias || data.config)) {
@@ -453,7 +651,17 @@ export async function buscarDadosCorporacaoFirestore(): Promise<Record<string, a
     }
 
     const refMeta = doc(db, "corporacao", "metadados");
-    const snapMeta = await getDoc(refMeta);
+    if (!forceServer && typeof window !== "undefined") {
+      try {
+        const cachedMeta = await getDocFromCache(refMeta);
+        if (cachedMeta.exists()) {
+          return cachedMeta.data() as Record<string, any>;
+        }
+      } catch {
+        // Sem cache local
+      }
+    }
+    const snapMeta = forceServer ? await getDocFromServer(refMeta) : await getDoc(refMeta);
     if (snapMeta.exists()) {
       return snapMeta.data() as Record<string, any>;
     }
@@ -463,8 +671,6 @@ export async function buscarDadosCorporacaoFirestore(): Promise<Record<string, a
     return null;
   }
 }
-
-export const buscarMetadadosFirestore = buscarDadosCorporacaoFirestore;
 
 // ============================================================================
 // 3. COLEÇÃO `usuarios` — Controle exclusivo de permissões e perfis de acesso
@@ -646,6 +852,7 @@ export async function registrarAuditoriaFirestore(
 
   try {
     const docRef = await addDoc(collection(db, "auditoria"), payload);
+    recentAuditoriaFallbackCache = null;
     return mapDocToAuditoria(docRef.id, { ...payload, data_hora: nowIso });
   } catch (err: any) {
     handleFirestoreError(err, OperationType.CREATE, "auditoria");
@@ -656,6 +863,12 @@ export async function registrarAuditoriaFirestore(
 // Cache de último documento da auditoria para paginação por cursor (startAfter)
 let lastAuditoriaCursor: QueryDocumentSnapshot<DocumentData> | null = null;
 let lastAuditoriaLimit = 0;
+
+// Cache curto (60s) para fallback de auditoria por entidade, invalidado em cada nova gravação
+let recentAuditoriaFallbackCache: {
+  ts: number;
+  items: Array<ReturnType<typeof mapDocToAuditoria>>;
+} | null = null;
 
 /**
  * Leitura centralizada e econômica da coleção 'auditoria' ordenada por 'data_hora' desc
@@ -731,10 +944,38 @@ export async function buscarAuditoriaPorEntidadeFirestore(
           return items;
         }
       } catch {
+        // fallback para busca por matrícula ou recentes
+      }
+    }
+
+    if (matricula) {
+      try {
+        const snapMat = await getDocs(query(colRef, where("matricula", "==", matricula), limit(safeLimit)));
+        if (!snapMat.empty) {
+          const items: Array<ReturnType<typeof mapDocToAuditoria>> = [];
+          snapMat.forEach((docSnap) => {
+            if (docSnap.exists()) {
+              items.push(mapDocToAuditoria(docSnap.id, docSnap.data()));
+            }
+          });
+          items.sort((a, b) => (b.timestamp || "").localeCompare(a.timestamp || ""));
+          return items;
+        }
+      } catch {
         // fallback para busca recente
       }
     }
-    const recentes = await buscarAuditoriaFirestore(safeLimit);
+
+    const now = Date.now();
+    const recentes =
+      recentAuditoriaFallbackCache && now - recentAuditoriaFallbackCache.ts < 60_000
+        ? recentAuditoriaFallbackCache.items
+        : await buscarAuditoriaFirestore(safeLimit);
+
+    if (!recentAuditoriaFallbackCache || now - recentAuditoriaFallbackCache.ts >= 60_000) {
+      recentAuditoriaFallbackCache = { ts: now, items: recentes };
+    }
+
     return recentes.filter(
       (a) =>
         (entidadeId && a.entidade_id === entidadeId) ||

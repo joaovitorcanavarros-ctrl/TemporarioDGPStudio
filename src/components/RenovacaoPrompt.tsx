@@ -1,132 +1,281 @@
-import { Sparkles, BadgeCheck, CheckCircle2, XCircle, Calendar } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
+import { ArrowRight, BadgeCheck, Calendar, CheckCircle2, X, XCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { fmtDate } from "@/lib/format";
-import { getInfoContrato } from "@/lib/types";
+import { addDaysToIsoDate, getInfoContrato } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
-interface RenovacaoPromptProps {
-  dataInclusao?: string | null;
-  dataVencimento?: string | null;
+export interface RenovacaoConfirmPayload {
   isRenovacao: boolean;
-  onToggleRenovacao: (isRenovado: boolean) => void;
-  className?: string;
+  /** Nova contagem acumulada de renovações após confirmar */
+  qtdRenovacoes: number;
+  /** Novo ano de contrato após confirmar */
+  anoContrato: number;
+  /** Data exata da renovação (vencimento anterior + 1 dia) */
+  dataRenovacao: string | null;
 }
 
-export function RenovacaoPrompt({
+interface RenovacaoFocusModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  dataInclusao?: string | null;
+  dataVencimentoAnterior?: string | null;
+  dataVencimentoNova?: string | null;
+  previousRenovado: boolean;
+  previousQtdRenovacoes: number;
+  initialSelection?: boolean;
+  onConfirm: (payload: RenovacaoConfirmPayload) => void;
+}
+
+export function computeRenovacaoPreview({
   dataInclusao,
-  dataVencimento,
-  isRenovacao,
-  onToggleRenovacao,
-  className,
-}: RenovacaoPromptProps) {
-  // Cálculo dinâmico para quando 'Sim' for selecionado
-  const infoSim = getInfoContrato({
+  dataVencimentoAnterior,
+  dataVencimentoNova,
+  previousRenovado,
+  previousQtdRenovacoes,
+}: {
+  dataInclusao?: string | null;
+  dataVencimentoAnterior?: string | null;
+  dataVencimentoNova?: string | null;
+  previousRenovado: boolean;
+  previousQtdRenovacoes: number;
+}) {
+  // Regra oficial: a renovação ocorre 1 dia após o vencimento anterior do contrato.
+  const dataRenovacao = dataVencimentoAnterior
+    ? addDaysToIsoDate(dataVencimentoAnterior, 1)
+    : dataInclusao
+      ? addDaysToIsoDate(dataInclusao, 365)
+      : "";
+
+  const infoCalculado = getInfoContrato({
     data_inclusao: dataInclusao,
-    data_vencimento_contrato: dataVencimento,
+    data_vencimento_contrato: dataVencimentoNova,
     renovacao_contrato: true,
   });
 
+  // Se o usuário confirmar que é uma nova renovação, garante ao menos +1 sobre o histórico anterior.
+  const qtdRenovacoes = Math.max(
+    1,
+    infoCalculado.qtdRenovacoes,
+    previousRenovado ? previousQtdRenovacoes + 1 : 1
+  );
+  const anoContrato = Math.max(infoCalculado.anoContrato, qtdRenovacoes + 1);
+
+  return {
+    dataRenovacao,
+    qtdRenovacoes,
+    anoContrato,
+    rotuloCompleto: `${anoContrato}º Ano de Contrato`,
+  };
+}
+
+export function RenovacaoFocusModal({
+  open,
+  onOpenChange,
+  dataInclusao,
+  dataVencimentoAnterior,
+  dataVencimentoNova,
+  previousRenovado,
+  previousQtdRenovacoes,
+  initialSelection = true,
+  onConfirm,
+}: RenovacaoFocusModalProps) {
+  const [escolhaSim, setEscolhaSim] = useState<boolean>(initialSelection);
+
+  useEffect(() => {
+    if (open) {
+      setEscolhaSim(initialSelection);
+    }
+  }, [open, initialSelection]);
+
+  const preview = computeRenovacaoPreview({
+    dataInclusao,
+    dataVencimentoAnterior,
+    dataVencimentoNova,
+    previousRenovado,
+    previousQtdRenovacoes,
+  });
+
+  const handleConfirm = () => {
+    if (escolhaSim) {
+      onConfirm({
+        isRenovacao: true,
+        qtdRenovacoes: preview.qtdRenovacoes,
+        anoContrato: preview.anoContrato,
+        dataRenovacao: preview.dataRenovacao || null,
+      });
+    } else {
+      const anoMantido = previousRenovado ? Math.max(2, previousQtdRenovacoes + 1) : 1;
+      onConfirm({
+        isRenovacao: previousRenovado,
+        qtdRenovacoes: previousRenovado ? previousQtdRenovacoes : 0,
+        anoContrato: anoMantido,
+        dataRenovacao: null,
+      });
+    }
+    onOpenChange(false);
+  };
+
   return (
-    <div
-      className={cn(
-        "rounded-xl border border-cyan-500/30 bg-[#0B121D] p-4 shadow-lg transition-all duration-300",
-        isRenovacao ? "ring-1 ring-cyan-500/40" : "border-[#1E2C42]",
-        className
-      )}
-      data-testid="renovacao-prompt-container"
-    >
-      <div className="flex items-start gap-3">
-        <div className="relative mt-0.5 flex items-center justify-center size-9 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 shrink-0">
-          <Sparkles className="size-4.5 animate-pulse text-cyan-400" />
-          <span className="absolute -top-1 -right-1 flex size-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
-            <span className="relative inline-flex rounded-full size-2.5 bg-cyan-500" />
-          </span>
-        </div>
-        <div className="flex-1">
-          <div className="flex flex-wrap items-center justify-between gap-1">
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-cyan-300">
-              <BadgeCheck className="size-3.5 text-cyan-400" /> Validação de Renovação de Contrato
-            </span>
-            {dataVencimento && (
-              <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                <Calendar className="size-3 text-slate-400" />
-                Vigência: <strong className="text-slate-200">{fmtDate(dataVencimento)}</strong>
-              </span>
-            )}
-          </div>
-          <p className="mt-1 text-sm font-medium text-slate-100">
-            Esta modificação de data de vigência refere-se a uma <strong>Renovação de Contrato</strong>?
-          </p>
-          <p className="mt-0.5 text-xs text-slate-400">
-            Selecione uma das opções abaixo. Ao confirmar como renovação, o sistema interpreta automaticamente o ano de exercício e o número acumulado de renovações.
-          </p>
-
-          <div className="mt-3 flex flex-wrap gap-2.5">
-            <button
-              type="button"
-              onClick={() => onToggleRenovacao(true)}
-              data-testid="btn-renovacao-sim"
-              className={cn(
-                "inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all select-none cursor-pointer",
-                isRenovacao
-                  ? "bg-cyan-600 text-white shadow-md shadow-cyan-900/40 ring-2 ring-cyan-400/80 border border-cyan-400"
-                  : "bg-[#121B28] text-slate-300 border border-[#24344D] hover:bg-[#182335] hover:text-white"
-              )}
-            >
-              <CheckCircle2 className={cn("size-4", isRenovacao ? "text-white" : "text-cyan-400")} />
-              <span>Sim, é Renovação de Contrato</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onToggleRenovacao(false)}
-              data-testid="btn-renovacao-nao"
-              className={cn(
-                "inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all select-none cursor-pointer",
-                !isRenovacao
-                  ? "bg-slate-700 text-white ring-2 ring-slate-400 border border-slate-500"
-                  : "bg-[#121B28] text-slate-400 border border-[#24344D] hover:bg-[#182335] hover:text-slate-200"
-              )}
-            >
-              <XCircle className="size-4 text-slate-400" />
-              <span>Não, apenas ajuste de data</span>
-            </button>
-          </div>
-
-          {isRenovacao ? (
-            <div
-              className="mt-3.5 rounded-lg border border-cyan-500/30 bg-cyan-950/20 p-3.5 text-xs transition-all animate-in fade-in zoom-in-95"
-              data-testid="renovacao-preview-sim"
-            >
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] uppercase tracking-wider text-cyan-400/90 font-bold">
-                  Ano a exercer:
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-cyan-500/25 border border-cyan-500/40 text-cyan-200 font-extrabold text-xs shadow-sm">
-                  <BadgeCheck className="size-3.5 text-cyan-400" />
-                  {infoSim.rotuloCompleto}
-                </span>
+    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Backdrop
+          className="fixed inset-0 z-[90] bg-[#04070D]/80 backdrop-blur-md animate-staging-backdrop"
+          data-testid="renovacao-focus-backdrop"
+        />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
+          <DialogPrimitive.Popup
+            data-testid="renovacao-focus-modal"
+            className="pointer-events-auto relative w-full max-w-xl rounded-xl border border-cyan-500/35 bg-[#0E1623] p-6 text-slate-100 shadow-[0_24px_80px_-12px_rgba(6,182,212,0.28)] outline-none animate-staging-focus"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3.5">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-400">
+                  <BadgeCheck className="size-5" />
+                </div>
+                <div className="space-y-0.5">
+                  <DialogPrimitive.Title className="font-heading text-lg font-bold leading-snug text-white">
+                    Renovação de Contrato
+                  </DialogPrimitive.Title>
+                  <DialogPrimitive.Description className="text-xs text-slate-400">
+                    Alteração na data de vencimento detectada
+                  </DialogPrimitive.Description>
+                </div>
               </div>
+              <DialogPrimitive.Close
+                render={
+                  <button
+                    type="button"
+                    aria-label="Fechar"
+                    className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white cursor-pointer"
+                  />
+                }
+              >
+                <X className="size-4" />
+              </DialogPrimitive.Close>
+            </div>
 
-              <p className="mt-2 text-[11px] text-cyan-300/90 leading-relaxed">
-                ✓ <strong>Identificado automaticamente pelo sistema:</strong> Com data de inclusão em{" "}
-                <strong>{fmtDate(dataInclusao)}</strong> e vigência até{" "}
-                <strong>{fmtDate(dataVencimento)}</strong>, o militar estará exercendo o{" "}
-                <strong>{infoSim.rotuloCompleto}</strong>.
+            {/* Distribuição em grade 2x2 para evitar sobreposição ou quebra de datas */}
+            <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-y border-[#1E2C42] py-4 sm:grid-cols-4">
+              <div className="min-w-0">
+                <dt className="text-[11px] font-medium text-slate-400">Inclusão</dt>
+                <dd className="num mt-1 text-sm font-semibold text-slate-200 whitespace-nowrap">
+                  {dataInclusao ? fmtDate(dataInclusao) : "—"}
+                </dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-[11px] font-medium text-slate-400">Vencimento anterior</dt>
+                <dd className="num mt-1 text-sm font-medium text-slate-400 line-through whitespace-nowrap">
+                  {dataVencimentoAnterior ? fmtDate(dataVencimentoAnterior) : "—"}
+                </dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-[11px] font-medium text-slate-400">Novo vencimento</dt>
+                <dd className="num mt-1 flex items-center gap-1 text-sm font-semibold text-white whitespace-nowrap">
+                  <ArrowRight className="size-3.5 text-cyan-400 shrink-0" />
+                  <span>{dataVencimentoNova ? fmtDate(dataVencimentoNova) : "—"}</span>
+                </dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-[11px] font-medium text-cyan-300 whitespace-nowrap">Data da renovação</dt>
+                <dd
+                  className="num mt-1 flex items-center gap-1.5 text-sm font-bold text-cyan-300 whitespace-nowrap"
+                  data-testid="renovacao-data-calculada"
+                >
+                  <Calendar className="size-3.5 text-cyan-400 shrink-0" />
+                  <span>{preview.dataRenovacao ? fmtDate(preview.dataRenovacao) : "—"}</span>
+                </dd>
+              </div>
+            </dl>
+
+            <div className="mt-5 space-y-3">
+              <p className="text-sm font-medium text-slate-100">
+                Esta mudança de vencimento trata-se de uma <strong>Renovação de Contrato</strong>?
               </p>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setEscolhaSim(true)}
+                  data-testid="btn-renovacao-sim"
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-lg border px-4 py-3 text-left text-xs font-semibold transition-all duration-150 cursor-pointer",
+                    escolhaSim
+                      ? "border-cyan-400 bg-cyan-500/15 text-white ring-1 ring-cyan-400/50"
+                      : "border-[#24344D] bg-[#121B28] text-slate-300 hover:border-slate-500 hover:text-white"
+                  )}
+                >
+                  <CheckCircle2 className={cn("size-4 shrink-0", escolhaSim ? "text-cyan-400" : "text-slate-500")} />
+                  <span>Sim, é Renovação</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEscolhaSim(false)}
+                  data-testid="btn-renovacao-nao"
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-lg border px-4 py-3 text-left text-xs font-semibold transition-all duration-150 cursor-pointer",
+                    !escolhaSim
+                      ? "border-slate-400 bg-slate-700/60 text-white ring-1 ring-slate-400/40"
+                      : "border-[#24344D] bg-[#121B28] text-slate-300 hover:border-slate-500 hover:text-white"
+                  )}
+                >
+                  <XCircle className={cn("size-4 shrink-0", !escolhaSim ? "text-slate-200" : "text-slate-500")} />
+                  <span>Não, apenas ajuste de data</span>
+                </button>
+              </div>
             </div>
-          ) : (
-            <div
-              className="mt-3 rounded-lg border border-slate-700/50 bg-slate-900/40 p-2.5 text-xs text-slate-400 transition-all animate-in fade-in"
-              data-testid="renovacao-preview-nao"
-            >
-              <span>
-                • Registro mantido sem cômputo de renovação contratual (permanece no <strong>1º Ano / Exercício Inicial</strong>).
-              </span>
+
+            {/* Resultado estruturado com espaçamento limpo */}
+            <div className="mt-5 border-t border-[#1E2C42] pt-4">
+              {escolhaSim ? (
+                <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4" data-testid="renovacao-preview-sim">
+                  <div>
+                    <dt className="text-[11px] font-medium text-slate-400">Situação do contrato</dt>
+                    <dd className="mt-0.5 text-sm font-semibold text-white">{preview.rotuloCompleto}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium text-slate-400">Contagem</dt>
+                    <dd className="num mt-0.5 text-sm font-semibold text-cyan-300">{preview.qtdRenovacoes}ª renovação</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium text-slate-400">Início da renovação</dt>
+                    <dd className="num mt-0.5 text-sm font-semibold text-white">
+                      {preview.dataRenovacao ? fmtDate(preview.dataRenovacao) : "—"}
+                    </dd>
+                  </div>
+                </dl>
+              ) : (
+                <p className="text-xs leading-relaxed text-slate-400" data-testid="renovacao-preview-nao">
+                  {previousRenovado
+                    ? `Apenas a data será ajustada. O vínculo mantém o registro anterior (${previousQtdRenovacoes}ª renovação).`
+                    : "Apenas a data será ajustada, mantendo o contrato inicial (1º Ano de Contrato)."}
+                </p>
+              )}
             </div>
-          )}
+
+            <div className="mt-6 flex items-center justify-end gap-2.5">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                data-testid="btn-renovacao-cancelar"
+              >
+                Voltar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleConfirm}
+                className="bg-cyan-600 text-white hover:bg-cyan-500 font-semibold"
+                data-testid="btn-renovacao-confirmar"
+              >
+                Confirmar
+              </Button>
+            </div>
+          </DialogPrimitive.Popup>
         </div>
-      </div>
-    </div>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
