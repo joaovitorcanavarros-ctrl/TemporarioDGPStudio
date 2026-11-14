@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { motion } from "motion/react";
+import { motion, useMotionValue, useReducedMotion, useSpring } from "motion/react";
 import { useMutation } from "@tanstack/react-query";
 import { AlertCircle, Eye, EyeOff, HelpCircle, Lock, ShieldCheck, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { errMsg } from "@/lib/format";
 import { useMe } from "@/lib/hooks";
 import { beginSession } from "@/lib/session";
 import type { UserOut } from "@/lib/types";
+import RotatingText from "@/components/RotatingText";
 import { cn } from "@/lib/utils";
 
 export default function Login() {
@@ -34,6 +35,36 @@ export default function Login() {
   const [forgotModalOpen, setForgotModalOpen] = useState(false);
   const [erro, setErro] = useState("");
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  const reduceMotion = useReducedMotion();
+  const logoRotateXRaw = useMotionValue(0);
+  const logoRotateYRaw = useMotionValue(0);
+  const logoScaleRaw = useMotionValue(1);
+  const logoSpring = { stiffness: 210, damping: 18, mass: 0.75 };
+  const logoRotateX = useSpring(logoRotateXRaw, logoSpring);
+  const logoRotateY = useSpring(logoRotateYRaw, logoSpring);
+  const logoScale = useSpring(logoScaleRaw, { stiffness: 240, damping: 20 });
+
+  const handleLogoMove = (event: ReactPointerEvent<HTMLImageElement>) => {
+    if (reduceMotion) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const px = (event.clientX - rect.left) / Math.max(1, rect.width) - 0.5;
+    const py = (event.clientY - rect.top) / Math.max(1, rect.height) - 0.5;
+    logoRotateYRaw.set(px * 34);
+    logoRotateXRaw.set(-py * 34);
+    logoScaleRaw.set(1.07);
+  };
+
+  const handleLogoEnter = () => {
+    if (reduceMotion) return;
+    logoScaleRaw.set(1.07);
+  };
+
+  const handleLogoLeave = () => {
+    logoRotateXRaw.set(0);
+    logoRotateYRaw.set(0);
+    logoScaleRaw.set(1);
+  };
 
   // Mutation for standard email/password login
   const loginMut = useMutation({
@@ -151,10 +182,20 @@ export default function Login() {
           transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
           className="relative z-10 flex w-full items-center justify-center gap-4 sm:gap-5"
         >
-          <img
+          <motion.img
             src="/cbmmt-logo.png"
             alt="Emblema do Corpo de Bombeiros Militar de Mato Grosso"
-            className="size-16 sm:size-20 shrink-0 drop-shadow-[0_6px_22px_rgba(220,38,38,0.6)] transition-transform duration-200"
+            onPointerEnter={handleLogoEnter}
+            onPointerMove={handleLogoMove}
+            onPointerLeave={handleLogoLeave}
+            onPointerCancel={handleLogoLeave}
+            style={{
+              transformPerspective: 700,
+              rotateX: logoRotateX,
+              rotateY: logoRotateY,
+              scale: logoScale,
+            }}
+            className="size-20 sm:size-24 lg:size-[104px] shrink-0 cursor-pointer select-none will-change-transform drop-shadow-[0_8px_24px_rgba(220,38,38,0.58)] hover:drop-shadow-[0_14px_32px_rgba(220,38,38,0.72)] transition-[filter] duration-300"
             data-testid="login-logo"
           />
           <span className="font-heading text-3xl sm:text-4xl font-black tracking-wider text-white">
@@ -191,9 +232,24 @@ export default function Login() {
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.34, ease: [0.16, 1, 0.3, 1] }}
-            className="mt-4 sm:mt-5 text-xs sm:text-sm leading-relaxed text-slate-300/85 max-w-md font-normal"
+            className="mt-4 sm:mt-5 max-w-md text-xs sm:text-sm leading-[1.75] text-slate-300/85 font-normal"
           >
-            Efetivo, contratos, desligamentos e relatórios em um único sistema, com indicadores calculados a partir dos registros oficiais.
+            <span>Controle de </span>
+            <RotatingText
+              texts={["Efetivo", "Contratos", "Desligamentos", "Relatórios"]}
+              effect="slide"
+              direction="down"
+              highlight
+              highlightColor="#182335"
+              staggerFrom="last"
+              staggerDuration={0.038}
+              mainClassName="mx-0.5 inline-flex items-baseline align-baseline rounded-md border border-blue-500/35 px-2 py-[1px] font-sans text-xs sm:text-sm font-semibold leading-snug tracking-normal shadow-sm"
+              splitLevelClassName="overflow-hidden"
+              rotationInterval={2500}
+              blur={6}
+              pauseOnHover
+            />
+            <span> em um único sistema, com indicadores calculados a partir dos registros oficiais.</span>
           </motion.p>
         </div>
 
