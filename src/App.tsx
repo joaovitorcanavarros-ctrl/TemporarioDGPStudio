@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import AppShell from "@/components/AppShell";
+import { SystemEntryProvider } from "@/components/SystemEntrySplash";
 import Configuracoes from "@/pages/Configuracoes";
 import Dashboard from "@/pages/Dashboard";
 import Desligamentos from "@/pages/Desligamentos";
@@ -65,24 +66,26 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryS
 export default function App() {
   return (
     <AppErrorBoundary>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route element={<AppShell />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/temporarios" element={<Temporarios />} />
-          <Route path="/quadro/:categoria" element={<Temporarios />} />
-          <Route path="/temporarios/novo" element={<MilitarForm />} />
-          <Route path="/temporarios/:id" element={<MilitarDetalhe />} />
-          <Route path="/temporarios/:id/editar" element={<MilitarForm />} />
-          <Route path="/desligamentos" element={<Desligamentos />} />
-          <Route path="/importacao" element={<Importacao />} />
-          <Route path="/relatorios" element={<Relatorios />} />
-          <Route path="/auditoria" element={<Navigate to="/configuracoes?tab=auditoria" replace />} />
-          <Route path="/configuracoes" element={<Configuracoes />} />
-        </Route>
+      <SystemEntryProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route element={<AppShell />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/temporarios" element={<Temporarios />} />
+            <Route path="/quadro/:categoria" element={<Temporarios />} />
+            <Route path="/temporarios/novo" element={<MilitarForm />} />
+            <Route path="/temporarios/:id" element={<MilitarDetalhe />} />
+            <Route path="/temporarios/:id/editar" element={<MilitarForm />} />
+            <Route path="/desligamentos" element={<Desligamentos />} />
+            <Route path="/importacao" element={<Importacao />} />
+            <Route path="/relatorios" element={<Relatorios />} />
+            <Route path="/auditoria" element={<Navigate to="/configuracoes?tab=auditoria" replace />} />
+            <Route path="/configuracoes" element={<Configuracoes />} />
+          </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </SystemEntryProvider>
     </AppErrorBoundary>
   );
 }

@@ -20,11 +20,13 @@ import { useMe } from "@/lib/hooks";
 import { beginSession } from "@/lib/session";
 import type { UserOut } from "@/lib/types";
 import RotatingText from "@/components/RotatingText";
+import { useSystemEntry } from "@/components/SystemEntrySplash";
 import { cn } from "@/lib/utils";
 
 export default function Login() {
   const me = useMe();
   const nav = useNavigate();
+  const { startEntrySplash } = useSystemEntry();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -70,6 +72,7 @@ export default function Login() {
   const loginMut = useMutation({
     mutationFn: (body: { email: string; senha: string }) => apiPost<UserOut>("/auth/login", body),
     onSuccess: async () => {
+      startEntrySplash();
       await beginSession();
       nav("/", { replace: true });
     },
@@ -80,6 +83,7 @@ export default function Login() {
   const signupMut = useMutation({
     mutationFn: (body: { nome: string; email: string; senha: string }) => apiPost<UserOut>("/auth/signup", body),
     onSuccess: async () => {
+      startEntrySplash();
       await beginSession();
       nav("/", { replace: true });
     },
@@ -90,6 +94,7 @@ export default function Login() {
   const googleMut = useMutation({
     mutationFn: (body: { email: string; nome: string; uid: string }) => apiPost<UserOut>("/auth/google", body),
     onSuccess: async () => {
+      startEntrySplash();
       await beginSession();
       nav("/", { replace: true });
     },
@@ -229,12 +234,16 @@ export default function Login() {
             Temporários
           </motion.h1>
           <motion.p
-            initial={{ opacity: 0, y: 18 }}
+            initial={reduceMotion ? false : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.34, ease: [0.16, 1, 0.3, 1] }}
-            className="mt-4 sm:mt-5 max-w-md text-xs sm:text-sm leading-[1.75] text-slate-300/85 font-normal"
+            transition={
+              reduceMotion
+                ? { duration: 0 }
+                : { duration: 0.5, delay: 0.28, ease: [0.16, 1, 0.3, 1] }
+            }
+            className="mt-4 sm:mt-5 max-w-md font-sans text-xs sm:text-sm leading-[1.8] text-slate-300/85 font-normal"
           >
-            <span>Controle de </span>
+            <span>Controle integrado de </span>
             <RotatingText
               texts={["Efetivo", "Contratos", "Desligamentos", "Relatórios"]}
               effect="slide"
@@ -243,7 +252,7 @@ export default function Login() {
               highlightColor="#182335"
               staggerFrom="last"
               staggerDuration={0.038}
-              mainClassName="mx-0.5 inline-flex items-baseline align-baseline rounded-md border border-blue-500/35 px-2 py-[1px] font-sans text-xs sm:text-sm font-semibold leading-snug tracking-normal shadow-sm"
+              mainClassName="mx-1 inline-flex items-baseline align-baseline rounded-md border border-blue-500/35 px-2 py-[1px] font-sans text-xs sm:text-sm font-semibold leading-snug tracking-normal shadow-sm"
               splitLevelClassName="overflow-hidden"
               rotationInterval={2500}
               blur={6}

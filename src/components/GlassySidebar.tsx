@@ -15,6 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useSystemEntry } from "@/components/SystemEntrySplash";
 import { cn } from "@/lib/utils";
 
 export interface GlassyCategory {
@@ -88,6 +89,7 @@ export default function GlassySidebar({
   const [activeNavId, setActiveNavId] = useState<string | null>(null);
   const [toggleHover, setToggleHover] = useState(false);
 
+  const { isBrandLogoHidden } = useSystemEntry();
   const location = useLocation();
 
   const handleToggle = () => {
@@ -387,7 +389,10 @@ export default function GlassySidebar({
             <img
               src="/cbmmt-logo.png"
               alt="Emblema do Corpo de Bombeiros Militar de Mato Grosso"
-              className="size-9 object-contain drop-shadow"
+              className={cn(
+                "size-9 object-contain drop-shadow",
+                !mobileMode && isBrandLogoHidden && "opacity-0"
+              )}
               data-testid="brand-logo"
             />
           </div>
