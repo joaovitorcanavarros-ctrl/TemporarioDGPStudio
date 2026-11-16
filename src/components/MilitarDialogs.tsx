@@ -215,13 +215,12 @@ export function QuickEditDialog({ militar, onClose }: { militar: Militar | null;
 
   useEffect(() => {
     if (militar) {
-      const infoAtual = getInfoContrato(militar);
       form.reset({
         lotacao_id: militar.lotacao_id,
         edital_id: militar.edital_id,
         data_vencimento_contrato: militar.data_vencimento_contrato,
         observacoes: militar.observacoes ?? "",
-        renovacao_contrato: infoAtual.renovado,
+        renovacao_contrato: Boolean(militar.renovacao_contrato),
       });
       setRenovDecision(null);
       setRenovModalOpen(false);
@@ -265,6 +264,7 @@ export function QuickEditDialog({ militar, onClose }: { militar: Militar | null;
     let isRenovado = originalInfo.renovado;
     let anoContrato = originalInfo.anoContrato;
     let qtdRenovacoes = originalInfo.qtdRenovacoes;
+    let anoContratoManual = Boolean(militar?.ano_contrato_manual);
     let dataUltimaRenovacao: string | null = militar?.data_ultima_renovacao ?? null;
     let renovacoesDatas: string[] = existingDatas;
 
@@ -273,6 +273,7 @@ export function QuickEditDialog({ militar, onClose }: { militar: Militar | null;
       anoContrato = activeDecision.payload.anoContrato;
       qtdRenovacoes = activeDecision.payload.qtdRenovacoes;
       if (activeDecision.payload.dataRenovacao) {
+        anoContratoManual = false;
         dataUltimaRenovacao = activeDecision.payload.dataRenovacao;
         if (!renovacoesDatas.includes(activeDecision.payload.dataRenovacao)) {
           renovacoesDatas.push(activeDecision.payload.dataRenovacao);
@@ -286,6 +287,7 @@ export function QuickEditDialog({ militar, onClose }: { militar: Militar | null;
       observacoes: v.observacoes ?? null,
       renovacao_contrato: isRenovado,
       ano_contrato: anoContrato,
+      ano_contrato_manual: anoContratoManual,
       qtd_renovacoes: qtdRenovacoes,
       data_ultima_renovacao: dataUltimaRenovacao,
       renovacoes_datas: renovacoesDatas,

@@ -94,7 +94,7 @@ export default function MilitarForm() {
         data_inclusao: m.data_inclusao, data_vencimento_contrato: m.data_vencimento_contrato, status: m.status,
         doe_incorporacao: m.doe_incorporacao ?? "", sub_judice: m.sub_judice ? "SIM" : "NAO", observacoes: m.observacoes ?? "", data_desligamento: m.data_desligamento ?? "",
         motivo_desligamento_id: m.motivo_desligamento_id ?? "", documento_desligamento: m.documento_desligamento ?? "",
-        renovacao_contrato: getInfoContrato(m).renovado,
+        renovacao_contrato: Boolean(m.renovacao_contrato),
       });
       setRenovDecision(null);
       setRenovModalOpen(false);
@@ -150,6 +150,7 @@ export default function MilitarForm() {
 
     let isRenovado = false;
     let anoContrato = 1;
+    let anoContratoManual = false;
     let qtdRenovacoes = 0;
     let dataUltimaRenovacao: string | null = null;
     let renovacoesDatas: string[] = [];
@@ -158,12 +159,14 @@ export default function MilitarForm() {
       const existingDatas = Array.isArray(atual.data.renovacoes_datas) ? [...atual.data.renovacoes_datas] : [];
       const activeDecision = decisionOverride ?? renovDecision;
       const dateChanged = Boolean(originalVencimento && v.data_vencimento_contrato !== originalVencimento);
+      anoContratoManual = Boolean(atual.data.ano_contrato_manual);
 
       if (dateChanged && activeDecision && activeDecision.decidedForDate === v.data_vencimento_contrato) {
         isRenovado = activeDecision.payload.isRenovacao;
         anoContrato = activeDecision.payload.anoContrato;
         qtdRenovacoes = activeDecision.payload.qtdRenovacoes;
         if (activeDecision.payload.dataRenovacao) {
+          anoContratoManual = false;
           dataUltimaRenovacao = activeDecision.payload.dataRenovacao;
           if (!existingDatas.includes(activeDecision.payload.dataRenovacao)) {
             existingDatas.push(activeDecision.payload.dataRenovacao);
@@ -200,6 +203,7 @@ export default function MilitarForm() {
       documento_desligamento: v.status === "DESLIGADO" ? v.documento_desligamento || null : null,
       renovacao_contrato: isRenovado,
       ano_contrato: anoContrato,
+      ano_contrato_manual: anoContratoManual,
       qtd_renovacoes: qtdRenovacoes,
       data_ultima_renovacao: dataUltimaRenovacao,
       renovacoes_datas: renovacoesDatas,

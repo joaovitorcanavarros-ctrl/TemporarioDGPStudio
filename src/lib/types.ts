@@ -23,6 +23,7 @@ export interface MilitarIn {
   data_desligamento?: string | null; motivo_desligamento_id?: string | null; documento_desligamento?: string | null;
   renovacao_contrato?: boolean | null;
   ano_contrato?: number | null;
+  ano_contrato_manual?: boolean | null;
   qtd_renovacoes?: number | null;
   data_ultima_renovacao?: string | null;
   renovacoes_datas?: string[] | null;
@@ -34,6 +35,7 @@ export interface MilitarRapidoIn {
   observacoes?: string | null;
   renovacao_contrato?: boolean | null;
   ano_contrato?: number | null;
+  ano_contrato_manual?: boolean | null;
   qtd_renovacoes?: number | null;
   data_ultima_renovacao?: string | null;
   renovacoes_datas?: string[] | null;
@@ -52,6 +54,7 @@ export interface Militar {
   criado_em: string | null; atualizado_em: string | null; criado_por_nome: string | null; atualizado_por_nome: string | null;
   renovacao_contrato?: boolean | null;
   ano_contrato?: number;
+  ano_contrato_manual?: boolean | null;
   qtd_renovacoes?: number;
   data_ultima_renovacao?: string | null;
   renovacoes_datas?: string[] | null;
@@ -82,6 +85,7 @@ export function getInfoContrato(m?: {
   data_vencimento_contrato?: string | null;
   renovacao_contrato?: boolean | null;
   ano_contrato?: number | null;
+  ano_contrato_manual?: boolean | null;
   qtd_renovacoes?: number | null;
   renovacoes_datas?: string[] | null;
 } | null): InfoContrato {
@@ -93,6 +97,23 @@ export function getInfoContrato(m?: {
       rotuloAno: "1º Ano",
       rotuloCompleto: "1º Ano de Contrato",
       detalheRenovacao: "Contrato inicial (sem renovação)",
+    };
+  }
+
+  if (m.ano_contrato_manual === true && typeof m.ano_contrato === "number" && m.ano_contrato >= 1) {
+    const anoContrato = Math.max(1, Math.round(m.ano_contrato));
+    const renovado = anoContrato > 1;
+    const qtdRenovacoes = renovado ? anoContrato - 1 : 0;
+    const detalheRenovacao = qtdRenovacoes > 0
+      ? `${qtdRenovacoes}ª renovação (${anoContrato}º ano)`
+      : "Contrato inicial";
+    return {
+      renovado,
+      anoContrato,
+      qtdRenovacoes,
+      rotuloAno: `${anoContrato}º Ano`,
+      rotuloCompleto: `${anoContrato}º Ano de Contrato`,
+      detalheRenovacao,
     };
   }
 

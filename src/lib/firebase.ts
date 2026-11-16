@@ -987,3 +987,34 @@ export async function buscarAuditoriaPorEntidadeFirestore(
     return [];
   }
 }
+
+/**
+ * Exclui um ou mais documentos da coleção 'auditoria' no Cloud Firestore.
+ */
+export async function excluirAuditoriaFirestore(auditIds: string[]): Promise<boolean> {
+  const cleanIds = Array.from(new Set(auditIds.map((id) => String(id || "").trim()).filter(Boolean)));
+  if (cleanIds.length === 0) return false;
+
+  const targetPath = cleanIds.length === 1 ? `auditoria/${cleanIds[0]}` : "auditoria";
+  try {
+    if (cleanIds.length === 1) {
+      await deleteDoc(doc(db, "auditoria", cleanIds[0]));
+    } else {
+      const CHUNK = 450;
+      for (let i = 0; i < cleanIds.length; i += CHUNK) {
+        const batch = writeBatch(db);
+        cleanIds.slice(i, i + CHUNK).forEach((auditId) => {
+          batch.delete(doc(db, "auditoria", auditId));
+        });
+        await batch.commit();
+      }
+    }
+    recentAuditoriaFallbackCache = null;
+    lastAuditoriaCursor = null;
+    lastAuditoriaLimit = 0;
+    return true;
+  } catch (err: any) {
+    handleFirestoreError(err, OperationType.DELETE, targetPath);
+    return false;
+  }
+}

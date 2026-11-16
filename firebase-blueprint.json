@@ -42,6 +42,7 @@
         "atualizado_por_nome": { "type": "string" },
         "renovacao_contrato": { "type": "boolean" },
         "ano_contrato": { "type": "number" },
+        "ano_contrato_manual": { "type": "boolean" },
         "qtd_renovacoes": { "type": "number" },
         "data_ultima_renovacao": { "type": "string" },
         "renovacoes_datas": { "type": "array" }

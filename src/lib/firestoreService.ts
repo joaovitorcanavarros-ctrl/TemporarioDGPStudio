@@ -17,6 +17,7 @@ import {
   registrarAuditoriaFirestore,
   buscarAuditoriaFirestore,
   buscarAuditoriaPorEntidadeFirestore,
+  excluirAuditoriaFirestore,
 } from "./firebase";
 import { queryClient } from "./queryClient";
 import type {
@@ -81,6 +82,7 @@ export interface CloudCacheState {
     atualizado_por_nome?: string | null;
     renovacao_contrato?: boolean;
     ano_contrato?: number;
+    ano_contrato_manual?: boolean;
     qtd_renovacoes?: number;
     data_ultima_renovacao?: string | null;
     renovacoes_datas?: string[];
@@ -136,11 +138,14 @@ function sanitizeMilitarRecord(raw: Record<string, any>): CloudCacheState["milit
         ? renovacoesDatas[renovacoesDatas.length - 1]
         : null;
 
+  const anoContratoManual = Boolean(cleaned.ano_contrato_manual);
+
   const infoContrato = getInfoContrato({
     data_inclusao: cleaned.data_inclusao,
     data_vencimento_contrato: cleaned.data_vencimento_contrato,
     renovacao_contrato: cleaned.renovacao_contrato,
     ano_contrato: cleaned.ano_contrato,
+    ano_contrato_manual: anoContratoManual,
     qtd_renovacoes: cleaned.qtd_renovacoes,
     renovacoes_datas: renovacoesDatas,
   });
@@ -181,6 +186,7 @@ function sanitizeMilitarRecord(raw: Record<string, any>): CloudCacheState["milit
     atualizado_por_nome: cleaned.atualizado_por_nome ? String(cleaned.atualizado_por_nome) : null,
     renovacao_contrato: infoContrato.renovado,
     ano_contrato: infoContrato.anoContrato,
+    ano_contrato_manual: anoContratoManual,
     qtd_renovacoes: infoContrato.qtdRenovacoes,
     data_ultima_renovacao: dataUltimaRenovacao,
     renovacoes_datas: renovacoesDatas,
@@ -269,7 +275,9 @@ function upsertMilitaresInMemory(rawDocs: Array<Record<string, any>>): Militar[]
         current.cargo_id === sanitized.cargo_id &&
         current.edital_id === sanitized.edital_id &&
         current.observacoes === sanitized.observacoes &&
-        current.renovacao_contrato === sanitized.renovacao_contrato
+        current.renovacao_contrato === sanitized.renovacao_contrato &&
+        current.ano_contrato === sanitized.ano_contrato &&
+        current.ano_contrato_manual === sanitized.ano_contrato_manual
       ) {
         continue;
       }
@@ -709,6 +717,7 @@ function enrichMilitar(m: CloudCacheState["militares"][number], hoje: string, al
     atualizado_por_nome: m.atualizado_por_nome || atualizador?.nome || "Sistema",
     renovacao_contrato: infoContrato.renovado,
     ano_contrato: infoContrato.anoContrato,
+    ano_contrato_manual: Boolean(m.ano_contrato_manual),
     qtd_renovacoes: infoContrato.qtdRenovacoes,
   };
 }
@@ -1713,25 +1722,50 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       checkField("DOE Incorporação", doc.doe_incorporacao, b.doe_incorporacao);
       checkField("Observações", doc.observacoes, b.observacoes);
 
-      const isRenov =
-        b.renovacao_contrato !== undefined
+      const anoAnteriorLabel = `${getInfoContrato(doc).anoContrato}º Ano de Contrato`;
+
+      const isManualAno =
+        b.ano_contrato_manual === true &&
+        typeof b.ano_contrato === "number" &&
+        b.ano_contrato >= 1;
+
+      const isRenov = isManualAno
+        ? b.ano_contrato! > 1
+        : b.renovacao_contrato !== undefined
           ? Boolean(b.renovacao_contrato)
           : doc.renovacao_contrato;
 
-      const renovacoesDatasAtualizadas = Array.isArray(b.renovacoes_datas)
+      let renovacoesDatasAtualizadas = Array.isArray(b.renovacoes_datas)
         ? b.renovacoes_datas.filter((d) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}/.test(d)).map((d) => d.slice(0, 10))
         : (doc.renovacoes_datas ?? []);
-      const dataUltimaRenovacaoAtualizada =
+      let dataUltimaRenovacaoAtualizada =
         b.data_ultima_renovacao !== undefined
           ? (b.data_ultima_renovacao ? String(b.data_ultima_renovacao).slice(0, 10) : null)
           : (doc.data_ultima_renovacao ?? null);
+
+      if (isManualAno) {
+        const targetQtd = Math.max(0, Math.round(b.ano_contrato!) - 1);
+        renovacoesDatasAtualizadas = renovacoesDatasAtualizadas.slice(0, targetQtd);
+        dataUltimaRenovacaoAtualizada =
+          targetQtd === 0
+            ? null
+            : renovacoesDatasAtualizadas.length > 0
+              ? renovacoesDatasAtualizadas[renovacoesDatasAtualizadas.length - 1]
+              : dataUltimaRenovacaoAtualizada;
+      }
+
+      const nextManualFlag =
+        b.ano_contrato_manual !== undefined
+          ? Boolean(b.ano_contrato_manual)
+          : Boolean(doc.ano_contrato_manual);
 
       const infoAtualizada = getInfoContrato({
         data_inclusao: b.data_inclusao,
         data_vencimento_contrato: b.data_vencimento_contrato,
         renovacao_contrato: isRenov,
         ano_contrato: b.ano_contrato,
-        qtd_renovacoes: b.qtd_renovacoes,
+        ano_contrato_manual: nextManualFlag,
+        qtd_renovacoes: isManualAno ? Math.max(0, Math.round(b.ano_contrato!) - 1) : b.qtd_renovacoes,
         renovacoes_datas: renovacoesDatasAtualizadas,
       });
 
@@ -1752,6 +1786,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         documento_desligamento: b.documento_desligamento || null,
         renovacao_contrato: infoAtualizada.renovado,
         ano_contrato: infoAtualizada.anoContrato,
+        ano_contrato_manual: nextManualFlag,
         qtd_renovacoes: infoAtualizada.qtdRenovacoes,
         data_ultima_renovacao: infoAtualizada.renovado ? dataUltimaRenovacaoAtualizada : null,
         renovacoes_datas: infoAtualizada.renovado ? renovacoesDatasAtualizadas : [],
@@ -1759,6 +1794,11 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         atualizado_por: user.id,
         atualizado_por_nome: user.nome,
       });
+
+      if (anoAnteriorLabel !== infoAtualizada.rotuloCompleto) {
+        antes["Ano do contrato"] = anoAnteriorLabel;
+        depois["Ano do contrato"] = infoAtualizada.rotuloCompleto;
+      }
 
       if (infoAtualizada.renovado) {
         depois["Renovação de Contrato"] = `Sim (${infoAtualizada.rotuloCompleto} - ${infoAtualizada.qtdRenovacoes}ª renovação)`;
@@ -1850,31 +1890,63 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       depois["Observações"] = b.observacoes || "—";
       doc.observacoes = b.observacoes;
     }
-    if (b.renovacao_contrato !== undefined) {
+    const anoAnteriorLabel = `${getInfoContrato(doc).anoContrato}º Ano de Contrato`;
+
+    const isManualAno =
+      b.ano_contrato_manual === true &&
+      typeof b.ano_contrato === "number" &&
+      b.ano_contrato >= 1;
+
+    if (isManualAno) {
+      doc.renovacao_contrato = b.ano_contrato! > 1;
+    } else if (b.renovacao_contrato !== undefined) {
       doc.renovacao_contrato = Boolean(b.renovacao_contrato);
     }
 
-    const renovacoesDatasAtualizadas = Array.isArray(b.renovacoes_datas)
+    let renovacoesDatasAtualizadas = Array.isArray(b.renovacoes_datas)
       ? b.renovacoes_datas.filter((d) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}/.test(d)).map((d) => d.slice(0, 10))
       : (doc.renovacoes_datas ?? []);
-    const dataUltimaRenovacaoAtualizada =
+    let dataUltimaRenovacaoAtualizada =
       b.data_ultima_renovacao !== undefined
         ? (b.data_ultima_renovacao ? String(b.data_ultima_renovacao).slice(0, 10) : null)
         : (doc.data_ultima_renovacao ?? null);
+
+    if (isManualAno) {
+      const targetQtd = Math.max(0, Math.round(b.ano_contrato!) - 1);
+      renovacoesDatasAtualizadas = renovacoesDatasAtualizadas.slice(0, targetQtd);
+      dataUltimaRenovacaoAtualizada =
+        targetQtd === 0
+          ? null
+          : renovacoesDatasAtualizadas.length > 0
+            ? renovacoesDatasAtualizadas[renovacoesDatasAtualizadas.length - 1]
+            : dataUltimaRenovacaoAtualizada;
+    }
+
+    const nextManualFlag =
+      b.ano_contrato_manual !== undefined
+        ? Boolean(b.ano_contrato_manual)
+        : Boolean(doc.ano_contrato_manual);
 
     const infoAtualizada = getInfoContrato({
       data_inclusao: doc.data_inclusao,
       data_vencimento_contrato: doc.data_vencimento_contrato,
       renovacao_contrato: doc.renovacao_contrato,
       ano_contrato: b.ano_contrato,
-      qtd_renovacoes: b.qtd_renovacoes,
+      ano_contrato_manual: nextManualFlag,
+      qtd_renovacoes: isManualAno ? Math.max(0, Math.round(b.ano_contrato!) - 1) : b.qtd_renovacoes,
       renovacoes_datas: renovacoesDatasAtualizadas,
     });
     doc.renovacao_contrato = infoAtualizada.renovado;
     doc.ano_contrato = infoAtualizada.anoContrato;
+    doc.ano_contrato_manual = nextManualFlag;
     doc.qtd_renovacoes = infoAtualizada.qtdRenovacoes;
     doc.data_ultima_renovacao = infoAtualizada.renovado ? dataUltimaRenovacaoAtualizada : null;
     doc.renovacoes_datas = infoAtualizada.renovado ? renovacoesDatasAtualizadas : [];
+
+    if (anoAnteriorLabel !== infoAtualizada.rotuloCompleto) {
+      antes["Ano do contrato"] = anoAnteriorLabel;
+      depois["Ano do contrato"] = infoAtualizada.rotuloCompleto;
+    }
 
     if (infoAtualizada.renovado) {
       depois["Renovação de Contrato"] = `Sim (${infoAtualizada.rotuloCompleto} - ${infoAtualizada.qtdRenovacoes}ª renovação)`;
@@ -2771,6 +2843,36 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       has_more: cloudItems.length >= safeLimit,
     };
     return res as T;
+  }
+
+  const auditDeleteMatch = pathname.match(/^\/auditoria\/([^/]+)$/);
+  if (auditDeleteMatch && method === "DELETE") {
+    const auditId = auditDeleteMatch[1];
+    const user = getCurrentUser();
+    if (user && user.perfil !== "ADMIN") {
+      throw { status: 403, body: { detail: "Apenas administradores podem excluir registros de auditoria." } };
+    }
+    await excluirAuditoriaFirestore([auditId]);
+    void queryClient.invalidateQueries({ queryKey: ["auditoria"] });
+    void queryClient.invalidateQueries({ queryKey: ["militar"] });
+    return { ok: true, ids: [auditId] } as T;
+  }
+
+  if (pathname === "/auditoria/excluir" && method === "POST") {
+    const user = getCurrentUser();
+    if (user && user.perfil !== "ADMIN") {
+      throw { status: 403, body: { detail: "Apenas administradores podem excluir registros de auditoria." } };
+    }
+    const ids = Array.isArray((body as { ids?: unknown[] } | null)?.ids)
+      ? ((body as { ids: unknown[] }).ids.map((x) => String(x || "").trim()).filter(Boolean))
+      : [];
+    if (ids.length === 0) {
+      throw { status: 400, body: { detail: "Nenhum registro de auditoria informado para exclusão." } };
+    }
+    await excluirAuditoriaFirestore(ids);
+    void queryClient.invalidateQueries({ queryKey: ["auditoria"] });
+    void queryClient.invalidateQueries({ queryKey: ["militar"] });
+    return { ok: true, ids } as T;
   }
 
   // 7. IMPORTAÇÃO

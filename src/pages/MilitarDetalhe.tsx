@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { apiGet, apiDelete } from "@/lib/api";
+import { apiGet, apiPost, apiDelete } from "@/lib/api";
 import { errMsg, fmtDate, fmtDateTime } from "@/lib/format";
 import { isAdmin, podeEditar, useMe } from "@/lib/hooks";
 import { getInfoContrato, type Militar, type MilitarHistorico } from "@/lib/types";
@@ -47,6 +47,10 @@ export default function MilitarDetalhe() {
   const [quickEdit, setQuickEdit] = useState<Militar | null>(null);
   const [excluirModalOpen, setExcluirModalOpen] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
+  const [selectingAlteracoes, setSelectingAlteracoes] = useState(false);
+  const [selectedAlteracaoIds, setSelectedAlteracaoIds] = useState<string[]>([]);
+  const [alteracoesToDelete, setAlteracoesToDelete] = useState<string[]>([]);
+  const [excluindoAlteracoes, setExcluindoAlteracoes] = useState(false);
 
   const q = useQuery({
     queryKey: ["militar", id],
@@ -78,6 +82,38 @@ export default function MilitarDetalhe() {
     } finally {
       setExcluindo(false);
       setExcluirModalOpen(false);
+    }
+  };
+
+  const toggleAlteracaoSelection = (auditId: string) => {
+    setSelectedAlteracaoIds((prev) =>
+      prev.includes(auditId) ? prev.filter((item) => item !== auditId) : [...prev, auditId]
+    );
+  };
+
+  const handleExcluirAlteracoes = async () => {
+    if (alteracoesToDelete.length === 0) return;
+    setExcluindoAlteracoes(true);
+    try {
+      if (alteracoesToDelete.length === 1) {
+        await apiDelete(`/auditoria/${alteracoesToDelete[0]}`);
+      } else {
+        await apiPost("/auditoria/excluir", { ids: alteracoesToDelete });
+      }
+      toast.success(
+        alteracoesToDelete.length === 1
+          ? "Registro de alteração excluído."
+          : `${alteracoesToDelete.length} registros de alteração excluídos.`
+      );
+      setSelectedAlteracaoIds((prev) => prev.filter((item) => !alteracoesToDelete.includes(item)));
+      setSelectingAlteracoes(false);
+      setAlteracoesToDelete([]);
+      void qc.invalidateQueries({ queryKey: ["militar", id, "historico"] });
+      void qc.invalidateQueries({ queryKey: ["auditoria"] });
+    } catch (err: any) {
+      toast.error(errMsg(err, "Erro ao excluir registro(s) de alteração"));
+    } finally {
+      setExcluindoAlteracoes(false);
     }
   };
 
@@ -195,27 +231,116 @@ export default function MilitarDetalhe() {
           </ol>
         </section>
         <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-5" data-testid="historico-alteracoes">
-          <h3 className="mb-4 font-heading font-bold text-white">Registro de alterações</h3>
-          <div className="space-y-3">
-            {(h.data?.alteracoes ?? []).map((a) => (
-              <div key={a.id} className="rounded-lg border border-[#1E2C42] bg-[#0F1724] p-3" data-testid="alteracao-item">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <span className="font-semibold uppercase tracking-wide text-blue-300">{a.operacao.replace(/_/g, " ")}</span>
-                  <span className="text-slate-500">{a.usuario_nome} · {fmtDateTime(a.timestamp)}</span>
-                </div>
-                <table className="mt-2 w-full text-xs">
-                  <tbody>
-                    {Object.entries(a.depois ?? {}).filter(([, v]) => a.antes !== null || (v !== null && v !== "")).map(([k, v]) => (
-                      <tr key={k} className="border-t border-[#162234]">
-                        <td className="py-1 pr-2 text-slate-400">{k}</td>
-                        {a.antes !== null && <td className="py-1 pr-2 text-red-300/80 line-through decoration-red-500/40">{fmtVal(a.antes?.[k])}</td>}
-                        <td className="py-1 text-emerald-300">{fmtVal(v)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-heading font-bold text-white">Registro de alterações</h3>
+            {isAdmin(me.data) && (h.data?.alteracoes?.length ?? 0) > 0 && (
+              <div className="flex items-center gap-2">
+                {selectingAlteracoes ? (
+                  <>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={selectedAlteracaoIds.length === 0}
+                      onClick={() => setAlteracoesToDelete(selectedAlteracaoIds)}
+                      className="h-7 border-red-500/40 bg-red-500/10 px-2.5 text-xs text-red-300 hover:bg-red-500/20 hover:text-white disabled:opacity-40"
+                      data-testid="alteracoes-delete-selected-button"
+                    >
+                      <Trash2 className="size-3.5" /> Excluir ({selectedAlteracaoIds.length})
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setSelectingAlteracoes(false);
+                        setSelectedAlteracaoIds([]);
+                      }}
+                      className="h-7 px-2 text-xs text-slate-400 hover:text-white"
+                      data-testid="alteracoes-cancel-select-button"
+                    >
+                      Cancelar
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setSelectedAlteracaoIds([]);
+                      setSelectingAlteracoes(true);
+                    }}
+                    className="h-7 px-2.5 text-xs text-slate-400 hover:bg-[#182335] hover:text-white"
+                    data-testid="alteracoes-select-mode-button"
+                  >
+                    Selecionar
+                  </Button>
+                )}
               </div>
-            ))}
+            )}
+          </header>
+          <div className="space-y-3">
+            {(h.data?.alteracoes ?? []).map((a) => {
+              const isSelected = selectedAlteracaoIds.includes(a.id);
+              return (
+                <div
+                  key={a.id}
+                  onClick={selectingAlteracoes ? () => toggleAlteracaoSelection(a.id) : undefined}
+                  className={cn(
+                    "rounded-lg border p-3 transition-colors",
+                    selectingAlteracoes ? "cursor-pointer" : "",
+                    isSelected
+                      ? "border-red-500/50 bg-red-950/20"
+                      : "border-[#1E2C42] bg-[#0F1724]"
+                  )}
+                  data-testid="alteracao-item"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      {selectingAlteracoes && (
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleAlteracaoSelection(a.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label="Selecionar registro de alteração"
+                          className="size-3.5 rounded border-[#2A3B58] bg-[#121B28] accent-red-500 cursor-pointer"
+                        />
+                      )}
+                      <span className="font-semibold uppercase tracking-wide text-blue-300">{a.operacao.replace(/_/g, " ")}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-500">{a.usuario_nome} · {fmtDateTime(a.timestamp)}</span>
+                      {isAdmin(me.data) && !selectingAlteracoes && (
+                        <button
+                          type="button"
+                          onClick={() => setAlteracoesToDelete([a.id])}
+                          title="Excluir registro de alteração"
+                          aria-label="Excluir registro de alteração"
+                          className="rounded p-1 text-slate-500 transition-colors hover:bg-red-500/15 hover:text-red-400 cursor-pointer"
+                          data-testid={`delete-alteracao-${a.id}`}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <table className="mt-2 w-full text-xs">
+                    <tbody>
+                      {Object.entries(a.depois ?? {}).filter(([, v]) => a.antes !== null || (v !== null && v !== "")).map(([k, v]) => (
+                        <tr key={k} className="border-t border-[#162234]">
+                          <td className="py-1 pr-2 text-slate-400">{k}</td>
+                          {a.antes !== null && <td className="py-1 pr-2 text-red-300/80 line-through decoration-red-500/40">{fmtVal(a.antes?.[k])}</td>}
+                          <td className="py-1 text-emerald-300">{fmtVal(v)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })}
+            {h.data?.alteracoes.length === 0 && <p className="text-sm text-slate-500">Sem alterações registradas.</p>}
           </div>
         </section>
       </div>
@@ -246,6 +371,37 @@ export default function MilitarDetalhe() {
               className="bg-red-600 text-white hover:bg-red-700"
             >
               {excluindo ? "Excluindo..." : "Confirmar Exclusão"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={alteracoesToDelete.length > 0} onOpenChange={(open) => { if (!open && !excluindoAlteracoes) setAlteracoesToDelete([]); }}>
+        <DialogContent className="border-[#1E2C42] bg-[#121B28] text-white sm:max-w-md" data-testid="delete-alteracoes-dialog">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-red-400">Excluir Registro de Alterações</DialogTitle>
+            <DialogDescription className="text-slate-300">
+              {alteracoesToDelete.length === 1
+                ? "Tem certeza que deseja excluir este registro do histórico de alterações? Ele será removido permanentemente do Firestore."
+                : `Tem certeza que deseja excluir os ${alteracoesToDelete.length} registros selecionados do histórico de alterações? Eles serão removidos permanentemente do Firestore.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setAlteracoesToDelete([])}
+              disabled={excluindoAlteracoes}
+              className="border-[#1E2C42] bg-[#182335] text-slate-300 hover:text-white"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleExcluirAlteracoes}
+              disabled={excluindoAlteracoes}
+              className="bg-red-600 text-white hover:bg-red-700"
+              data-testid="confirm-delete-alteracoes-button"
+            >
+              {excluindoAlteracoes ? "Excluindo..." : "Confirmar Exclusão"}
             </Button>
           </DialogFooter>
         </DialogContent>
