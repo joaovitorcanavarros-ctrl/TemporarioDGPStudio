@@ -858,7 +858,8 @@ function noPeriodo(
 ): boolean {
   if (!ini && !fim) return true;
   if (!d) return false;
-  return (!ini || d >= ini) && (!fim || d <= fim);
+  const dt = d.slice(0, 10);
+  return (!ini || dt >= ini) && (!fim || dt <= fim);
 }
 
 function normKey(s: string | null | undefined): string {
@@ -1723,8 +1724,18 @@ export async function handleBackendRequest<T>(method: string, path: string, body
 
     const inclusao_ini = searchParams.get("inclusao_ini");
     const inclusao_fim = searchParams.get("inclusao_fim");
-    if (inclusao_ini) list = list.filter((m) => m.data_inclusao >= inclusao_ini);
-    if (inclusao_fim) list = list.filter((m) => m.data_inclusao <= inclusao_fim);
+    if (inclusao_ini) {
+      list = list.filter((m) => {
+        const dt = (m.data_inclusao || "").slice(0, 10);
+        return Boolean(dt && dt >= inclusao_ini);
+      });
+    }
+    if (inclusao_fim) {
+      list = list.filter((m) => {
+        const dt = (m.data_inclusao || "").slice(0, 10);
+        return Boolean(dt && dt <= inclusao_fim);
+      });
+    }
 
     const ano = searchParams.get("ano");
     const data_inicio = searchParams.get("data_inicio");
@@ -1738,13 +1749,13 @@ export async function handleBackendRequest<T>(method: string, path: string, body
 
     if (eff_deslig_ini) {
       list = list.filter((m) => {
-        const dt = m.data_desligamento || (m.atualizado_em ? m.atualizado_em.slice(0, 10) : null);
+        const dt = (m.data_desligamento || (m.atualizado_em ? m.atualizado_em.slice(0, 10) : "")).slice(0, 10);
         return Boolean(dt && dt >= eff_deslig_ini);
       });
     }
     if (eff_deslig_fim) {
       list = list.filter((m) => {
-        const dt = m.data_desligamento || (m.atualizado_em ? m.atualizado_em.slice(0, 10) : null);
+        const dt = (m.data_desligamento || (m.atualizado_em ? m.atualizado_em.slice(0, 10) : "")).slice(0, 10);
         return Boolean(dt && dt <= eff_deslig_fim);
       });
     }
@@ -1764,15 +1775,16 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       });
     } else if (!isDesligado) {
       if (data_inicio) {
-        list = list.filter(
-          (m) =>
-            m.data_inclusao >= data_inicio ||
-            (m.data_vencimento_contrato && m.data_vencimento_contrato >= data_inicio) ||
-            (!m.data_desligamento || m.data_desligamento >= data_inicio)
-        );
+        list = list.filter((m) => {
+          const dt = (m.data_inclusao || "").slice(0, 10);
+          return Boolean(dt && dt >= data_inicio);
+        });
       }
       if (data_fim) {
-        list = list.filter((m) => m.data_inclusao <= data_fim);
+        list = list.filter((m) => {
+          const dt = (m.data_inclusao || "").slice(0, 10);
+          return Boolean(dt && dt <= data_fim);
+        });
       }
     }
 

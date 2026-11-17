@@ -4,7 +4,7 @@ import {
   Area, AreaChart, Bar, CartesianGrid, Cell, ComposedChart, Legend, Line, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { Activity, Briefcase, Scale, Building2, Clock, HeartPulse, RotateCw, Shield, Stethoscope, Truck, UserCheck, UserMinus } from "lucide-react";
+import { Activity, Briefcase, Scale, Building2, Clock, HeartPulse, RotateCw, Shield, Stethoscope, Truck, UserCheck, UserMinus, UserPlus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import DrillSheet, { type Drill } from "@/components/DrillSheet";
 import FiltersBar from "@/components/FiltersBar";
@@ -1074,7 +1074,14 @@ export default function Dashboard() {
   const d = q.isError ? undefined : q.data;
   const base = baseParams(filters);
   const ref = d?.data_referencia;
-  const periodoTxt = d?.periodo_inicio || d?.periodo_fim ? `${fmtDate(d?.periodo_inicio)} a ${fmtDate(d?.periodo_fim)}` : "todo o período";
+  const periodoTxt =
+    d?.periodo_inicio && d?.periodo_fim
+      ? `${fmtDate(d.periodo_inicio)} a ${fmtDate(d.periodo_fim)}`
+      : d?.periodo_inicio
+        ? `a partir de ${fmtDate(d.periodo_inicio)}`
+        : d?.periodo_fim
+          ? `até ${fmtDate(d.periodo_fim)}`
+          : "todo o período";
   const deslParams = { ...base, deslig_ini: d?.periodo_inicio, deslig_fim: d?.periodo_fim, status: "DESLIGADO" };
   const cats = d?.categorias ?? [];
   const motivoNome = (k: string) => d?.motivos.find((m) => m.chave === k)?.nome ?? "Não informado";
@@ -1127,36 +1134,44 @@ export default function Dashboard() {
       </div>
       <FiltersBar />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        <Kpi id="ativos" label="Temporários ativos" value={v(d?.kpis.ativos)} icon={UserCheck} tone="green" sub={`Efetivo em ${fmtDate(ref)}`}
-          isHighlighted={hoveredKpi === "ativos"} isDimmed={hoveredKpi !== null && hoveredKpi !== "ativos"}
-          onHoverChange={(h) => setHoveredKpi(h ? "ativos" : null)}
-          onClick={() => setDrill({ title: "Temporários ativos", params: { ...base, status: "ATIVO", ativo_em: ref } })} />
-        <Kpi id="desligamentos" label="Distratos / desligamentos" value={v(d?.kpis.desligamentos_periodo)} icon={UserMinus} tone="red" sub={periodoTxt}
-          isHighlighted={hoveredKpi === "desligamentos"} isDimmed={hoveredKpi !== null && hoveredKpi !== "desligamentos"}
-          onHoverChange={(h) => setHoveredKpi(h ? "desligamentos" : null)}
-          onClick={() => setDrill({ title: "Desligamentos no período", params: { ...deslParams, status: "DESLIGADO" }, variant: "desligados" })} />
-        <Kpi id="top-ubm" label="UBM DE MAIOR EFETIVO" value={d ? fmtNum(d.kpis.top_ubm_total) : "—"} icon={Building2} tone="blue" sub={d?.kpis.top_ubm_nome ?? "—"}
-          isHighlighted={hoveredKpi === "top-ubm"} isDimmed={hoveredKpi !== null && hoveredKpi !== "top-ubm"}
-          onHoverChange={(h) => setHoveredKpi(h ? "top-ubm" : null)}
-          onClick={() => d?.kpis.top_ubm_id && setDrill({ title: d.kpis.top_ubm_nome ?? "UBM", params: { ...base, status: "ATIVO", lotacao_id: d.kpis.top_ubm_id, ativo_em: ref } })} />
-        <Kpi id="contratos-a-vencer" label="Contratos a vencer" value={v(d?.kpis.a_vencer)} icon={Clock} tone="amber" sub={`Próximos ${d?.alerta_dias ?? "—"} dias`}
-          isHighlighted={hoveredKpi === "contratos-a-vencer"} isDimmed={hoveredKpi !== null && hoveredKpi !== "contratos-a-vencer"}
-          onHoverChange={(h) => setHoveredKpi(h ? "contratos-a-vencer" : null)}
-          onClick={() => setDrill({ title: "Contratos a vencer", params: { ...base, status: "ATIVO", venc: "a_vencer" } })} />
-        <Kpi id="sub-judice" label="Militares sub judice" value={v(d?.kpis.sub_judice)} icon={Scale} tone="amber" sub={`Ativos em ${fmtDate(ref)}`}
-          isHighlighted={hoveredKpi === "sub-judice"} isDimmed={hoveredKpi !== null && hoveredKpi !== "sub-judice"}
-          onHoverChange={(h) => setHoveredKpi(h ? "sub-judice" : null)}
-          onClick={() => setDrill({ title: "Militares sub judice", params: { ...base, status: "ATIVO", sub_judice: "true", ativo_em: ref } })} />
-        {(cats.length ? cats.filter((c) => c.chave !== "OUTROS" || c.total > 0) : []).map((c) => {
-          const catId = c.chave.toLowerCase().replace(/_/g, "-");
-          return (
-            <Kpi key={c.chave} id={catId} label={c.nome} value={fmtNum(c.total)} icon={CAT_ICON[c.chave] ?? Briefcase} tone={CAT_TONE[c.chave] ?? "sky"} sub="Ativos no cargo"
-              isHighlighted={hoveredKpi === catId} isDimmed={hoveredKpi !== null && hoveredKpi !== catId}
-              onHoverChange={(h) => setHoveredKpi(h ? catId : null)}
-              onClick={() => setDrill({ title: `${c.nome} — ativos`, params: { ...base, status: "ATIVO", categoria: c.chave, ativo_em: ref } })} />
-          );
-        })}
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <Kpi id="ativos" label="Temporários ativos" value={v(d?.kpis.ativos)} icon={UserCheck} tone="green" sub={`Efetivo em ${fmtDate(ref)}`}
+            isHighlighted={hoveredKpi === "ativos"} isDimmed={hoveredKpi !== null && hoveredKpi !== "ativos"}
+            onHoverChange={(h) => setHoveredKpi(h ? "ativos" : null)}
+            onClick={() => setDrill({ title: "Temporários ativos", params: { ...base, status: "ATIVO", ativo_em: ref } })} />
+          <Kpi id="inclusoes" label="Inclusões no período" value={v(d?.kpis.inclusoes_periodo)} icon={UserPlus} tone="sky" sub={periodoTxt}
+            isHighlighted={hoveredKpi === "inclusoes"} isDimmed={hoveredKpi !== null && hoveredKpi !== "inclusoes"}
+            onHoverChange={(h) => setHoveredKpi(h ? "inclusoes" : null)}
+            onClick={() => setDrill({ title: "Inclusões no período", params: { ...base, inclusao_ini: d?.periodo_inicio, inclusao_fim: d?.periodo_fim }, allowStatusFilter: true })} />
+          <Kpi id="desligamentos" label="Distratos / desligamentos" value={v(d?.kpis.desligamentos_periodo)} icon={UserMinus} tone="red" sub={periodoTxt}
+            isHighlighted={hoveredKpi === "desligamentos"} isDimmed={hoveredKpi !== null && hoveredKpi !== "desligamentos"}
+            onHoverChange={(h) => setHoveredKpi(h ? "desligamentos" : null)}
+            onClick={() => setDrill({ title: "Desligamentos no período", params: { ...deslParams, status: "DESLIGADO" }, variant: "desligados" })} />
+          <Kpi id="top-ubm" label="UBM DE MAIOR EFETIVO" value={d ? fmtNum(d.kpis.top_ubm_total) : "—"} icon={Building2} tone="blue" sub={d?.kpis.top_ubm_nome ?? "—"}
+            isHighlighted={hoveredKpi === "top-ubm"} isDimmed={hoveredKpi !== null && hoveredKpi !== "top-ubm"}
+            onHoverChange={(h) => setHoveredKpi(h ? "top-ubm" : null)}
+            onClick={() => d?.kpis.top_ubm_id && setDrill({ title: d.kpis.top_ubm_nome ?? "UBM", params: { ...base, status: "ATIVO", lotacao_id: d.kpis.top_ubm_id, ativo_em: ref } })} />
+          <Kpi id="contratos-a-vencer" label="Contratos a vencer" value={v(d?.kpis.a_vencer)} icon={Clock} tone="amber" sub={`Próximos ${d?.alerta_dias ?? "—"} dias`}
+            isHighlighted={hoveredKpi === "contratos-a-vencer"} isDimmed={hoveredKpi !== null && hoveredKpi !== "contratos-a-vencer"}
+            onHoverChange={(h) => setHoveredKpi(h ? "contratos-a-vencer" : null)}
+            onClick={() => setDrill({ title: "Contratos a vencer", params: { ...base, status: "ATIVO", venc: "a_vencer" } })} />
+          <Kpi id="sub-judice" label="Militares sub judice" value={v(d?.kpis.sub_judice)} icon={Scale} tone="amber" sub={`Ativos em ${fmtDate(ref)}`}
+            isHighlighted={hoveredKpi === "sub-judice"} isDimmed={hoveredKpi !== null && hoveredKpi !== "sub-judice"}
+            onHoverChange={(h) => setHoveredKpi(h ? "sub-judice" : null)}
+            onClick={() => setDrill({ title: "Militares sub judice", params: { ...base, status: "ATIVO", sub_judice: "true", ativo_em: ref } })} />
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+          {(cats.length ? cats.filter((c) => c.chave !== "OUTROS" || c.total > 0) : []).map((c) => {
+            const catId = c.chave.toLowerCase().replace(/_/g, "-");
+            return (
+              <Kpi key={c.chave} id={catId} label={c.nome} value={fmtNum(c.total)} icon={CAT_ICON[c.chave] ?? Briefcase} tone={CAT_TONE[c.chave] ?? "sky"} sub="Ativos no cargo"
+                isHighlighted={hoveredKpi === catId} isDimmed={hoveredKpi !== null && hoveredKpi !== catId}
+                onHoverChange={(h) => setHoveredKpi(h ? catId : null)}
+                onClick={() => setDrill({ title: `${c.nome} — ativos`, params: { ...base, status: "ATIVO", categoria: c.chave, ativo_em: ref } })} />
+            );
+          })}
+        </div>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">

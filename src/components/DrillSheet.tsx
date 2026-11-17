@@ -3,12 +3,14 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import MilitaresTable, { type Params } from "@/components/MilitaresTable";
 
 export interface Drill {
   title: string;
   params: Params;
   variant?: "geral" | "desligados";
+  allowStatusFilter?: boolean;
 }
 
 export default function DrillSheet({
@@ -20,6 +22,7 @@ export default function DrillSheet({
 }) {
   const [qInput, setQInput] = useState("");
   const [qApplied, setQApplied] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"TODOS" | "ATIVO" | "DESLIGADO">("TODOS");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastDrillRef = useRef<Drill | null>(drill);
   const reduceMotion = useReducedMotion();
@@ -37,6 +40,8 @@ export default function DrillSheet({
     }
     setQInput("");
     setQApplied("");
+    const initStatus = drill?.params?.status;
+    setStatusFilter(initStatus === "ATIVO" || initStatus === "DESLIGADO" ? initStatus : "TODOS");
   }, [drill]);
 
   // Lock background scroll & handle Escape key cleanly
@@ -171,36 +176,61 @@ export default function DrillSheet({
 
             {/* Scrollable table content */}
             <div className="flex-1 space-y-3 overflow-y-auto p-4 sm:p-5">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-                <Input
-                  value={qInput}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      if (debounceRef.current) clearTimeout(debounceRef.current);
-                      setQApplied(qInput.trim());
-                    }
-                  }}
-                  placeholder="Pesquisar por nome ou matrícula..."
-                  className="border-[#1E2C42] bg-[#121B28] pl-9 pr-8 text-slate-100 placeholder:text-slate-500"
-                  data-testid="drill-search-input"
-                />
-                {qInput && (
-                  <button
-                    type="button"
-                    onClick={handleClearSearch}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                    title="Limpar pesquisa"
-                    data-testid="drill-search-clear"
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    value={qInput}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        if (debounceRef.current) clearTimeout(debounceRef.current);
+                        setQApplied(qInput.trim());
+                      }
+                    }}
+                    placeholder="Pesquisar por nome ou matrícula..."
+                    className="border-[#1E2C42] bg-[#121B28] pl-9 pr-8 text-slate-100 placeholder:text-slate-500"
+                    data-testid="drill-search-input"
+                  />
+                  {qInput && (
+                    <button
+                      type="button"
+                      onClick={handleClearSearch}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                      title="Limpar pesquisa"
+                      data-testid="drill-search-clear"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  )}
+                </div>
+
+                {shownDrill.allowStatusFilter && (
+                  <Tabs
+                    value={statusFilter}
+                    onValueChange={(v) => setStatusFilter(String(v) as "TODOS" | "ATIVO" | "DESLIGADO")}
                   >
-                    <X className="size-4" />
-                  </button>
+                    <TabsList data-testid="drill-status-filter">
+                      <TabsTrigger value="TODOS" data-testid="drill-status-todos">Todos</TabsTrigger>
+                      <TabsTrigger value="ATIVO" data-testid="drill-status-ativos">Ativos</TabsTrigger>
+                      <TabsTrigger value="DESLIGADO" data-testid="drill-status-desligados">Desligados</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
                 )}
               </div>
               <MilitaresTable
-                params={{ ...shownDrill.params, q: qApplied || undefined }}
-                variant={shownDrill.variant}
+                params={{
+                  ...shownDrill.params,
+                  ...(shownDrill.allowStatusFilter
+                    ? { status: statusFilter === "TODOS" ? undefined : statusFilter }
+                    : {}),
+                  q: qApplied || undefined,
+                }}
+                variant={
+                  shownDrill.allowStatusFilter && statusFilter === "DESLIGADO"
+                    ? "desligados"
+                    : shownDrill.variant
+                }
                 compact
                 testId="drill-table"
               />
