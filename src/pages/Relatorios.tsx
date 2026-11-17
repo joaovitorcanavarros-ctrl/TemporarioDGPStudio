@@ -377,7 +377,10 @@ export default function Relatorios() {
                         </div>
                         <h4 className="font-heading text-base font-extrabold text-white">{r.militar.nome_completo}</h4>
                         <p className="text-xs text-slate-400">
-                          UBM: <strong className="text-slate-300">{r.militar.lotacao_nome}</strong> · Edital: <span className="text-slate-300">{r.militar.edital_nome}</span> · Inclusão: <span className="text-slate-300">{fmtDate(r.militar.data_inclusao)}</span> · Vencimento: <strong className="text-slate-200">{fmtDate(r.militar.data_vencimento_contrato)}</strong>
+                          UBM: <strong className="text-slate-300">{r.militar.lotacao_nome}</strong>
+                          {r.militar.comando_regional_nome && (
+                            <> · Comando Regional: <strong className="text-slate-300">{r.militar.comando_regional_nome}</strong></>
+                          )} · Edital: <span className="text-slate-300">{r.militar.edital_nome}</span> · Inclusão: <span className="text-slate-300">{fmtDate(r.militar.data_inclusao)}</span> · Vencimento: <strong className="text-slate-200">{fmtDate(r.militar.data_vencimento_contrato)}</strong>
                           {r.militar.data_desligamento && (
                             <> · Desligamento: <strong className="text-red-300">{fmtDate(r.militar.data_desligamento)} ({r.militar.motivo_desligamento_nome || "—"})</strong></>
                           )}

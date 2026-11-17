@@ -9,6 +9,7 @@
         "categorias": { "type": "array" },
         "cargos": { "type": "array" },
         "lotacoes": { "type": "array" },
+        "comandos_regionais": { "type": "array" },
         "editais": { "type": "array" },
         "motivos": { "type": "array" },
         "ultima_atualizacao": { "type": "string" }
@@ -24,6 +25,7 @@
         "nome_completo": { "type": "string" },
         "cargo_id": { "type": "string" },
         "lotacao_id": { "type": "string" },
+        "comando_regional_id": { "type": "string" },
         "edital_id": { "type": "string" },
         "data_inclusao": { "type": "string" },
         "data_vencimento_contrato": { "type": "string" },

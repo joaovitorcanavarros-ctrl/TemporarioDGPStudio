@@ -186,6 +186,7 @@ export function ReativarDialog({ militar, onClose }: { militar: Militar | null; 
 
 const rapidoSchema = z.object({
   lotacao_id: z.string().min(1, "Selecione a lotação"),
+  comando_regional_id: z.string().min(1, "Selecione o Comando Regional"),
   edital_id: z.string().min(1, "Selecione o edital"),
   data_vencimento_contrato: z.string().min(1, "Informe o vencimento"),
   observacoes: z.string().max(2000).optional(),
@@ -200,6 +201,7 @@ export function QuickEditDialog({ militar, onClose }: { militar: Militar | null;
     resolver: zodResolver(rapidoSchema),
     defaultValues: {
       lotacao_id: "",
+      comando_regional_id: "",
       edital_id: "",
       data_vencimento_contrato: "",
       observacoes: "",
@@ -215,8 +217,16 @@ export function QuickEditDialog({ militar, onClose }: { militar: Militar | null;
 
   useEffect(() => {
     if (militar) {
+      const lotObj = cat.data?.lotacoes?.find((l) => l.id === militar.lotacao_id);
+      const rawCrId = militar.comando_regional_id || lotObj?.comando_regional_id || "";
+      const crList = cat.data?.comandos_regionais;
+      const validCrId =
+        rawCrId && rawCrId !== "cr_adm" && (!crList || crList.some((cr) => cr.id === rawCrId))
+          ? rawCrId
+          : "";
       form.reset({
         lotacao_id: militar.lotacao_id,
+        comando_regional_id: validCrId,
         edital_id: militar.edital_id,
         data_vencimento_contrato: militar.data_vencimento_contrato,
         observacoes: militar.observacoes ?? "",
@@ -226,7 +236,7 @@ export function QuickEditDialog({ militar, onClose }: { militar: Militar | null;
       setRenovModalOpen(false);
       setPendingSubmit(false);
     }
-  }, [militar, form]);
+  }, [militar, cat.data?.lotacoes, cat.data?.comandos_regionais, form]);
 
   const watchedVenc = form.watch("data_vencimento_contrato") ?? "";
   const originalVenc = militar?.data_vencimento_contrato ?? "";
@@ -325,14 +335,37 @@ export function QuickEditDialog({ militar, onClose }: { militar: Militar | null;
           <form onSubmit={submit} className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label>Lotação / UBM</Label>
+                <Label>Lotação / UBM <span className="text-red-400">*</span></Label>
                 <Controller control={form.control} name="lotacao_id" render={({ field }) => (
-                  <FieldSelect testId="quick-edit-lotacao-select" value={field.value ?? ""} onChange={field.onChange}
-                    options={(cat.data?.lotacoes ?? []).filter((l) => l.ativo || l.id === field.value).map((l) => ({ value: l.id, label: l.nome }))} />
+                  <FieldSelect
+                    testId="quick-edit-lotacao-select"
+                    value={field.value ?? ""}
+                    onChange={(val) => {
+                      field.onChange(val);
+                      const lot = cat.data?.lotacoes?.find((l) => l.id === val);
+                      if (lot?.comando_regional_id) {
+                        form.setValue("comando_regional_id", lot.comando_regional_id, { shouldValidate: true, shouldDirty: true });
+                      }
+                    }}
+                    options={(cat.data?.lotacoes ?? []).filter((l) => l.ativo || l.id === field.value).map((l) => ({ value: l.id, label: l.nome }))}
+                  />
                 )} />
                 <Err msg={e.lotacao_id?.message} />
               </div>
               <div className="space-y-1.5">
+                <Label>Comando Regional <span className="text-red-400">*</span></Label>
+                <Controller control={form.control} name="comando_regional_id" render={({ field }) => (
+                  <FieldSelect
+                    testId="quick-edit-comando-regional-select"
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Selecione o Comando Regional"
+                    options={(cat.data?.comandos_regionais ?? []).filter((cr) => cr.ativo || cr.id === field.value).map((cr) => ({ value: cr.id, label: cr.nome }))}
+                  />
+                )} />
+                <Err msg={e.comando_regional_id?.message} />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
                 <Label>Edital</Label>
                 <Controller control={form.control} name="edital_id" render={({ field }) => (
                   <FieldSelect testId="quick-edit-edital-select" value={field.value ?? ""} onChange={field.onChange}

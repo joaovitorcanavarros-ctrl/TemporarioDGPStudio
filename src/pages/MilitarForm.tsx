@@ -25,6 +25,7 @@ const schema = z
     nome_completo: z.string().trim().min(3, "Informe o nome completo").max(160),
     cargo_id: z.string().min(1, "Selecione o cargo/função"),
     lotacao_id: z.string().min(1, "Selecione a lotação/UBM"),
+    comando_regional_id: z.string().min(1, "Selecione o Comando Regional"),
     edital_id: z.string().min(1, "Selecione o edital/processo seletivo"),
     data_inclusao: z.string().min(1, "Informe a data de inclusão"),
     data_vencimento_contrato: z.string().min(1, "Informe a data de vencimento"),
@@ -50,7 +51,7 @@ const schema = z
 type F = z.infer<typeof schema>;
 
 const EMPTY: F = {
-  matricula: "", nome_completo: "", cargo_id: "", lotacao_id: "", edital_id: "", data_inclusao: "", data_vencimento_contrato: "",
+  matricula: "", nome_completo: "", cargo_id: "", lotacao_id: "", comando_regional_id: "", edital_id: "", data_inclusao: "", data_vencimento_contrato: "",
   status: "ATIVO", doe_incorporacao: "", sub_judice: "NAO", observacoes: "", data_desligamento: "", motivo_desligamento_id: "", documento_desligamento: "",
   renovacao_contrato: false,
 };
@@ -89,8 +90,17 @@ export default function MilitarForm() {
   useEffect(() => {
     const m = atual.data;
     if (m) {
+      const lotObj = cat.data?.lotacoes?.find((l) => l.id === m.lotacao_id);
+      const rawCrId = m.comando_regional_id || lotObj?.comando_regional_id || "";
+      const crList = cat.data?.comandos_regionais;
+      const validCrId =
+        rawCrId && rawCrId !== "cr_adm" && (!crList || crList.some((cr) => cr.id === rawCrId))
+          ? rawCrId
+          : "";
       form.reset({
-        matricula: m.matricula, nome_completo: m.nome_completo, cargo_id: m.cargo_id, lotacao_id: m.lotacao_id, edital_id: m.edital_id,
+        matricula: m.matricula, nome_completo: m.nome_completo, cargo_id: m.cargo_id, lotacao_id: m.lotacao_id,
+        comando_regional_id: validCrId,
+        edital_id: m.edital_id,
         data_inclusao: m.data_inclusao, data_vencimento_contrato: m.data_vencimento_contrato, status: m.status,
         doe_incorporacao: m.doe_incorporacao ?? "", sub_judice: m.sub_judice ? "SIM" : "NAO", observacoes: m.observacoes ?? "", data_desligamento: m.data_desligamento ?? "",
         motivo_desligamento_id: m.motivo_desligamento_id ?? "", documento_desligamento: m.documento_desligamento ?? "",
@@ -100,7 +110,7 @@ export default function MilitarForm() {
       setRenovModalOpen(false);
       setPendingSubmitOutro(null);
     }
-  }, [atual.data, form]);
+  }, [atual.data, cat.data?.lotacoes, cat.data?.comandos_regionais, form]);
 
   const watchedInclusao = form.watch("data_inclusao") ?? "";
   const watchedVencimento = form.watch("data_vencimento_contrato") ?? "";
@@ -191,6 +201,7 @@ export default function MilitarForm() {
       nome_completo: v.nome_completo,
       cargo_id: v.cargo_id,
       lotacao_id: v.lotacao_id,
+      comando_regional_id: v.comando_regional_id,
       edital_id: v.edital_id,
       data_inclusao: v.data_inclusao,
       data_vencimento_contrato: v.data_vencimento_contrato,
@@ -279,8 +290,30 @@ export default function MilitarForm() {
             </Field>
             <Field label="Lotação / UBM" req error={e.lotacao_id?.message}>
               <Controller control={form.control} name="lotacao_id" render={({ field }) => (
-                <FieldSelect testId="select-lotacao" value={field.value} onChange={field.onChange} placeholder="Selecione a lotação"
-                  options={(c?.lotacoes ?? []).filter((x) => x.ativo || x.id === field.value).map((x) => ({ value: x.id, label: x.nome }))} />
+                <FieldSelect
+                  testId="select-lotacao"
+                  value={field.value}
+                  onChange={(val) => {
+                    field.onChange(val);
+                    const lot = c?.lotacoes?.find((l) => l.id === val);
+                    if (lot?.comando_regional_id) {
+                      form.setValue("comando_regional_id", lot.comando_regional_id, { shouldValidate: true, shouldDirty: true });
+                    }
+                  }}
+                  placeholder="Selecione a lotação"
+                  options={(c?.lotacoes ?? []).filter((x) => x.ativo || x.id === field.value).map((x) => ({ value: x.id, label: x.nome }))}
+                />
+              )} />
+            </Field>
+            <Field label="Comando Regional" req error={e.comando_regional_id?.message}>
+              <Controller control={form.control} name="comando_regional_id" render={({ field }) => (
+                <FieldSelect
+                  testId="select-comando-regional"
+                  value={field.value}
+                  onChange={field.onChange}
+                  placeholder="Selecione o Comando Regional da lotação"
+                  options={(c?.comandos_regionais ?? []).filter((x) => x.ativo || x.id === field.value).map((x) => ({ value: x.id, label: x.nome }))}
+                />
               )} />
             </Field>
             <Field label="Edital / processo seletivo" req error={e.edital_id?.message}>

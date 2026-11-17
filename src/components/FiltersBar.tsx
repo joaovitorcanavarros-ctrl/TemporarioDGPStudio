@@ -21,14 +21,34 @@ export default function FiltersBar({ hideStatus, hideCargo, onReset }: Props) {
     onReset?.();
   };
 
+  const crMap = new Map((c?.comandos_regionais ?? []).map((cr) => [cr.id, cr.nome]));
+  const lotacaoOptions = (c?.lotacoes ?? []).map((x) => {
+    const crNome = x.comando_regional_id ? crMap.get(x.comando_regional_id) : undefined;
+    const crShort = crNome?.match(/^\s*(\d+[º°]\s*CRBM)/i)?.[1]?.replace("°", "º").toUpperCase();
+    return {
+      value: x.id,
+      label: x.nome,
+      hint: crShort,
+      keywords: crNome,
+    };
+  });
+
   return (
     <div data-testid="filters-bar" className="grid grid-cols-2 gap-2 rounded-xl border border-[#1E2C42] bg-[#121B28] p-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
       {!hideCargo && (
         <FieldSelect testId="filter-cargo" value={filters.cargo_id} onChange={(v) => setFilter("cargo_id", v)} allLabel="Todos os cargos"
           options={(c?.cargos ?? []).map((x) => ({ value: x.id, label: x.nome }))} />
       )}
-      <FieldSelect testId="filter-lotacao" value={filters.lotacao_id} onChange={(v) => setFilter("lotacao_id", v)} allLabel="Todas as lotações"
-        options={(c?.lotacoes ?? []).map((x) => ({ value: x.id, label: x.nome }))} />
+      <FieldSelect
+        testId="filter-lotacao"
+        value={filters.lotacao_id}
+        onChange={(v) => setFilter("lotacao_id", v)}
+        allLabel="Todas as lotações"
+        searchable
+        searchPlaceholder="Pesquisar lotação, UBM ou CRBM..."
+        emptyMessage="Nenhuma lotação encontrada."
+        options={lotacaoOptions}
+      />
       <FieldSelect testId="filter-edital" value={filters.edital_id} onChange={(v) => setFilter("edital_id", v)} allLabel="Todos os editais"
         options={(c?.editais ?? []).map((x) => ({ value: x.id, label: x.nome }))} />
       {!hideStatus && (
@@ -36,9 +56,9 @@ export default function FiltersBar({ hideStatus, hideCargo, onReset }: Props) {
           options={[{ value: "ATIVO", label: "Ativos" }, { value: "DESLIGADO", label: "Desligados" }]} />
       )}
       <Input type="date" aria-label="Data inicial" data-testid="filter-data-inicio" value={filters.data_inicio || ""}
-        onChange={(e) => setFilter("data_inicio", e.target.value)} className="bg-[#0F1724] border-[#24344D] [color-scheme:dark]" />
+        onChange={(e) => setFilter("data_inicio", e.target.value)} className="bg-[#0F1724] dark:bg-[#0F1724] hover:bg-[#142033] dark:hover:bg-[#142033] border-[#24344D] text-slate-100 [color-scheme:dark]" />
       <Input type="date" aria-label="Data final" data-testid="filter-data-fim" value={filters.data_fim || ""}
-        onChange={(e) => setFilter("data_fim", e.target.value)} className="bg-[#0F1724] border-[#24344D] [color-scheme:dark]" />
+        onChange={(e) => setFilter("data_fim", e.target.value)} className="bg-[#0F1724] dark:bg-[#0F1724] hover:bg-[#142033] dark:hover:bg-[#142033] border-[#24344D] text-slate-100 [color-scheme:dark]" />
       <Button variant="ghost" onClick={handleReset} data-testid="filter-reset" className="text-slate-400 hover:text-white">
         <FilterX className="size-4" /> Limpar filtros
       </Button>

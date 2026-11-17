@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Area, AreaChart, Bar, CartesianGrid, Cell, ComposedChart, Legend, Line, Pie, PieChart,
@@ -200,17 +200,142 @@ function Kpi({
   );
 }
 
-function ChartCard({ id, title, desc, children, action, className }: { id: string; title: string; desc?: string; children: ReactNode; action?: ReactNode; className?: string }) {
+function ChartCard({
+  id,
+  title,
+  desc,
+  children,
+  action,
+  className,
+  glowRgb = "59, 130, 246",
+}: {
+  id: string;
+  title: string;
+  desc?: string;
+  children: ReactNode;
+  action?: ReactNode;
+  className?: string;
+  glowRgb?: string;
+}) {
+  const cardRef = useRef<HTMLElement>(null);
+  const targetPos = useRef({ x: 0, y: 0 });
+  const currentPos = useRef({ x: 0, y: 0 });
+  const rafRef = useRef<number | null>(null);
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) {
+        window.cancelAnimationFrame(rafRef.current);
+      }
+    };
+  }, []);
+
+  const applyPos = (x: number, y: number) => {
+    const el = cardRef.current;
+    if (!el) return;
+    el.style.setProperty("--mx", `${x.toFixed(1)}px`);
+    el.style.setProperty("--my", `${y.toFixed(1)}px`);
+  };
+
+  const startSmoothLoop = () => {
+    if (rafRef.current !== null) return;
+    const step = () => {
+      const dx = targetPos.current.x - currentPos.current.x;
+      const dy = targetPos.current.y - currentPos.current.y;
+      if (Math.abs(dx) < 0.25 && Math.abs(dy) < 0.25) {
+        currentPos.current.x = targetPos.current.x;
+        currentPos.current.y = targetPos.current.y;
+        applyPos(currentPos.current.x, currentPos.current.y);
+        rafRef.current = null;
+        return;
+      }
+      currentPos.current.x += dx * 0.16;
+      currentPos.current.y += dy * 0.16;
+      applyPos(currentPos.current.x, currentPos.current.y);
+      rafRef.current = window.requestAnimationFrame(step);
+    };
+    rafRef.current = window.requestAnimationFrame(step);
+  };
+
+  const moveTo = (clientX: number, clientY: number, snap = false) => {
+    const el = cardRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    targetPos.current = { x, y };
+    if (snap || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      currentPos.current = { x, y };
+      applyPos(x, y);
+      return;
+    }
+    startSmoothLoop();
+  };
+
+  const handleMouseEnter = (e: ReactMouseEvent<HTMLElement>) => {
+    moveTo(e.clientX, e.clientY, true);
+    setActive(true);
+  };
+
+  const handleMouseMove = (e: ReactMouseEvent<HTMLElement>) => {
+    if (!active) setActive(true);
+    moveTo(e.clientX, e.clientY);
+  };
+
+  const handleTouch = (e: ReactTouchEvent<HTMLElement>) => {
+    const touch = e.touches[0];
+    if (touch) {
+      moveTo(touch.clientX, touch.clientY, !active);
+      setActive(true);
+    }
+  };
+
   return (
-    <section className={cn("animate-rise rounded-xl border border-[#1E2C42] bg-[#121B28] p-4 sm:p-5", className)} data-testid={`chart-${id}`}>
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h3 className="font-heading text-[15px] font-bold text-white">{title}</h3>
-          {desc && <p className="mt-0.5 text-xs text-slate-400">{desc}</p>}
-        </div>
-        {action}
+    <section
+      ref={cardRef}
+      onMouseEnter={handleMouseEnter}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setActive(false)}
+      onTouchStart={handleTouch}
+      onTouchMove={handleTouch}
+      onTouchEnd={() => setActive(false)}
+      className={cn("animate-rise relative overflow-hidden rounded-xl p-4 sm:p-5", className)}
+      data-testid={`chart-${id}`}
+    >
+      {/* Borda base discreta */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-xl bg-[#1E2C42]" />
+
+      {/* Brilho suave da borda seguindo o cursor */}
+      <div
+        aria-hidden="true"
+        className={cn("pointer-events-none absolute inset-0 rounded-xl transition-opacity duration-500", active ? "opacity-100" : "opacity-0")}
+        style={{
+          background: `radial-gradient(260px circle at var(--mx, -999px) var(--my, -999px), rgba(${glowRgb}, 0.8), transparent 70%)`,
+        }}
+      />
+
+      {/* Superfície do cartão + luz interna suave */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-px overflow-hidden rounded-[11px] bg-[#121B28]">
+        <div
+          className={cn("absolute inset-0 transition-opacity duration-500", active ? "opacity-100" : "opacity-0")}
+          style={{
+            background: `radial-gradient(400px circle at var(--mx, -999px) var(--my, -999px), rgba(${glowRgb}, 0.11), transparent 65%)`,
+          }}
+        />
       </div>
-      {children}
+
+      {/* Conteúdo do gráfico */}
+      <div className="relative z-10 flex h-full flex-1 flex-col">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h3 className="font-heading text-[15px] font-bold text-white">{title}</h3>
+            {desc && <p className="mt-0.5 text-xs text-slate-400">{desc}</p>}
+          </div>
+          {action}
+        </div>
+        {children}
+      </div>
     </section>
   );
 }
@@ -1035,7 +1160,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <ChartCard id="efetivo-cargo-ano" title="Efetivo por cargo/função" desc="Estoque ao fim de cada ano (ano corrente: data de referência). Clique para listar.">
+        <ChartCard id="efetivo-cargo-ano" glowRgb="59, 130, 246" title="Efetivo por cargo/função" desc="Estoque ao fim de cada ano (ano corrente: data de referência). Clique para listar.">
           {d && d.efetivo_cargo_ano.length ? (
             <EfetivoCargoGroupedChart
               rows={d.efetivo_cargo_ano}
@@ -1050,7 +1175,7 @@ export default function Dashboard() {
           ) : <Empty />}
         </ChartCard>
 
-        <ChartCard id="desligamentos" title="Desligamentos por cargo, ano e motivo" desc={`Data efetiva do desligamento · ${periodoTxt}`}
+        <ChartCard id="desligamentos" glowRgb="239, 68, 68" title="Desligamentos por cargo, ano e motivo" desc={`Data efetiva do desligamento · ${periodoTxt}`}
           action={
             <Tabs value={desligView} onValueChange={(x) => setDesligView(String(x))}>
               <TabsList><TabsTrigger value="ano" data-testid="desligamentos-tab-ano">Por ano</TabsTrigger><TabsTrigger value="cargo" data-testid="desligamentos-tab-cargo">Por cargo</TabsTrigger></TabsList>
@@ -1076,7 +1201,7 @@ export default function Dashboard() {
           ) : <Empty text="Nenhum desligamento registrado no período" />}
         </ChartCard>
 
-        <ChartCard id="efetivo-ubm" title="Efetivo de temporários por UBM" desc={`Ativos em ${fmtDate(ref)} · ${d?.por_ubm.length ?? 0} lotações`}
+        <ChartCard id="efetivo-ubm" glowRgb="34, 211, 238" title="Efetivo de temporários por UBM" desc={`Ativos em ${fmtDate(ref)} · ${d?.por_ubm.length ?? 0} lotações`}
           action={d && d.por_ubm.length > 12 ? (
             <button className="text-xs font-semibold text-blue-400 hover:text-blue-300" onClick={() => setUbmAll(!ubmAll)} data-testid="ubm-toggle-all">
               {ubmAll ? "Mostrar 12 maiores" : "Mostrar todas"}
@@ -1096,7 +1221,7 @@ export default function Dashboard() {
           ) : <Empty />}
         </ChartCard>
 
-        <ChartCard id="evolucao" title="Evolução do efetivo" desc="Inclusões e desligamentos por data do evento; efetivo ao fim de cada mês/ano."
+        <ChartCard id="evolucao" glowRgb="96, 165, 250" title="Evolução do efetivo" desc="Inclusões e desligamentos por data do evento; efetivo ao fim de cada mês/ano."
           className="flex flex-col"
           action={
             <Tabs value={evoView} onValueChange={(x) => setEvoView(String(x))}>
@@ -1143,7 +1268,7 @@ export default function Dashboard() {
           ) : <Empty />}
         </ChartCard>
 
-        <ChartCard id="distribuicao" title="Distribuição por Cargos e Editais" desc={`Efetivo em ${fmtDate(ref)} — use os filtros de período para consultar datas anteriores`}
+        <ChartCard id="distribuicao" glowRgb="16, 185, 129" title="Distribuição por Cargos e Editais" desc={`Efetivo em ${fmtDate(ref)} — use os filtros de período para consultar datas anteriores`}
           action={
             <Tabs value={distView} onValueChange={(x) => setDistView(String(x))}>
               <TabsList><TabsTrigger value="cargo" data-testid="distribuicao-tab-cargo">Por cargo</TabsTrigger><TabsTrigger value="edital" data-testid="distribuicao-tab-edital">Por edital</TabsTrigger></TabsList>
@@ -1167,7 +1292,7 @@ export default function Dashboard() {
           ) : <Empty />}
         </ChartCard>
 
-        <ChartCard id="faixas-vencimento" title="Contratos a vencer por intervalo de dias" desc={`Somente cadastros ativos, relativo a ${fmtDate(d?.data_hoje)}. A data final não desliga automaticamente.`}>
+        <ChartCard id="faixas-vencimento" glowRgb="245, 158, 11" title="Contratos a vencer por intervalo de dias" desc={`Somente cadastros ativos, relativo a ${fmtDate(d?.data_hoje)}. A data final não desliga automaticamente.`}>
           {d ? (
             <ResponsiveContainer width="100%" height={280}>
               <AreaChart data={d.faixas_vencimento} margin={{ top: 8 }}>

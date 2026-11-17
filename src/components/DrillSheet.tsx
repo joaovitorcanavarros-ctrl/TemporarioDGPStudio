@@ -86,7 +86,7 @@ export default function DrillSheet({
   return createPortal(
     <AnimatePresence>
       {drill && shownDrill && (
-        <div className="fixed inset-0 z-40 flex items-end justify-center p-2.5 sm:p-5 lg:p-6">
+        <div className="fixed inset-0 z-40 flex items-end justify-center p-2 sm:p-3 lg:p-4">
           {/* Smooth blurred & dimmed backdrop (opacity-driven over backdrop-blur-md for 60fps fluidity) */}
           <motion.div
             key="drill-backdrop"
@@ -138,7 +138,7 @@ export default function DrillSheet({
                     ease: [0.28, 0.05, 0.18, 1],
                   }
             }
-            className="relative z-10 flex max-h-[85vh] w-full max-w-[min(1140px,96vw)] flex-col overflow-hidden rounded-2xl border border-[#24344D] bg-[#0B111A] shadow-[0_-20px_70px_-10px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.04)] sm:rounded-3xl will-change-transform"
+            className="relative z-10 flex max-h-[90vh] w-full max-w-[min(1680px,97vw)] flex-col overflow-hidden rounded-2xl border border-[#24344D] bg-[#0B111A] shadow-[0_-20px_70px_-10px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.04)] sm:rounded-3xl will-change-transform"
           >
             {/* Subtle top grabber bar matching bottom-sheet pop-up aesthetic */}
             <div className="flex justify-center bg-[#0E1624]/95 pt-2.5">

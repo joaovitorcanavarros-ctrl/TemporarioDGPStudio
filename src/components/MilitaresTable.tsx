@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, ArrowUpDown, BadgeCheck, ChevronLeft, ChevronRight, Download, FileDown, History, Loader2, Pencil, RotateCcw, SquarePen, UserMinus } from "lucide-react";
+import { BadgeCheck, ChevronLeft, ChevronRight, Download, FileDown, History, Loader2, Pencil, RotateCcw, SquarePen, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import FieldSelect from "@/components/FieldSelect";
 import { DesligamentoDialog, QuickEditDialog, ReativarDialog } from "@/components/MilitarDialogs";
@@ -17,6 +17,14 @@ import { cn } from "@/lib/utils";
 export type Params = Record<string, string | number | null | undefined>;
 
 interface Col { key: string; label: string; className?: string; render: (m: Militar) => ReactNode }
+
+function formatCRBMShort(nome?: string | null): string {
+  if (!nome) return "—";
+  const match = nome.match(/^\s*(\d+[º°]\s*CRBM)/i);
+  if (match) return match[1].replace("°", "º").toUpperCase();
+  const beforeDash = nome.split(/[—–-]/)[0]?.trim();
+  return beforeDash || nome;
+}
 
 const COLS_BASE: Col[] = [
   { key: "matricula", label: "Matrícula", render: (m) => <span className="num text-[13px] text-slate-300">{m.matricula}</span> },
@@ -40,7 +48,25 @@ const COLS_BASE: Col[] = [
   } },
   { key: "cargo_nome", label: "Cargo/Função", render: (m) => <span className="text-slate-300">{m.cargo_nome}</span> },
   { key: "lotacao_nome", label: "Lotação/UBM", render: (m) => <span className="text-slate-300">{m.lotacao_nome}</span> },
-  { key: "edital_nome", label: "Edital", className: "hidden xl:table-cell", render: (m) => <span className="text-xs text-slate-400">{m.edital_nome}</span> },
+  {
+    key: "comando_regional_nome",
+    label: "Comando Regional",
+    render: (m) => {
+      const shortCr = formatCRBMShort(m.comando_regional_nome);
+      return (
+        <span
+          className={cn(
+            "inline-block text-xs font-medium whitespace-nowrap",
+            m.comando_regional_nome ? "text-slate-300" : "text-slate-600"
+          )}
+          title={m.comando_regional_nome ?? "Comando Regional não informado"}
+        >
+          {shortCr}
+        </span>
+      );
+    },
+  },
+  { key: "edital_nome", label: "Edital", className: "hidden 2xl:table-cell", render: (m) => <span className="text-xs text-slate-400">{m.edital_nome}</span> },
   { key: "data_inclusao", label: "Inclusão", render: (m) => <span className="num text-[13px]">{fmtDate(m.data_inclusao)}</span> },
   { key: "data_vencimento_contrato", label: "Vencimento", render: (m) => (
     <div className="flex flex-col items-start gap-1">
@@ -82,7 +108,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
     placeholderData: keepPreviousData,
     staleTime: 15 * 60 * 1000,
   });
-  const cols = variant === "desligados" ? [...COLS_BASE.slice(0, 4), ...COLS_DESLIG, COL_STATUS] : [...COLS_BASE, COL_STATUS];
+  const cols = variant === "desligados" ? [...COLS_BASE.slice(0, 5), ...COLS_DESLIG, COL_STATUS] : [...COLS_BASE, COL_STATUS];
   const items = q.isError ? [] : q.data?.items ?? [];
   const total = q.isError ? 0 : q.data?.total ?? 0;
   const pages = Math.max(1, Math.ceil(total / pageSize));
@@ -152,6 +178,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
         "Cargo/Função",
         "Categoria",
         "Lotação/UBM",
+        "Comando Regional",
         "Edital/Processo seletivo",
         "Data de inclusão",
         "Vencimento do contrato",
@@ -175,6 +202,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
           m.cargo_nome || "",
           m.categoria_nome || "",
           m.lotacao_nome || "",
+          m.comando_regional_nome || "",
           m.edital_nome || "",
           m.data_inclusao ? fmtDate(m.data_inclusao) : "",
           m.data_vencimento_contrato ? fmtDate(m.data_vencimento_contrato) : "",
@@ -307,14 +335,20 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
         <TableHeader>
           <TableRow className="border-[#1E2C42] hover:bg-transparent">
             {cols.map((c) => (
-              <TableHead key={c.key} className={cn("bg-[#0F1724] text-[11px] uppercase tracking-wider text-slate-400", c.className)}>
-                <button className="inline-flex items-center gap-1 hover:text-white" onClick={() => toggleSort(c.key)} data-testid={`sort-${c.key}`}>
+              <TableHead
+                key={c.key}
+                className={cn(
+                  "bg-[#0F1724] px-2.5 text-[10.5px] uppercase tracking-wider text-slate-400",
+                  compact && "px-2",
+                  c.className
+                )}
+              >
+                <button className="inline-flex items-center hover:text-white" onClick={() => toggleSort(c.key)} data-testid={`sort-${c.key}`}>
                   {c.label}
-                  {sort === c.key ? (direction === "asc" ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />) : <ArrowUpDown className="size-3 opacity-40" />}
                 </button>
               </TableHead>
             ))}
-            <TableHead className={cn("bg-[#0F1724] text-right text-[11px] uppercase tracking-wider text-slate-400 pr-4", hasReativarCol ? "w-[220px]" : "w-[120px]")}>Ações</TableHead>
+            <TableHead className={cn("bg-[#0F1724] px-2.5 text-right text-[10.5px] uppercase tracking-wider text-slate-400", compact && "px-2", hasReativarCol ? "w-[180px]" : "w-[96px]")}>Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -328,8 +362,27 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
                 m.alerta === "VENCIDO" && "bg-red-500/[0.05] shadow-[inset_3px_0_0_#EF4444]",
               )}
             >
-              {cols.map((c) => <TableCell key={c.key} className={cn("py-2.5", c.className)}>{c.render(m)}</TableCell>)}
-              <TableCell className={cn("py-2.5 pr-4", hasReativarCol ? "w-[220px]" : "w-[120px]")}>
+              {cols.map((c) => {
+                const wrapCol =
+                  c.key === "nome_completo" ||
+                  c.key === "cargo_nome" ||
+                  c.key === "lotacao_nome" ||
+                  c.key === "edital_nome" ||
+                  c.key === "motivo_desligamento_nome";
+                return (
+                  <TableCell
+                    key={c.key}
+                    className={cn(
+                      compact ? "px-2 py-2 text-[12.5px] leading-snug" : "px-2.5 py-2.5 text-[13px] leading-snug",
+                      wrapCol && "whitespace-normal break-words",
+                      c.className
+                    )}
+                  >
+                    {c.render(m)}
+                  </TableCell>
+                );
+              })}
+              <TableCell className={cn(compact ? "px-2 py-2" : "px-2.5 py-2.5", hasReativarCol ? "w-[180px]" : "w-[96px]")}>
                 <div className="flex items-center justify-end gap-2 flex-nowrap">
                   <div className="flex items-center gap-1 shrink-0">
                     <Link

@@ -55,7 +55,8 @@ export interface CloudCacheState {
   config: Config;
   categorias: Array<{ id: string; codigo: string; nome: string; ordem: number; ativo: boolean }>;
   cargos: Array<{ id: string; nome: string; categoria: string; ativo: boolean }>;
-  lotacoes: Array<{ id: string; nome: string; tipo: string; ativo: boolean }>;
+  lotacoes: Array<{ id: string; nome: string; tipo: string; comando_regional_id?: string | null; ativo: boolean }>;
+  comandos_regionais: Array<{ id: string; nome: string; ativo: boolean }>;
   editais: Array<{ id: string; nome: string; ano: number | null; descricao: string | null; ativo: boolean }>;
   motivos: Array<{ id: string; nome: string; key?: string; ativo: boolean }>;
   militares: Array<{
@@ -64,6 +65,7 @@ export interface CloudCacheState {
     nome_completo: string;
     cargo_id: string;
     lotacao_id: string;
+    comando_regional_id?: string | null;
     edital_id: string;
     data_inclusao: string;
     data_vencimento_contrato: string;
@@ -156,6 +158,7 @@ function sanitizeMilitarRecord(raw: Record<string, any>): CloudCacheState["milit
     nome_completo: String(cleaned.nome_completo || "").trim().toUpperCase(),
     cargo_id: String(cleaned.cargo_id || ""),
     lotacao_id: String(cleaned.lotacao_id || ""),
+    comando_regional_id: cleaned.comando_regional_id ? String(cleaned.comando_regional_id) : null,
     edital_id: String(cleaned.edital_id || ""),
     data_inclusao: cleaned.data_inclusao ? String(cleaned.data_inclusao).slice(0, 10) : "",
     data_vencimento_contrato: cleaned.data_vencimento_contrato ? String(cleaned.data_vencimento_contrato).slice(0, 10) : "",
@@ -193,11 +196,114 @@ function sanitizeMilitarRecord(raw: Record<string, any>): CloudCacheState["milit
   };
 }
 
+const DEFAULT_COMANDOS_REGIONAIS: CloudCacheState["comandos_regionais"] =
+  ((initialCatalogos as any).comandos_regionais as CloudCacheState["comandos_regionais"]) ?? [
+    { id: "cr_1", nome: "1º CRBM — Cuiabá / Região Metropolitana", ativo: true },
+    { id: "cr_2", nome: "2º CRBM — Rondonópolis", ativo: true },
+    { id: "cr_3", nome: "3º CRBM — Sinop", ativo: true },
+    { id: "cr_4", nome: "4º CRBM — Barra do Garças", ativo: true },
+    { id: "cr_5", nome: "5º CRBM — Cáceres", ativo: true },
+    { id: "cr_6", nome: "6º CRBM — Tangará da Serra", ativo: true },
+    { id: "cr_7", nome: "7º CRBM — Alta Floresta", ativo: true },
+  ];
+
+function normalizeComandosRegionaisList(
+  list: Array<{ id: string; nome: string; ativo: boolean }>
+): { items: Array<{ id: string; nome: string; ativo: boolean }>; changed: boolean } {
+  let changed = false;
+  const items: Array<{ id: string; nome: string; ativo: boolean }> = [];
+  for (const raw of list) {
+    if (!raw || raw.id === "cr_adm") {
+      changed = true;
+      continue;
+    }
+    let nome = raw.nome;
+    if (raw.id === "cr_2" && nome === "2º CRBM — Barra do Garças") {
+      nome = "2º CRBM — Rondonópolis";
+      changed = true;
+    } else if (raw.id === "cr_4" && nome === "4º CRBM — Rondonópolis") {
+      nome = "4º CRBM — Barra do Garças";
+      changed = true;
+    }
+    items.push({ ...raw, nome });
+  }
+  return { items, changed };
+}
+
+const CRBM_LOTACAO_RULES: Array<{ crId: string; patterns: RegExp[] }> = [
+  {
+    crId: "cr_1",
+    patterns: [/(?<!\d)1\s*BBM\b/, /(?<!\d)2\s*BBM\b/, /(?<!\d)1\s*PIBM\b/],
+  },
+  {
+    crId: "cr_2",
+    patterns: [
+      /(?<!\d)3\s*BBM\b/,
+      /(?<!\d)6\s*(?:CIBM|CBIM)\b/,
+      /(?<!\d)9\s*(?:CIBM|CBIM)\b/,
+      /(?<!\d)11\s*(?:CIBM|CBIM)\b/,
+      /(?<!\d)1\s*NBM\b/,
+      /(?<!\d)11\s*NBM\b/,
+    ],
+  },
+  {
+    crId: "cr_3",
+    patterns: [
+      /(?<!\d)4\s*BBM\b/,
+      /(?<!\d)5\s*BBM\b/,
+      /(?<!\d)5\s*(?:CIBM|CBIM)\b/,
+      /(?<!\d)13\s*(?:CIBM|CBIM)\b/,
+      /(?<!\d)9\s*NBM\b/,
+    ],
+  },
+  {
+    crId: "cr_4",
+    patterns: [
+      /(?<!\d)10\s*NBM\b/,
+      /(?<!\d)1\s*(?:CIBM|CBIM)\b/,
+      /(?<!\d)4\s*(?:CIBM|CBIM)\b/,
+      /(?<!\d)2\s*PIBM\b/,
+      /(?<!\d)5\s*PIBM\b/,
+      /(?<!\d)2\s*NBM\b/,
+      /(?<!\d)6\s*NBM\b/,
+    ],
+  },
+  {
+    crId: "cr_7",
+    patterns: [
+      /(?<!\d)8\s*NBM\b/,
+      /(?<!\d)7\s*(?:CIBM|CBIM)\b/,
+      /(?<!\d)12\s*(?:CIBM|CBIM)\b/,
+      /(?<!\d)6\s*PIBM\b/,
+      /(?<!\d)4\s*NBM\b/,
+    ],
+  },
+];
+
+function inferComandoRegionalIdByLotacaoNome(nome?: string | null): string | null {
+  if (!nome) return null;
+  const normalized = String(nome)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[º°ª]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  for (const rule of CRBM_LOTACAO_RULES) {
+    if (rule.patterns.some((re) => re.test(normalized))) {
+      return rule.crId;
+    }
+  }
+  return null;
+}
+
 const state: CloudCacheState = {
   config: initialCatalogos.config ?? { alerta_dias: 30 },
   categorias: initialCatalogos.categorias as any,
   cargos: initialCatalogos.cargos as any,
   lotacoes: initialCatalogos.lotacoes as any,
+  comandos_regionais: [...DEFAULT_COMANDOS_REGIONAIS],
   editais: initialCatalogos.editais as any,
   motivos: initialCatalogos.motivos as any,
   militares: [],
@@ -272,6 +378,7 @@ function upsertMilitaresInMemory(rawDocs: Array<Record<string, any>>): Militar[]
         current.data_vencimento_contrato === sanitized.data_vencimento_contrato &&
         current.nome_completo === sanitized.nome_completo &&
         current.lotacao_id === sanitized.lotacao_id &&
+        (current.comando_regional_id ?? null) === (sanitized.comando_regional_id ?? null) &&
         current.cargo_id === sanitized.cargo_id &&
         current.edital_id === sanitized.edital_id &&
         current.observacoes === sanitized.observacoes &&
@@ -346,7 +453,7 @@ async function persistMilitarExplicitly(militar: CloudCacheState["militares"][nu
  * Jamais grava 'usuarios', 'militares', 'alteracoes' ou 'situacoes' em 'corporacao'.
  */
 async function persistDadosCorporacaoExplicitly(
-  keys: Array<"config" | "categorias" | "cargos" | "lotacoes" | "editais" | "motivos">
+  keys: Array<"config" | "categorias" | "cargos" | "lotacoes" | "comandos_regionais" | "editais" | "motivos">
 ) {
   const partial: Record<string, any> = {
     total_registros: state.militares.length,
@@ -357,18 +464,100 @@ async function persistDadosCorporacaoExplicitly(
   await salvarDadosCorporacaoFirestore(partial);
 }
 
+async function syncLotacaoComandoRegional(lotacaoId?: string | null, comandoRegionalId?: string | null) {
+  if (!lotacaoId || !comandoRegionalId) return;
+  const lot = state.lotacoes.find((l) => l.id === lotacaoId);
+  if (lot && lot.comando_regional_id !== comandoRegionalId) {
+    lot.comando_regional_id = comandoRegionalId;
+    await persistDadosCorporacaoExplicitly(["lotacoes"]);
+    void queryClient.invalidateQueries({ queryKey: ["catalogos"] });
+  }
+}
+
+let crBackfillExecuted = false;
+let crBackfillPromise: Promise<void> | null = null;
+
+async function aplicarComandosRegionaisPorLotacao(): Promise<void> {
+  if (typeof window === "undefined" || crBackfillExecuted) return;
+  if (!auth.currentUser && !getCurrentUser()) return;
+  if (crBackfillPromise) return crBackfillPromise;
+
+  crBackfillPromise = (async () => {
+    try {
+      await carregarMetadadosInstitucionaisFirestore();
+      const validCrIds = new Set(state.comandos_regionais.map((cr) => cr.id));
+      let lotacoesChanged = false;
+
+      for (const lot of state.lotacoes) {
+        const inferred = inferComandoRegionalIdByLotacaoNome(lot.nome);
+        if (
+          inferred &&
+          validCrIds.has(inferred) &&
+          (!lot.comando_regional_id || lot.comando_regional_id === "cr_adm")
+        ) {
+          lot.comando_regional_id = inferred;
+          lotacoesChanged = true;
+        }
+      }
+
+      const lotMap = new Map(state.lotacoes.map((l) => [l.id, l]));
+      const nowIso = new Date().toISOString();
+      const militaresToSave: Array<CloudCacheState["militares"][number]> = [];
+
+      for (const m of state.militares) {
+        if (!m.comando_regional_id || m.comando_regional_id === "cr_adm") {
+          const lot = lotMap.get(m.lotacao_id);
+          const inferredByName = lot ? inferComandoRegionalIdByLotacaoNome(lot.nome) : null;
+          const targetCr =
+            (inferredByName && validCrIds.has(inferredByName) ? inferredByName : null) ||
+            (lot?.comando_regional_id && validCrIds.has(lot.comando_regional_id)
+              ? lot.comando_regional_id
+              : null);
+          if (targetCr) {
+            m.comando_regional_id = targetCr;
+            m.atualizado_em = nowIso;
+            militaresToSave.push(m);
+          }
+        }
+      }
+
+      crBackfillExecuted = true;
+
+      if (lotacoesChanged) {
+        await persistDadosCorporacaoExplicitly(["lotacoes"]);
+        void queryClient.invalidateQueries({ queryKey: ["catalogos"] });
+      }
+
+      if (militaresToSave.length > 0) {
+        const batchRes = await salvarMilitaresEmLoteFirestore(militaresToSave);
+        if (batchRes.ok) {
+          invalidateMilitarQueries();
+        }
+      }
+    } catch (e) {
+      console.warn("Aviso ao aplicar preenchimento de Comandos Regionais:", e);
+    } finally {
+      crBackfillPromise = null;
+    }
+  })();
+
+  return crBackfillPromise;
+}
+
 let lastMilitaresFetchAt = 0;
 let militaresFetchPromise: Promise<void> | null = null;
 const MILITARES_FETCH_COOLDOWN_MS = 300_000;
 
 /**
  * Sincronização com a coleção 'militares' do Cloud Firestore (cache IndexedDB + delta incremental).
- * Nunca executa gravações automáticas durante a leitura.
  */
 export async function sincronizarMilitaresComFirestore(force = false): Promise<void> {
   if (typeof window === "undefined") return;
   const now = Date.now();
   if (!force && state.militares.length > 0 && now - lastMilitaresFetchAt < MILITARES_FETCH_COOLDOWN_MS) {
+    if (!crBackfillExecuted) {
+      await aplicarComandosRegionaisPorLotacao();
+    }
     return;
   }
   if (militaresFetchPromise) return militaresFetchPromise;
@@ -389,6 +578,7 @@ export async function sincronizarMilitaresComFirestore(force = false): Promise<v
         state.situacoes = (state.situacoes || []).filter((s) => !s.militar_id || cloudMap.has(s.militar_id));
         state.militares = novaLista;
         rebuildSituacoesFromMilitares(novaLista);
+        await aplicarComandosRegionaisPorLotacao();
       }
     } catch (e) {
       console.warn("Aviso ao sincronizar militares do Firestore:", e);
@@ -423,7 +613,39 @@ export async function carregarMetadadosInstitucionaisFirestore(force = false): P
         if (cleanedMeta.config) state.config = cleanedMeta.config;
         if (Array.isArray(cleanedMeta.categorias) && cleanedMeta.categorias.length > 0) state.categorias = cleanedMeta.categorias;
         if (Array.isArray(cleanedMeta.cargos) && cleanedMeta.cargos.length > 0) state.cargos = cleanedMeta.cargos;
-        if (Array.isArray(cleanedMeta.lotacoes) && cleanedMeta.lotacoes.length > 0) state.lotacoes = cleanedMeta.lotacoes;
+        if (Array.isArray(cleanedMeta.comandos_regionais) && cleanedMeta.comandos_regionais.length > 0) {
+          const { items, changed } = normalizeComandosRegionaisList(cleanedMeta.comandos_regionais);
+          state.comandos_regionais = items;
+          if (changed) {
+            void persistDadosCorporacaoExplicitly(["comandos_regionais"]).catch(() => {});
+          }
+        }
+        if (Array.isArray(cleanedMeta.lotacoes) && cleanedMeta.lotacoes.length > 0) {
+          const validCrIds = new Set(state.comandos_regionais.map((cr) => cr.id));
+          let lotChanged = false;
+          state.lotacoes = cleanedMeta.lotacoes.map((l: any) => {
+            if (!l) return l;
+            if (l.comando_regional_id === "cr_adm") {
+              lotChanged = true;
+              const inferred = inferComandoRegionalIdByLotacaoNome(l.nome);
+              const { comando_regional_id: _removed, ...rest } = l;
+              return inferred && validCrIds.has(inferred)
+                ? { ...rest, comando_regional_id: inferred }
+                : rest;
+            }
+            if (!l.comando_regional_id) {
+              const inferred = inferComandoRegionalIdByLotacaoNome(l.nome);
+              if (inferred && validCrIds.has(inferred)) {
+                lotChanged = true;
+                return { ...l, comando_regional_id: inferred };
+              }
+            }
+            return l;
+          });
+          if (lotChanged) {
+            void persistDadosCorporacaoExplicitly(["lotacoes"]).catch(() => {});
+          }
+        }
         if (Array.isArray(cleanedMeta.editais) && cleanedMeta.editais.length > 0) state.editais = cleanedMeta.editais;
         if (Array.isArray(cleanedMeta.motivos) && cleanedMeta.motivos.length > 0) state.motivos = cleanedMeta.motivos;
       }
@@ -689,6 +911,15 @@ function enrichMilitar(m: CloudCacheState["militares"][number], hoje: string, al
   const cat = cargo?.categoria || "OUTROS";
   const categoria = state.categorias.find((c) => c.codigo === cat);
   const lotacao = state.lotacoes.find((l) => l.id === m.lotacao_id);
+  const rawComandoRegionalId =
+    (m.comando_regional_id && m.comando_regional_id !== "cr_adm" ? m.comando_regional_id : null) ||
+    (lotacao?.comando_regional_id && lotacao.comando_regional_id !== "cr_adm" ? lotacao.comando_regional_id : null) ||
+    inferComandoRegionalIdByLotacaoNome(lotacao?.nome) ||
+    null;
+  const comandoRegional = rawComandoRegionalId
+    ? state.comandos_regionais.find((cr) => cr.id === rawComandoRegionalId)
+    : undefined;
+  const comandoRegionalId = comandoRegional ? comandoRegional.id : null;
   const edital = state.editais.find((e) => e.id === m.edital_id);
   const motivo = state.motivos.find((mt) => mt.id === m.motivo_desligamento_id);
   const criador = state.usuarios.find((u) => u.id === m.criado_por);
@@ -708,6 +939,8 @@ function enrichMilitar(m: CloudCacheState["militares"][number], hoje: string, al
     categoria: cat,
     categoria_nome: categoria?.nome || cat,
     lotacao_nome: lotacao?.nome || "—",
+    comando_regional_id: comandoRegionalId,
+    comando_regional_nome: comandoRegional?.nome || null,
     edital_nome: edital?.nome || "—",
     motivo_desligamento_nome: motivo?.nome || null,
     sub_judice: Boolean(m.sub_judice),
@@ -972,6 +1205,9 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       categorias: [...state.categorias].sort((a, b) => a.ordem - b.ordem || a.nome.localeCompare(b.nome)),
       cargos: [...state.cargos].sort((a, b) => a.nome.localeCompare(b.nome)),
       lotacoes: [...state.lotacoes].sort((a, b) => a.nome.localeCompare(b.nome)),
+      comandos_regionais: [...state.comandos_regionais].sort((a, b) =>
+        a.nome.localeCompare(b.nome, "pt-BR", { numeric: true })
+      ),
       editais: [...state.editais].sort((a, b) => a.nome.localeCompare(b.nome)),
       motivos: [...state.motivos].sort((a, b) => a.nome.localeCompare(b.nome)),
       config: { ...state.config },
@@ -1005,13 +1241,24 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   }
 
   // Catálogos CRUD em 'corporacao > dados'
-  const catMatch = pathname.match(/^\/(categorias|cargos|lotacoes|editais|motivos)(\/(.+))?$/);
+  const catMatch = pathname.match(/^\/(categorias|cargos|lotacoes|comandos-regionais|editais|motivos)(\/(.+))?$/);
   if (catMatch) {
-    const coll = catMatch[1] as "categorias" | "cargos" | "lotacoes" | "editais" | "motivos";
+    const rawColl = catMatch[1];
+    const coll = (rawColl === "comandos-regionais" ? "comandos_regionais" : rawColl) as
+      | "categorias"
+      | "cargos"
+      | "lotacoes"
+      | "comandos_regionais"
+      | "editais"
+      | "motivos";
     const itemId = catMatch[3];
     if (method === "POST") {
       const newId = `${coll.slice(0, 3)}_${Date.now()}`;
-      const item = { id: newId, ...body, ativo: true };
+      const extraDefaults =
+        coll === "lotacoes" && !body?.comando_regional_id && body?.nome
+          ? { comando_regional_id: inferComandoRegionalIdByLotacaoNome(String(body.nome)) }
+          : {};
+      const item = { id: newId, ...extraDefaults, ...body, ativo: true };
       (state[coll] as any).push(item);
       await logAudit({
         entidade: coll,
@@ -1083,6 +1330,18 @@ export async function handleBackendRequest<T>(method: string, path: string, body
               status: 400,
               body: {
                 detail: `Não é possível excluir o edital pois existem ${milUsando.length} militar(es) vinculado(s).`,
+              },
+            };
+          }
+        }
+        if (coll === "comandos_regionais") {
+          const lotUsando = state.lotacoes.filter((l) => l.comando_regional_id === itemId);
+          const milUsando = state.militares.filter((m) => m.comando_regional_id === itemId);
+          if (lotUsando.length > 0 || milUsando.length > 0) {
+            throw {
+              status: 400,
+              body: {
+                detail: `Não é possível excluir este Comando Regional pois existem ${lotUsando.length} lotação(ões) e ${milUsando.length} militar(es) vinculados.`,
               },
             };
           }
@@ -1580,12 +1839,19 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     const user = getCurrentUser() || BOOTSTRAP_USERS[0];
     const nowIso = new Date().toISOString();
     const randomSuffix = Math.random().toString(36).slice(2, 6);
+    const lotObjNovo = state.lotacoes.find((l) => l.id === b.lotacao_id);
+    const resolvedCrNovo =
+      b.comando_regional_id ||
+      lotObjNovo?.comando_regional_id ||
+      inferComandoRegionalIdByLotacaoNome(lotObjNovo?.nome) ||
+      null;
     const newDoc: CloudCacheState["militares"][number] = {
       id: `mil_${Date.now()}_${randomSuffix}`,
       matricula: b.matricula.trim(),
       nome_completo: b.nome_completo.trim().toUpperCase(),
       cargo_id: b.cargo_id,
       lotacao_id: b.lotacao_id,
+      comando_regional_id: resolvedCrNovo,
       edital_id: b.edital_id,
       data_inclusao: b.data_inclusao,
       data_vencimento_contrato: b.data_vencimento_contrato,
@@ -1616,6 +1882,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     };
 
     await persistMilitarExplicitly(newDoc);
+    await syncLotacaoComandoRegional(newDoc.lotacao_id, newDoc.comando_regional_id);
 
     state.situacoes.unshift({
       id: `sit_${Date.now()}_${randomSuffix}`,
@@ -1631,6 +1898,9 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       usuario_nome: user.nome,
       timestamp: new Date().toISOString(),
     });
+    const crNomeNovo = newDoc.comando_regional_id
+      ? state.comandos_regionais.find((cr) => cr.id === newDoc.comando_regional_id)?.nome || newDoc.comando_regional_id
+      : null;
     await logAudit({
       entidade: "Militar",
       entidade_id: newDoc.id,
@@ -1642,6 +1912,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       depois: {
         Nome: newDoc.nome_completo,
         Matrícula: newDoc.matricula,
+        ...(crNomeNovo ? { "Comando Regional": crNomeNovo } : {}),
         "Vencimento do contrato": newDoc.data_vencimento_contrato,
         "Data de inclusão": newDoc.data_inclusao,
         Situação: newDoc.status,
@@ -1706,6 +1977,12 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       if (doc.lotacao_id !== b.lotacao_id) {
         antes["Lotação/UBM"] = state.lotacoes.find((l) => l.id === doc.lotacao_id)?.nome || doc.lotacao_id;
         depois["Lotação/UBM"] = state.lotacoes.find((l) => l.id === b.lotacao_id)?.nome || b.lotacao_id;
+      }
+      const nextCrId = b.comando_regional_id !== undefined ? (b.comando_regional_id || null) : (doc.comando_regional_id ?? null);
+      const prevCrId = doc.comando_regional_id || state.lotacoes.find((l) => l.id === doc.lotacao_id)?.comando_regional_id || null;
+      if (prevCrId !== nextCrId) {
+        antes["Comando Regional"] = prevCrId ? (state.comandos_regionais.find((cr) => cr.id === prevCrId)?.nome || prevCrId) : "—";
+        depois["Comando Regional"] = nextCrId ? (state.comandos_regionais.find((cr) => cr.id === nextCrId)?.nome || nextCrId) : "—";
       }
       if (doc.edital_id !== b.edital_id) {
         antes["Edital"] = state.editais.find((e) => e.id === doc.edital_id)?.nome || doc.edital_id;
@@ -1774,6 +2051,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         nome_completo: b.nome_completo.trim().toUpperCase(),
         cargo_id: b.cargo_id,
         lotacao_id: b.lotacao_id,
+        comando_regional_id: nextCrId,
         edital_id: b.edital_id,
         data_inclusao: b.data_inclusao,
         data_vencimento_contrato: b.data_vencimento_contrato,
@@ -1821,6 +2099,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       });
 
       await persistMilitarExplicitly(doc);
+      await syncLotacaoComandoRegional(doc.lotacao_id, doc.comando_regional_id);
       return enrichMilitar(doc, hoje, alertaDias) as T;
     }
 
@@ -1877,6 +2156,15 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       antes["Lotação/UBM"] = oldLot;
       depois["Lotação/UBM"] = newLot;
       doc.lotacao_id = b.lotacao_id;
+    }
+    if (b.comando_regional_id !== undefined) {
+      const nextCrId = b.comando_regional_id || null;
+      const prevCrId = doc.comando_regional_id || state.lotacoes.find((l) => l.id === doc.lotacao_id)?.comando_regional_id || null;
+      if (prevCrId !== nextCrId) {
+        antes["Comando Regional"] = prevCrId ? (state.comandos_regionais.find((cr) => cr.id === prevCrId)?.nome || prevCrId) : "—";
+        depois["Comando Regional"] = nextCrId ? (state.comandos_regionais.find((cr) => cr.id === nextCrId)?.nome || nextCrId) : "—";
+      }
+      doc.comando_regional_id = nextCrId;
     }
     if (b.edital_id && b.edital_id !== doc.edital_id) {
       const oldEd = state.editais.find((e) => e.id === doc.edital_id)?.nome || doc.edital_id;
@@ -1973,6 +2261,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     });
 
     await persistMilitarExplicitly(doc);
+    await syncLotacaoComandoRegional(doc.lotacao_id, doc.comando_regional_id);
     return enrichMilitar(doc, hoje, alertaDias) as T;
   }
 
@@ -3030,6 +3319,10 @@ export async function handleBackendRequest<T>(method: string, path: string, body
             nome_completo: rec.nome_completo.toUpperCase(),
             cargo_id: cargo ? cargo.id : "crg_1",
             lotacao_id: lot ? lot.id : "lot_1",
+            comando_regional_id:
+              lot?.comando_regional_id ||
+              inferComandoRegionalIdByLotacaoNome(lot?.nome) ||
+              null,
             edital_id: ed ? ed.id : "ed_1",
             data_inclusao: rec.data_inclusao || hoje,
             data_vencimento_contrato: rec.data_vencimento_contrato || hoje,

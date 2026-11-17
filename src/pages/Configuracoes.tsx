@@ -18,7 +18,15 @@ import type { Config, UserOut } from "@/lib/types";
 import Auditoria from "@/pages/Auditoria";
 
 type Row = Record<string, unknown> & { id: string };
-interface FieldDef { key: string; label: string; type: "text" | "number" | "select" | "bool" | "password"; options?: { value: string; label: string }[]; lockOnEdit?: boolean }
+interface FieldDef {
+  key: string;
+  label: string;
+  type: "text" | "number" | "select" | "bool" | "password";
+  options?: { value: string; label: string }[];
+  lockOnEdit?: boolean;
+  required?: boolean;
+  placeholder?: string;
+}
 
 function CrudTab({ title, rows, fields, endpoint, invalidateKey, canEdit, canDelete, testId, display }: {
   title: string; rows: Row[]; fields: FieldDef[]; endpoint: string; invalidateKey: string; canEdit: boolean; canDelete?: boolean; testId: string;
@@ -40,7 +48,21 @@ function CrudTab({ title, rows, fields, endpoint, invalidateKey, canEdit, canDel
       const body: Record<string, unknown> = {};
       for (const f of fields) {
         const v = vals[f.key];
-        body[f.key] = f.type === "number" ? (v === "" || v === null ? null : Number(v)) : f.type === "password" ? (v ? v : null) : v;
+        if (f.required && !String(v ?? "").trim()) {
+          throw new Error(`Informe o campo "${f.label}"`);
+        }
+        body[f.key] =
+          f.type === "number"
+            ? v === "" || v === null
+              ? null
+              : Number(v)
+            : f.type === "password"
+              ? v
+                ? v
+                : null
+              : typeof v === "string"
+                ? v.trim()
+                : v;
       }
       return edit?.id ? apiPut(`${endpoint}/${edit.id}`, body) : apiPost(endpoint, body);
     },
@@ -136,7 +158,7 @@ function CrudTab({ title, rows, fields, endpoint, invalidateKey, canEdit, canDel
                     ) : (
                       <Input type={f.type === "password" ? "password" : f.type} disabled={!!edit?.id && f.lockOnEdit} value={String(vals[f.key] ?? "")}
                         onChange={(e) => setVals({ ...vals, [f.key]: e.target.value })} data-testid={`${testId}-field-${f.key}`}
-                        placeholder={f.type === "password" && edit?.id ? "Deixe em branco para manter" : undefined} />
+                        placeholder={f.placeholder ?? (f.type === "password" && edit?.id ? "Deixe em branco para manter" : undefined)} />
                     )}
                   </>
                 )}
@@ -209,7 +231,7 @@ export default function Configuracoes() {
   const [alerta, setAlerta] = useState<string>("");
   const [searchParams, setSearchParams] = useSearchParams();
   const rawTab = searchParams.get("tab") || "geral";
-  const validTabs = ["geral", "categorias", "cargos", "lotacoes", "editais", "motivos", "usuarios", "auditoria"];
+  const validTabs = ["geral", "categorias", "cargos", "lotacoes", "comandos-regionais", "editais", "motivos", "usuarios", "auditoria"];
   const currentTab = validTabs.includes(rawTab) ? rawTab : "geral";
 
   const usuarios = useQuery({
@@ -233,6 +255,8 @@ export default function Configuracoes() {
   });
   const catOpts = (c?.categorias ?? []).map((x) => ({ value: x.codigo, label: x.nome }));
   const catNome = (cod: unknown) => c?.categorias.find((x) => x.codigo === cod)?.nome ?? String(cod);
+  const crOpts = (c?.comandos_regionais ?? []).filter((x) => x.ativo).map((x) => ({ value: x.id, label: x.nome }));
+  const crNome = (id: unknown) => (id ? (c?.comandos_regionais ?? []).find((x) => x.id === id)?.nome ?? String(id) : "—");
 
   return (
     <div className="space-y-5">
@@ -242,11 +266,12 @@ export default function Configuracoes() {
         {!admin && <p className="text-sm text-amber-300" data-testid="config-readonly">Somente o perfil Administrador pode alterar configurações. Você está em modo de consulta.</p>}
       </div>
       <Tabs value={currentTab} onValueChange={(val) => setSearchParams({ tab: val })}>
-        <TabsList className="flex-wrap">
+        <TabsList className="h-auto flex-wrap justify-start gap-1 p-1">
           <TabsTrigger value="geral" data-testid="config-tab-geral">Geral</TabsTrigger>
           <TabsTrigger value="categorias" data-testid="config-tab-categorias">Categorias</TabsTrigger>
           <TabsTrigger value="cargos" data-testid="config-tab-cargos">Cargos</TabsTrigger>
           <TabsTrigger value="lotacoes" data-testid="config-tab-lotacoes">Lotações</TabsTrigger>
+          <TabsTrigger value="comandos-regionais" data-testid="config-tab-comandos-regionais">Comandos Regionais</TabsTrigger>
           <TabsTrigger value="editais" data-testid="config-tab-editais">Editais</TabsTrigger>
           <TabsTrigger value="motivos" data-testid="config-tab-motivos">Motivos</TabsTrigger>
           {admin && <TabsTrigger value="usuarios" data-testid="config-tab-usuarios">Usuários</TabsTrigger>}
@@ -278,8 +303,27 @@ export default function Configuracoes() {
         <TabsContent value="lotacoes" className="mt-4">
           <CrudTab title="Lotações / UBM" testId="lotacoes" endpoint="/lotacoes" invalidateKey="catalogos" canEdit={admin} canDelete={admin}
             rows={(c?.lotacoes ?? []) as unknown as Row[]}
-            fields={[{ key: "nome", label: "Nome", type: "text" }, { key: "tipo", label: "Tipo", type: "select", options: [{ value: "UBM", label: "UBM" }, { value: "ADMINISTRATIVA", label: "Unidade administrativa" }] }, { key: "ativo", label: "Ativa", type: "bool" }]}
-            display={[{ key: "nome", label: "Lotação" }, { key: "tipo", label: "Tipo" }, ativoCol]} />
+            fields={[
+              { key: "nome", label: "Nome", type: "text" },
+              { key: "tipo", label: "Tipo", type: "select", options: [{ value: "UBM", label: "UBM" }, { value: "ADMINISTRATIVA", label: "Unidade administrativa" }] },
+              { key: "comando_regional_id", label: "Comando Regional", type: "select", options: crOpts },
+              { key: "ativo", label: "Ativa", type: "bool" },
+            ]}
+            display={[
+              { key: "nome", label: "Lotação" },
+              { key: "tipo", label: "Tipo" },
+              { key: "comando_regional_id", label: "Comando Regional", render: (r) => crNome(r.comando_regional_id) },
+              ativoCol,
+            ]} />
+        </TabsContent>
+        <TabsContent value="comandos-regionais" className="mt-4">
+          <CrudTab title="Comandos Regionais (CRBM)" testId="comandos-regionais" endpoint="/comandos-regionais" invalidateKey="catalogos" canEdit={admin} canDelete={admin}
+            rows={(c?.comandos_regionais ?? []) as unknown as Row[]}
+            fields={[
+              { key: "nome", label: "Nome do Comando Regional", type: "text", required: true, placeholder: "Ex.: 8º CRBM — Município" },
+              { key: "ativo", label: "Ativo", type: "bool" },
+            ]}
+            display={[{ key: "nome", label: "Comando Regional" }, ativoCol]} />
         </TabsContent>
         <TabsContent value="editais" className="mt-4">
           <CrudTab title="Editais / processos seletivos" testId="editais" endpoint="/editais" invalidateKey="catalogos" canEdit={admin} canDelete={admin}

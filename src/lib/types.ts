@@ -7,17 +7,18 @@ export interface UsuarioIn { nome: string; email: string; perfil: Perfil; ativo:
 
 export interface Categoria { id: string; codigo: string; nome: string; ordem: number; ativo: boolean }
 export interface Cargo { id: string; nome: string; categoria: string; ativo: boolean }
-export interface Lotacao { id: string; nome: string; tipo: string; ativo: boolean }
+export interface ComandoRegional { id: string; nome: string; ativo: boolean }
+export interface Lotacao { id: string; nome: string; tipo: string; comando_regional_id?: string | null; ativo: boolean }
 export interface Edital { id: string; nome: string; ano: number | null; descricao: string | null; ativo: boolean }
 export interface Motivo { id: string; nome: string; ativo: boolean }
 export interface Config { alerta_dias: number }
 export interface Catalogos {
-  categorias: Categoria[]; cargos: Cargo[]; lotacoes: Lotacao[]; editais: Edital[]; motivos: Motivo[]; config: Config;
+  categorias: Categoria[]; cargos: Cargo[]; lotacoes: Lotacao[]; comandos_regionais: ComandoRegional[]; editais: Edital[]; motivos: Motivo[]; config: Config;
 }
 export interface Meta { data_hoje: string; ultima_atualizacao: string | null; total_registros: number }
 
 export interface MilitarIn {
-  matricula: string; nome_completo: string; cargo_id: string; lotacao_id: string; edital_id: string;
+  matricula: string; nome_completo: string; cargo_id: string; lotacao_id: string; comando_regional_id?: string | null; edital_id: string;
   data_inclusao: string; data_vencimento_contrato: string; status: Status;
   observacoes?: string | null; doe_incorporacao?: string | null; sub_judice: boolean;
   data_desligamento?: string | null; motivo_desligamento_id?: string | null; documento_desligamento?: string | null;
@@ -30,6 +31,7 @@ export interface MilitarIn {
 }
 export interface MilitarRapidoIn {
   lotacao_id?: string | null;
+  comando_regional_id?: string | null;
   edital_id?: string | null;
   data_vencimento_contrato?: string | null;
   observacoes?: string | null;
@@ -46,7 +48,7 @@ export interface ReativacaoIn { justificativa: string; data_vencimento_contrato?
 export interface Militar {
   id: string; matricula: string; nome_completo: string;
   cargo_id: string; cargo_nome: string; categoria: string; categoria_nome: string;
-  lotacao_id: string; lotacao_nome: string; edital_id: string; edital_nome: string;
+  lotacao_id: string; lotacao_nome: string; comando_regional_id?: string | null; comando_regional_nome?: string | null; edital_id: string; edital_nome: string;
   data_inclusao: string; data_vencimento_contrato: string; status: Status;
   data_desligamento: string | null; motivo_desligamento_id: string | null; motivo_desligamento_nome: string | null;
   documento_desligamento: string | null; observacoes: string | null; doe_incorporacao: string | null; sub_judice: boolean;

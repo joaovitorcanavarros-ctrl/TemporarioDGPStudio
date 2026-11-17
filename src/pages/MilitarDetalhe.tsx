@@ -170,7 +170,7 @@ export default function MilitarDetalhe() {
             <Info label="Cargo / função">{m.cargo_nome}</Info>
             <Info label="Categoria">{m.categoria_nome}</Info>
             <Info label="Lotação / UBM">{m.lotacao_nome}</Info>
-            <Info label="Edital">{m.edital_nome}</Info>
+            <Info label="Comando Regional">{m.comando_regional_nome || "—"}</Info>
             <Info label="Inclusão"><span className="num">{fmtDate(m.data_inclusao)}</span></Info>
             <Info label="Vencimento do contrato">
               <span className="num">{fmtDate(m.data_vencimento_contrato)}</span>
@@ -188,6 +188,7 @@ export default function MilitarDetalhe() {
                 </Info>
               );
             })()}
+            <Info label="Edital">{m.edital_nome}</Info>
             {m.status === "DESLIGADO" && (
               <>
                 <Info label="Data do desligamento"><span className="num text-red-300">{fmtDate(m.data_desligamento)}</span></Info>

@@ -112,7 +112,8 @@
       "id": "lot_1",
       "nome": "2° PIBM AGUA BOA",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "lot_2",
@@ -124,13 +125,15 @@
       "id": "lot_3",
       "nome": "1° PIBM POCONE",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "lot_4",
       "nome": "2° NBM CONFRESA",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "lot_5",
@@ -148,7 +151,8 @@
       "id": "lot_7",
       "nome": "2° BBM VARZEA GRANDE",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "lot_8",
@@ -160,7 +164,8 @@
       "id": "lot_9",
       "nome": "4º NBM GUARANTÃ DO NORTE",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "lot_10",
@@ -172,25 +177,29 @@
       "id": "lot_11",
       "nome": "1° NBM ALTO ARAGUAIA",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "lot_12",
       "nome": "6° NBM CANARANA",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "lot_13",
       "nome": "1° BBM CUIABA",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "lot_14",
       "nome": "5ª CIBM NOVA MUTUM",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "lot_15",
@@ -208,31 +217,36 @@
       "id": "lot_17",
       "nome": "13ª CIBM LUCAS DO RIO VERDE",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "lot_18",
       "nome": "4º BBM SINOP",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "lot_19",
       "nome": "11ª CIBM CAMPO VERDE",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "lot_20",
       "nome": "4º CIBM NOVA XAVANTINA",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "lot_21",
       "nome": "5º BBM SORRISO",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "lot_22",
@@ -244,19 +258,22 @@
       "id": "lot_23",
       "nome": "6º CIBM PRIMAVERA DO LESTE",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "lot_24",
       "nome": "11º NBM PARANATINGA",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "lot_25",
       "nome": "5º PIBM QUERÊNCIA",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "lot_26",
@@ -268,25 +285,29 @@
       "id": "lot_27",
       "nome": "3° BBM RONDONÓPOLIS",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "lot_28",
       "nome": "DIV DE ALUNOS - 13ª CIBM LUCAS DO RIO VERDE",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "lot_29",
       "nome": "DIV DE ALUNOS - 11º NBM PARANATINGA",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "lot_30",
       "nome": "DIV DE ALUNOS - 5º PIBM QUERÊNCIA",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "lot_31",
@@ -298,19 +319,22 @@
       "id": "lot_32",
       "nome": "DIV DE ALUNOS - 5º BBM SORRISO",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "lot_33",
       "nome": "DIV DE ALUNOS - 4º BBM SINOP",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "lot_34",
       "nome": "DIV DE ALUNOS - 3° BBM RONDONÓPOLIS",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "lot_35",
@@ -334,7 +358,8 @@
       "id": "lot_38",
       "nome": "DIV DE ALUNOS - 10° NBM TAPURAH",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "lot_39",
@@ -346,13 +371,15 @@
       "id": "lot_40",
       "nome": "DIV DE ALUNOS - 5ª CIBM NOVA MUTUM",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "lot_41",
       "nome": "DIV DE ALUNOS - 2° NBM CONFRESA",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "lot_42",
@@ -436,13 +463,15 @@
       "id": "lot_55",
       "nome": "13° CIBM LUCAS DO RIO VERDE",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "lot_56",
       "nome": "DIV DE ALUNOS - 6º NBM CANARANA",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "lot_57",
@@ -514,7 +543,8 @@
       "id": "lot_68",
       "nome": "DIV DE ALUNOS - 6° PIBM - MATUPÁ",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "lot_69",
@@ -532,12 +562,51 @@
       "id": "lot_71",
       "nome": "DIV DE ALUNOS - 4° NBM GUARANTÃ DO NORTE",
       "tipo": "UBM",
-      "ativo": true
+      "ativo": true,
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "lot_72",
       "nome": "DIV DE ALUNOS - 1° NBM ALTO ARAGUAIA",
       "tipo": "UBM",
+      "ativo": true,
+      "comando_regional_id": "cr_2"
+    }
+  ],
+  "comandos_regionais": [
+    {
+      "id": "cr_1",
+      "nome": "1º CRBM — Cuiabá / Região Metropolitana",
+      "ativo": true
+    },
+    {
+      "id": "cr_2",
+      "nome": "2º CRBM — Rondonópolis",
+      "ativo": true
+    },
+    {
+      "id": "cr_3",
+      "nome": "3º CRBM — Sinop",
+      "ativo": true
+    },
+    {
+      "id": "cr_4",
+      "nome": "4º CRBM — Barra do Garças",
+      "ativo": true
+    },
+    {
+      "id": "cr_5",
+      "nome": "5º CRBM — Cáceres",
+      "ativo": true
+    },
+    {
+      "id": "cr_6",
+      "nome": "6º CRBM — Tangará da Serra",
+      "ativo": true
+    },
+    {
+      "id": "cr_7",
+      "nome": "7º CRBM — Alta Floresta",
       "ativo": true
     }
   ],
@@ -619,7 +688,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_2",
@@ -661,7 +731,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "mil_4",
@@ -682,7 +753,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_5",
@@ -871,7 +943,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "mil_14",
@@ -892,7 +965,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_15",
@@ -913,7 +987,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_16",
@@ -934,7 +1009,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "mil_17",
@@ -1123,7 +1199,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_26",
@@ -1144,7 +1221,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "mil_27",
@@ -1186,7 +1264,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "mil_29",
@@ -1270,7 +1349,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_33",
@@ -1312,7 +1392,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_35",
@@ -1354,7 +1435,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_37",
@@ -1375,7 +1457,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_38",
@@ -1396,7 +1479,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "mil_39",
@@ -1459,7 +1543,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "mil_42",
@@ -1501,7 +1586,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "mil_44",
@@ -1522,7 +1608,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_45",
@@ -1585,7 +1672,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "mil_48",
@@ -1606,7 +1694,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "mil_49",
@@ -1648,7 +1737,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "mil_51",
@@ -2026,7 +2116,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "mil_69",
@@ -2173,7 +2264,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_76",
@@ -2215,7 +2307,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_78",
@@ -2257,7 +2350,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_80",
@@ -2278,7 +2372,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_81",
@@ -2299,7 +2394,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_82",
@@ -2320,7 +2416,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_83",
@@ -2341,7 +2438,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_84",
@@ -2362,7 +2460,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_85",
@@ -2383,7 +2482,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_86",
@@ -2404,7 +2504,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_87",
@@ -2425,7 +2526,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_88",
@@ -2446,7 +2548,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_89",
@@ -2488,7 +2591,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "mil_91",
@@ -2509,7 +2613,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_92",
@@ -2530,7 +2635,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_93",
@@ -2551,7 +2657,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "mil_94",
@@ -2635,7 +2742,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_98",
@@ -2656,7 +2764,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "mil_99",
@@ -2677,7 +2786,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "mil_100",
@@ -2698,7 +2808,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "mil_101",
@@ -2719,7 +2830,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "mil_102",
@@ -2740,7 +2852,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_103",
@@ -2761,7 +2874,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_104",
@@ -2782,7 +2896,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_105",
@@ -2803,7 +2918,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_106",
@@ -2824,7 +2940,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_107",
@@ -2845,7 +2962,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_108",
@@ -2866,7 +2984,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "mil_109",
@@ -2887,7 +3006,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "mil_110",
@@ -2908,7 +3028,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_111",
@@ -2929,7 +3050,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_112",
@@ -2950,7 +3072,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_113",
@@ -2971,7 +3094,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_114",
@@ -2992,7 +3116,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_115",
@@ -3013,7 +3138,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_116",
@@ -3034,7 +3160,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_117",
@@ -3055,7 +3182,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_118",
@@ -3076,7 +3204,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_119",
@@ -3097,7 +3226,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_120",
@@ -3118,7 +3248,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_121",
@@ -3139,7 +3270,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_122",
@@ -3160,7 +3292,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_123",
@@ -3265,7 +3398,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_128",
@@ -3286,7 +3420,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_129",
@@ -3328,7 +3463,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_131",
@@ -3349,7 +3485,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_132",
@@ -3370,7 +3507,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_133",
@@ -3391,7 +3529,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_134",
@@ -3412,7 +3551,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_135",
@@ -3433,7 +3573,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_136",
@@ -3475,7 +3616,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_138",
@@ -3496,7 +3638,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_139",
@@ -3517,7 +3660,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_140",
@@ -3706,7 +3850,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_149",
@@ -3727,7 +3872,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_150",
@@ -3748,7 +3894,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_151",
@@ -3769,7 +3916,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_152",
@@ -3790,7 +3938,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_153",
@@ -3853,7 +4002,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_156",
@@ -3895,7 +4045,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_158",
@@ -3916,7 +4067,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_159",
@@ -3979,7 +4131,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_162",
@@ -4000,7 +4153,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_163",
@@ -4042,7 +4196,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_165",
@@ -4105,7 +4260,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_168",
@@ -4126,7 +4282,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_169",
@@ -4147,7 +4304,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_170",
@@ -4252,7 +4410,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_175",
@@ -4273,7 +4432,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_176",
@@ -4294,7 +4454,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_177",
@@ -4336,7 +4497,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_179",
@@ -4924,7 +5086,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_207",
@@ -4945,7 +5108,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_208",
@@ -4966,7 +5130,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_209",
@@ -4987,7 +5152,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_210",
@@ -5008,7 +5174,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_211",
@@ -5029,7 +5196,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_212",
@@ -5197,7 +5365,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "mil_220",
@@ -5218,7 +5387,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "mil_221",
@@ -5239,7 +5409,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "mil_222",
@@ -5260,7 +5431,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "mil_223",
@@ -5323,7 +5495,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_226",
@@ -5344,7 +5517,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_227",
@@ -5365,7 +5539,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_228",
@@ -5386,7 +5561,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_229",
@@ -5407,7 +5583,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_230",
@@ -5512,7 +5689,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_235",
@@ -5533,7 +5711,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_236",
@@ -5554,7 +5733,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_237",
@@ -5575,7 +5755,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_238",
@@ -5596,7 +5777,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_239",
@@ -5701,7 +5883,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_244",
@@ -5722,7 +5905,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_245",
@@ -5911,7 +6095,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_254",
@@ -6352,7 +6537,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_275",
@@ -6373,7 +6559,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_276",
@@ -6457,7 +6644,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "mil_280",
@@ -6499,7 +6687,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "mil_282",
@@ -6751,7 +6940,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "mil_294",
@@ -6940,7 +7130,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "mil_303",
@@ -7297,7 +7488,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "mil_320",
@@ -7885,7 +8077,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "mil_348",
@@ -7990,7 +8183,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "mil_353",
@@ -8746,7 +8940,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "mil_389",
@@ -8830,7 +9025,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_1"
     },
     {
       "id": "mil_393",
@@ -9082,7 +9278,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "mil_405",
@@ -9103,7 +9300,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_7"
     },
     {
       "id": "mil_406",
@@ -9313,7 +9511,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_4"
     },
     {
       "id": "mil_416",
@@ -9334,7 +9533,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_417",
@@ -9355,7 +9555,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_3"
     },
     {
       "id": "mil_418",
@@ -9376,7 +9577,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_419",
@@ -9397,7 +9599,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_420",
@@ -9418,7 +9621,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     },
     {
       "id": "mil_421",
@@ -9439,7 +9643,8 @@
       "criado_em": "2026-10-14T00:00:00Z",
       "atualizado_em": "2026-10-14T00:00:00Z",
       "criado_por": "usr_admin",
-      "atualizado_por": "usr_admin"
+      "atualizado_por": "usr_admin",
+      "comando_regional_id": "cr_2"
     }
   ],
   "config": {

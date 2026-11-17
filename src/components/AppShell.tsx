@@ -124,7 +124,7 @@ export default function AppShell() {
             collapsed ? "lg:pl-[104px]" : "lg:pl-[312px]"
           )}
         >
-          <header className="sticky top-0 z-20 mx-auto max-w-[1600px] bg-gradient-to-b from-[#0B111A] via-[#0B111A]/90 to-transparent px-4 pt-3 pb-1 sm:px-6 lg:px-8">
+          <header className="sticky top-0 z-20 mx-auto max-w-[1800px] bg-gradient-to-b from-[#0B111A] via-[#0B111A]/90 to-transparent px-4 pt-3 pb-1 sm:px-6 lg:px-6">
             <div
               style={{
                 background:
@@ -199,7 +199,7 @@ export default function AppShell() {
               </Button>
             </div>
           </header>
-          <main className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8">
+          <main className="mx-auto max-w-[1800px] px-4 py-5 sm:px-6 lg:px-6">
             <Outlet context={{ nav }} />
           </main>
         </div>
