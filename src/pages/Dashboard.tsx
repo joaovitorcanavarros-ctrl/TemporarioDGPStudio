@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type TouchEvent as ReactTouchEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Area, AreaChart, Bar, CartesianGrid, Cell, ComposedChart, Legend, Line, Pie, PieChart,
+  Area, AreaChart, CartesianGrid, Cell, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { Activity, Briefcase, Scale, Building2, Clock, HeartPulse, RotateCw, Shield, Stethoscope, Truck, UserCheck, UserMinus, UserPlus } from "lucide-react";
+import { Activity, Briefcase, Scale, Building2, Clock, HeartPulse, RotateCw, Shield, Stethoscope, Table2, BarChart3, Truck, UserCheck, UserMinus } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import DrillSheet, { type Drill } from "@/components/DrillSheet";
 import FiltersBar from "@/components/FiltersBar";
@@ -20,11 +20,11 @@ export const CAT_COLOR: Record<string, string> = {
   AUXILIAR: "#3B82F6",       // Azul Royal
   CONDUTOR: "#F59E0B",       // Laranja / Âmbar
   TEC_ENFERMAGEM: "#10B981", // Verde Esmeralda
-  ENFERMEIRO: "#A855F7",     // Roxo / Violeta
+  ENFERMEIRO: "#06B6D4",     // Ciano
   MEDICO: "#F43F5E",         // Vermelho Coral / Rubi
   OUTROS: "#94A3B8",         // Cinza Azulado
 };
-const PALETTE = ["#3B82F6", "#F59E0B", "#10B981", "#A855F7", "#F43F5E", "#06B6D4", "#EAB308", "#94A3B8"];
+const PALETTE = ["#3B82F6", "#F59E0B", "#10B981", "#06B6D4", "#F43F5E", "#14B8A6", "#EAB308", "#94A3B8"];
 const catColor = (c: string, i: number) => CAT_COLOR[c] ?? PALETTE[i % PALETTE.length];
 
 const tooltipStyle = {
@@ -42,7 +42,7 @@ export function filterParams(f: GlobalFilters) {
   return { ...baseParams(f), ano: f.ano, data_inicio: f.data_inicio, data_fim: f.data_fim };
 }
 
-type KpiTone = "green" | "red" | "blue" | "amber" | "sky" | "purple" | "rose";
+type KpiTone = "green" | "red" | "blue" | "amber" | "sky" | "cyan" | "purple" | "rose";
 
 const KPI_TONE_STYLE: Record<KpiTone, { hex: string; iconIdle: string; iconActive: string }> = {
   green: {
@@ -69,6 +69,11 @@ const KPI_TONE_STYLE: Record<KpiTone, { hex: string; iconIdle: string; iconActiv
     hex: "#38BDF8",
     iconIdle: "text-sky-300/80 bg-sky-500/10 ring-sky-500/20",
     iconActive: "text-sky-200 bg-sky-500/20 ring-sky-400/50 shadow-[0_0_16px_rgba(56,189,248,0.35)]",
+  },
+  cyan: {
+    hex: "#06B6D4",
+    iconIdle: "text-cyan-400/80 bg-cyan-500/10 ring-cyan-500/20",
+    iconActive: "text-cyan-300 bg-cyan-500/20 ring-cyan-400/50 shadow-[0_0_16px_rgba(6,182,212,0.35)]",
   },
   purple: {
     hex: "#A855F7",
@@ -365,10 +370,13 @@ function DesligamentosGroupedChart({
   motivoKeys: string[];
   motivoNome: (k: string) => string;
   desligView: string;
-  onSelectBar: (row: ChartRow, motivoKey: string) => void;
+  onSelectBar: (row: ChartRow, motivoKey?: string) => void;
 }) {
   const [hoveredMotivo, setHoveredMotivo] = useState<string | null>(null);
+  const [hoveredCargo, setHoveredCargo] = useState<string | null>(null);
   const [hoveredBar, setHoveredBar] = useState<{ groupKey: string; motivoKey: string } | null>(null);
+
+  const isCargoConsolidated = desligView === "cargo";
 
   const orderedMotivos = motivoKeys
     .map((k, idx) => {
@@ -378,12 +386,30 @@ function DesligamentosGroupedChart({
     })
     .sort((a, b) => a.order - b.order);
 
-  // Determine maximum single bar value across all groups; preserve 0, 9, 18, 27, 36 scale when max <= 36
-  const maxVal = Math.max(
-    1,
-    ...rows.flatMap((r) => orderedMotivos.map((m) => Number(r[m.chave] || 0)))
-  );
-  const step = maxVal <= 36 ? 9 : Math.ceil(maxVal / 4);
+  const cargoItems = rows.map((r, idx) => {
+    const chave = String(r.categoria || r.nome || idx);
+    return {
+      chave,
+      nome: String(r.nome || chave),
+      valor: Number(r.total || 0),
+      color: catColor(chave, idx),
+      row: r,
+    };
+  });
+
+  // Determine maximum single bar value across all groups; preserve 0, 9, 18, 27, 36 scale on "ano" when max <= 36
+  const maxVal = isCargoConsolidated
+    ? Math.max(1, ...cargoItems.map((c) => c.valor))
+    : Math.max(1, ...rows.flatMap((r) => orderedMotivos.map((m) => Number(r[m.chave] || 0))));
+
+  const step = isCargoConsolidated
+    ? (() => {
+        const rawStep = Math.ceil(maxVal / 4);
+        return rawStep <= 10 ? Math.max(1, rawStep) : Math.ceil(rawStep / 10) * 10;
+      })()
+    : maxVal <= 36
+      ? 9
+      : Math.ceil(maxVal / 4);
   const maxScale = step * 4;
   const yTicks = [maxScale, step * 3, step * 2, step, 0];
   const plotHeight = 196;
@@ -419,52 +445,33 @@ function DesligamentosGroupedChart({
             ))}
           </div>
 
-          {/* Groups (Years or Cargos) */}
+          {/* Groups (Consolidated Cargos or Years by Motivo) */}
           <div className="relative z-10 flex h-full items-end justify-around px-3 sm:px-6 gap-4">
-            {rows.map((row) => {
-              const groupLabel = String(desligView === "ano" ? row.ano : row.nome);
-              const activeBars = orderedMotivos
-                .map((m) => ({
-                  ...m,
-                  valor: Number(row[m.chave] || 0),
-                }))
-                .filter((b) => b.valor > 0);
+            {isCargoConsolidated
+              ? cargoItems.map((item) => {
+                  const ratio = Math.min(1, item.valor / maxScale);
+                  const barHeight = Math.max(8, Math.round(ratio * plotHeight));
+                  const isDimmed = hoveredCargo !== null && hoveredCargo !== item.chave;
+                  const isHighlighted = hoveredCargo === item.chave;
 
-              return (
-                <div
-                  key={groupLabel}
-                  className="flex h-full flex-1 flex-col items-center justify-end"
-                >
-                  {/* Side-by-side columns container */}
-                  <div className="flex h-full items-end justify-center gap-2 sm:gap-3.5 px-2">
-                    {activeBars.map((bar) => {
-                      const ratio = Math.min(1, bar.valor / maxScale);
-                      const barHeight = Math.max(8, Math.round(ratio * plotHeight));
-                      const isDimmed =
-                        (hoveredMotivo !== null && hoveredMotivo !== bar.chave) ||
-                        (hoveredBar !== null &&
-                          (hoveredBar.groupKey !== groupLabel || hoveredBar.motivoKey !== bar.chave));
-                      const isHighlighted =
-                        hoveredMotivo === bar.chave ||
-                        (hoveredBar?.groupKey === groupLabel && hoveredBar?.motivoKey === bar.chave);
-
-                      return (
+                  return (
+                    <div
+                      key={item.chave}
+                      className="flex h-full flex-1 flex-col items-center justify-end min-w-0"
+                    >
+                      <div className="flex h-full items-end justify-center px-2">
                         <button
-                          key={bar.chave}
                           type="button"
-                          onClick={() => onSelectBar(row, bar.chave)}
-                          onMouseEnter={() =>
-                            setHoveredBar({ groupKey: groupLabel, motivoKey: bar.chave })
-                          }
-                          onMouseLeave={() => setHoveredBar(null)}
-                          data-testid={`bar-${groupLabel}-${bar.chave}`}
-                          title={`${groupLabel} · ${bar.nome}: ${fmtNum(bar.valor)}`}
+                          onClick={() => onSelectBar(item.row)}
+                          onMouseEnter={() => setHoveredCargo(item.chave)}
+                          onMouseLeave={() => setHoveredCargo(null)}
+                          data-testid={`bar-cargo-${item.chave}`}
+                          title={`${item.nome}: ${fmtNum(item.valor)} desligamentos`}
                           className={cn(
                             "group/bar relative flex flex-col items-center justify-end focus:outline-none transition-all duration-200 cursor-pointer",
                             isDimmed ? "opacity-35" : "opacity-100"
                           )}
                         >
-                          {/* Floating Value Tag / Balloon right above the column */}
                           <div
                             className={cn(
                               "mb-1.5 flex items-center justify-center rounded-md border px-2 py-0.5 num text-[11px] font-bold leading-tight text-white shadow-sm transition-transform duration-150",
@@ -472,32 +479,106 @@ function DesligamentosGroupedChart({
                             )}
                             style={{
                               backgroundColor: "#162234",
-                              borderColor: `${bar.color}88`,
-                              boxShadow: isHighlighted ? `0 0 12px ${bar.color}40` : undefined,
+                              borderColor: `${item.color}88`,
+                              boxShadow: isHighlighted ? `0 0 12px ${item.color}40` : undefined,
                             }}
                           >
-                            {fmtNum(bar.valor)}
+                            {fmtNum(item.valor)}
                           </div>
 
-                          {/* Column Bar */}
                           <div
                             className={cn(
-                              "w-6 sm:w-8 md:w-9 rounded-t-md transition-all duration-200",
+                              "w-9 sm:w-11 md:w-12 rounded-t-md transition-all duration-200",
                               isHighlighted && "brightness-110 ring-1 ring-white/40"
                             )}
                             style={{
                               height: `${barHeight}px`,
-                              background: `linear-gradient(180deg, ${bar.color} 0%, ${bar.color}CC 100%)`,
-                              boxShadow: `0 4px 14px -2px ${bar.color}33`,
+                              background: `linear-gradient(180deg, ${item.color} 0%, ${item.color}CC 100%)`,
+                              boxShadow: `0 4px 14px -2px ${item.color}33`,
                             }}
                           />
                         </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+                      </div>
+                    </div>
+                  );
+                })
+              : rows.map((row) => {
+                  const groupLabel = String(row.ano);
+                  const activeBars = orderedMotivos
+                    .map((m) => ({
+                      ...m,
+                      valor: Number(row[m.chave] || 0),
+                    }))
+                    .filter((b) => b.valor > 0);
+
+                  return (
+                    <div
+                      key={groupLabel}
+                      className="flex h-full flex-1 flex-col items-center justify-end"
+                    >
+                      {/* Side-by-side columns container */}
+                      <div className="flex h-full items-end justify-center gap-2 sm:gap-3.5 px-2">
+                        {activeBars.map((bar) => {
+                          const ratio = Math.min(1, bar.valor / maxScale);
+                          const barHeight = Math.max(8, Math.round(ratio * plotHeight));
+                          const isDimmed =
+                            (hoveredMotivo !== null && hoveredMotivo !== bar.chave) ||
+                            (hoveredBar !== null &&
+                              (hoveredBar.groupKey !== groupLabel || hoveredBar.motivoKey !== bar.chave));
+                          const isHighlighted =
+                            hoveredMotivo === bar.chave ||
+                            (hoveredBar?.groupKey === groupLabel && hoveredBar?.motivoKey === bar.chave);
+
+                          return (
+                            <button
+                              key={bar.chave}
+                              type="button"
+                              onClick={() => onSelectBar(row, bar.chave)}
+                              onMouseEnter={() =>
+                                setHoveredBar({ groupKey: groupLabel, motivoKey: bar.chave })
+                              }
+                              onMouseLeave={() => setHoveredBar(null)}
+                              data-testid={`bar-${groupLabel}-${bar.chave}`}
+                              title={`${groupLabel} · ${bar.nome}: ${fmtNum(bar.valor)}`}
+                              className={cn(
+                                "group/bar relative flex flex-col items-center justify-end focus:outline-none transition-all duration-200 cursor-pointer",
+                                isDimmed ? "opacity-35" : "opacity-100"
+                              )}
+                            >
+                              {/* Floating Value Tag / Balloon right above the column */}
+                              <div
+                                className={cn(
+                                  "mb-1.5 flex items-center justify-center rounded-md border px-2 py-0.5 num text-[11px] font-bold leading-tight text-white shadow-sm transition-transform duration-150",
+                                  isHighlighted && "scale-110 shadow-md"
+                                )}
+                                style={{
+                                  backgroundColor: "#162234",
+                                  borderColor: `${bar.color}88`,
+                                  boxShadow: isHighlighted ? `0 0 12px ${bar.color}40` : undefined,
+                                }}
+                              >
+                                {fmtNum(bar.valor)}
+                              </div>
+
+                              {/* Column Bar */}
+                              <div
+                                className={cn(
+                                  "w-6 sm:w-8 md:w-9 rounded-t-md transition-all duration-200",
+                                  isHighlighted && "brightness-110 ring-1 ring-white/40"
+                                )}
+                                style={{
+                                  height: `${barHeight}px`,
+                                  background: `linear-gradient(180deg, ${bar.color} 0%, ${bar.color}CC 100%)`,
+                                  boxShadow: `0 4px 14px -2px ${bar.color}33`,
+                                }}
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
           </div>
         </div>
       </div>
@@ -505,16 +586,24 @@ function DesligamentosGroupedChart({
       {/* X-Axis Group Labels */}
       <div className="flex pl-9 pt-2.5">
         <div className="flex flex-1 items-center justify-around px-3 sm:px-6 gap-4">
-          {rows.map((row) => {
-            const groupLabel = String(desligView === "ano" ? row.ano : row.nome);
-            return (
-              <div key={groupLabel} className="flex-1 text-center">
-                <span className="font-sans text-xs font-semibold tracking-wide text-slate-200">
-                  {groupLabel}
-                </span>
-              </div>
-            );
-          })}
+          {isCargoConsolidated
+            ? cargoItems.map((item) => (
+                <div key={item.chave} className="flex-1 text-center min-w-0">
+                  <span className="block truncate font-sans text-xs font-semibold tracking-wide text-slate-200">
+                    {item.nome}
+                  </span>
+                </div>
+              ))
+            : rows.map((row) => {
+                const groupLabel = String(row.ano);
+                return (
+                  <div key={groupLabel} className="flex-1 text-center">
+                    <span className="font-sans text-xs font-semibold tracking-wide text-slate-200">
+                      {groupLabel}
+                    </span>
+                  </div>
+                );
+              })}
         </div>
       </div>
 
@@ -523,35 +612,63 @@ function DesligamentosGroupedChart({
         className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5 border-t border-[#1E2C42]/80 pt-3.5 px-2"
         data-testid="desligamentos-legend"
       >
-        {orderedMotivos.map((m) => {
-          const active = hoveredMotivo === m.chave;
-          return (
-            <button
-              key={m.chave}
-              type="button"
-              onMouseEnter={() => setHoveredMotivo(m.chave)}
-              onMouseLeave={() => setHoveredMotivo(null)}
-              onClick={() =>
-                setHoveredMotivo((prev) => (prev === m.chave ? null : m.chave))
-              }
-              className={cn(
-                "inline-flex items-center gap-2 rounded-md px-2 py-1 text-left transition-colors",
-                active ? "bg-[#182335] text-white" : "text-slate-300 hover:bg-[#182335]/60 hover:text-white"
-              )}
-            >
-              <span
-                className="size-3 shrink-0 rounded-[3px] shadow-xs"
-                style={{
-                  backgroundColor: m.color,
-                  boxShadow: `0 0 0 1px ${m.color}55`,
-                }}
-              />
-              <span className="font-sans text-xs font-medium tracking-tight text-slate-200">
-                {m.nome}
-              </span>
-            </button>
-          );
-        })}
+        {isCargoConsolidated
+          ? cargoItems.map((item) => {
+              const active = hoveredCargo === item.chave;
+              return (
+                <button
+                  key={item.chave}
+                  type="button"
+                  onMouseEnter={() => setHoveredCargo(item.chave)}
+                  onMouseLeave={() => setHoveredCargo(null)}
+                  onClick={() => onSelectBar(item.row)}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-md px-2 py-1 text-left transition-colors cursor-pointer",
+                    active ? "bg-[#182335] text-white" : "text-slate-300 hover:bg-[#182335]/60 hover:text-white"
+                  )}
+                >
+                  <span
+                    className="size-3 shrink-0 rounded-[3px] shadow-xs"
+                    style={{
+                      backgroundColor: item.color,
+                      boxShadow: `0 0 0 1px ${item.color}55`,
+                    }}
+                  />
+                  <span className="font-sans text-xs font-medium tracking-tight text-slate-200">
+                    {item.nome}
+                  </span>
+                </button>
+              );
+            })
+          : orderedMotivos.map((m) => {
+              const active = hoveredMotivo === m.chave;
+              return (
+                <button
+                  key={m.chave}
+                  type="button"
+                  onMouseEnter={() => setHoveredMotivo(m.chave)}
+                  onMouseLeave={() => setHoveredMotivo(null)}
+                  onClick={() =>
+                    setHoveredMotivo((prev) => (prev === m.chave ? null : m.chave))
+                  }
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-md px-2 py-1 text-left transition-colors",
+                    active ? "bg-[#182335] text-white" : "text-slate-300 hover:bg-[#182335]/60 hover:text-white"
+                  )}
+                >
+                  <span
+                    className="size-3 shrink-0 rounded-[3px] shadow-xs"
+                    style={{
+                      backgroundColor: m.color,
+                      boxShadow: `0 0 0 1px ${m.color}55`,
+                    }}
+                  />
+                  <span className="font-sans text-xs font-medium tracking-tight text-slate-200">
+                    {m.nome}
+                  </span>
+                </button>
+              );
+            })}
       </div>
     </div>
   );
@@ -1056,6 +1173,454 @@ function DistribuicaoStyledChart({
   );
 }
 
+function EvolucaoStyledChart({
+  rows,
+  evoView,
+  onSelectInclusoes,
+  onSelectDesligamentos,
+}: {
+  rows: ChartRow[];
+  evoView: string;
+  onSelectInclusoes: (row: ChartRow) => void;
+  onSelectDesligamentos: (row: ChartRow) => void;
+}) {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [displayMode, setDisplayMode] = useState<"chart" | "table">("chart");
+
+  const n = rows.length;
+  const isAnual = evoView === "anual";
+
+  const totalInc = rows.reduce((acc, r) => acc + Number(r.inclusoes || 0), 0);
+  const totalDesl = rows.reduce((acc, r) => acc + Number(r.desligamentos || 0), 0);
+  const saldoTotal = totalInc - totalDesl;
+  const efetivoAtual = rows.length ? Number(rows[rows.length - 1].efetivo || 0) : 0;
+
+  // Escala independente para a linha de efetivo (faixa superior)
+  const efVals = rows.map((r) => Number(r.efetivo || 0));
+  const efMinRaw = Math.min(...efVals, 0);
+  const efMaxRaw = Math.max(...efVals, 1);
+  const efDomainMin = efMinRaw > 0 && efMaxRaw - efMinRaw < efMaxRaw * 0.65
+    ? Math.max(0, Math.floor(efMinRaw * 0.8))
+    : 0;
+  const efDomainMax = Math.max(efDomainMin + 4, Math.ceil(efMaxRaw * 1.12));
+  const efSpan = Math.max(1, efDomainMax - efDomainMin);
+
+  // Escala independente para as barras de movimentação (faixa inferior)
+  const maxMov = Math.max(
+    1,
+    ...rows.flatMap((r) => [Number(r.inclusoes || 0), Number(r.desligamentos || 0)])
+  );
+  const movRawStep = Math.ceil(maxMov / 3);
+  const movStep = movRawStep <= 10 ? Math.max(1, movRawStep) : Math.ceil(movRawStep / 5) * 5;
+  const movMaxScale = movStep * 3;
+  const movTicks = [movMaxScale, movStep * 2, movStep, 0];
+  const barPlotHeight = 122;
+
+  const getLabel = (r: ChartRow) => String(isAnual ? r.ano : r.rotulo);
+
+  // Pontos para SVG (viewBox 1000 x 100) alinhados exatamente no centro de cada coluna
+  const linePoints = rows.map((r, i) => {
+    const x = ((i + 0.5) / Math.max(1, n)) * 1000;
+    const val = Number(r.efetivo || 0);
+    const ratio = (val - efDomainMin) / efSpan;
+    // Deixa folga superior (24) para o rótulo e inferior (12)
+    const y = 88 - ratio * 64;
+    return { x, y, val, leftPct: ((i + 0.5) / Math.max(1, n)) * 100 };
+  });
+
+  const polylineStr = linePoints.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
+  const areaStr =
+    linePoints.length > 0
+      ? `${linePoints[0].x.toFixed(2)},100 ${polylineStr} ${linePoints[linePoints.length - 1].x.toFixed(2)},100`
+      : "";
+
+  const activeIdx = hoveredIdx !== null && rows[hoveredIdx] ? hoveredIdx : null;
+  const activeRow = activeIdx !== null ? rows[activeIdx] : null;
+
+  return (
+    <div className="flex flex-1 flex-col justify-between select-none" data-testid="evolucao-styled-chart">
+      {/* Resumo rápido + alternância Gráfico / Tabela */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="grid flex-1 grid-cols-3 gap-2 min-w-[260px]">
+          <div className="rounded-lg border border-emerald-500/25 bg-[#0F1724] px-2.5 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Inclusões</p>
+            <p className="num mt-0.5 text-base font-bold text-emerald-400">+{fmtNum(totalInc)}</p>
+          </div>
+          <div className="rounded-lg border border-red-500/25 bg-[#0F1724] px-2.5 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Desligamentos</p>
+            <p className="num mt-0.5 text-base font-bold text-red-400">-{fmtNum(totalDesl)}</p>
+          </div>
+          <div className="rounded-lg border border-blue-500/25 bg-[#0F1724] px-2.5 py-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Efetivo / Saldo</p>
+            <div className="mt-0.5 flex items-baseline gap-1.5">
+              <span className="num text-base font-bold text-blue-300">{fmtNum(efetivoAtual)}</span>
+              <span
+                className={cn(
+                  "num text-[11px] font-semibold",
+                  saldoTotal >= 0 ? "text-emerald-400" : "text-red-400"
+                )}
+              >
+                ({saldoTotal >= 0 ? `+${fmtNum(saldoTotal)}` : fmtNum(saldoTotal)})
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setDisplayMode((m) => (m === "chart" ? "table" : "chart"))}
+          data-testid="evolucao-toggle-mode"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#24344D] bg-[#0F1724] px-3 text-xs font-medium text-slate-200 transition-colors hover:bg-[#182335] hover:text-white cursor-pointer"
+        >
+          {displayMode === "chart" ? (
+            <>
+              <Table2 className="size-3.5 text-blue-400" /> Ver tabela
+            </>
+          ) : (
+            <>
+              <BarChart3 className="size-3.5 text-blue-400" /> Ver gráfico
+            </>
+          )}
+        </button>
+      </div>
+
+      {displayMode === "table" ? (
+        <div className="max-h-[340px] overflow-y-auto rounded-lg border border-[#1E2C42] bg-[#0F1724]" data-testid="evolucao-table">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 z-10 bg-[#152031] text-[11px] uppercase tracking-wider text-slate-400">
+              <tr>
+                <th className="px-3 py-2 text-left font-semibold">Período</th>
+                <th className="px-3 py-2 text-right font-semibold text-emerald-400">Inclusões</th>
+                <th className="px-3 py-2 text-right font-semibold text-red-400">Desligamentos</th>
+                <th className="px-3 py-2 text-right font-semibold">Saldo</th>
+                <th className="px-3 py-2 text-right font-semibold text-blue-300">Efetivo ativo</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#182335]">
+              {rows.map((r) => {
+                const inc = Number(r.inclusoes || 0);
+                const desl = Number(r.desligamentos || 0);
+                const saldo = inc - desl;
+                const ef = Number(r.efetivo || 0);
+                return (
+                  <tr key={getLabel(r)} className="transition-colors hover:bg-[#162234]/70">
+                    <td className="px-3 py-2 font-medium text-slate-200">{getLabel(r)}</td>
+                    <td className="px-3 py-2 text-right">
+                      {inc > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => onSelectInclusoes(r)}
+                          className="num inline-flex items-center rounded bg-emerald-500/15 px-1.5 py-0.5 font-semibold text-emerald-300 hover:bg-emerald-500/25 cursor-pointer"
+                        >
+                          +{fmtNum(inc)}
+                        </button>
+                      ) : (
+                        <span className="num text-slate-500">0</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      {desl > 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => onSelectDesligamentos(r)}
+                          className="num inline-flex items-center rounded bg-red-500/15 px-1.5 py-0.5 font-semibold text-red-300 hover:bg-red-500/25 cursor-pointer"
+                        >
+                          -{fmtNum(desl)}
+                        </button>
+                      ) : (
+                        <span className="num text-slate-500">0</span>
+                      )}
+                    </td>
+                    <td
+                      className={cn(
+                        "num px-3 py-2 text-right font-semibold",
+                        saldo > 0 ? "text-emerald-300" : saldo < 0 ? "text-red-300" : "text-slate-500"
+                      )}
+                    >
+                      {saldo > 0 ? `+${fmtNum(saldo)}` : fmtNum(saldo)}
+                    </td>
+                    <td className="num px-3 py-2 text-right font-bold text-blue-300">{fmtNum(ef)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="flex flex-1 flex-col justify-between gap-3">
+          {/* FAIXA 1: Efetivo ativo acumulado (escala própria, sem sobrepor barras) */}
+          <div className="rounded-lg border border-[#1E2C42]/90 bg-[#0F1724]/75 px-3 pt-2.5 pb-2">
+            <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
+              <span className="inline-flex items-center gap-1.5 font-medium text-blue-300">
+                <span className="size-2 rounded-full bg-blue-400" />
+                Efetivo ativo no período
+              </span>
+              <span className="num text-[11px] text-slate-400">
+                {activeRow
+                  ? `${getLabel(activeRow)}: ${fmtNum(Number(activeRow.efetivo || 0))} ativos`
+                  : `Atual: ${fmtNum(efetivoAtual)} ativos`}
+              </span>
+            </div>
+
+            <div className="flex">
+              {/* Espaçador alinhado ao eixo Y da faixa inferior */}
+              <div className="w-8 shrink-0 pr-1.5 flex flex-col justify-between text-right num text-[10px] text-[#64748B]" style={{ height: 96 }}>
+                <span>{fmtNum(efDomainMax)}</span>
+                <span>{fmtNum(efDomainMin)}</span>
+              </div>
+
+              <div className="relative flex-1" style={{ height: 96 }}>
+                {/* Linhas guia discretas */}
+                <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+                  <div className="border-t border-dashed border-[#1E2C42]/70" />
+                  <div className="border-t border-dashed border-[#1E2C42]/50" />
+                  <div className="border-t border-[#263854]/80" />
+                </div>
+
+                <svg
+                  viewBox="0 0 1000 100"
+                  preserveAspectRatio="none"
+                  className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+                >
+                  <defs>
+                    <linearGradient id="evolucaoEfetivoGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#60A5FA" stopOpacity={0.32} />
+                      <stop offset="100%" stopColor="#60A5FA" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  {linePoints.length > 1 && (
+                    <>
+                      <polygon points={areaStr} fill="url(#evolucaoEfetivoGrad)" />
+                      <polyline
+                        points={polylineStr}
+                        fill="none"
+                        stroke="#60A5FA"
+                        strokeWidth={2.5}
+                        vectorEffect="non-scaling-stroke"
+                        strokeLinejoin="round"
+                        strokeLinecap="round"
+                      />
+                    </>
+                  )}
+                </svg>
+
+                {/* Pontos e rótulos numéricos alinhados com as colunas abaixo */}
+                {linePoints.map((p, i) => {
+                  const prevVal = i > 0 ? linePoints[i - 1].val : null;
+                  const nextVal = i < linePoints.length - 1 ? linePoints[i + 1].val : null;
+                  const isEdge = i === 0 || i === linePoints.length - 1;
+                  const changed = prevVal === null || p.val !== prevVal || (nextVal !== null && p.val !== nextVal);
+                  const isHovered = activeIdx === i;
+                  const showLabel = isAnual || rows.length <= 6 || isEdge || changed || isHovered;
+
+                  return (
+                    <div
+                      key={getLabel(rows[i])}
+                      onMouseEnter={() => setHoveredIdx(i)}
+                      onMouseLeave={() => setHoveredIdx(null)}
+                      style={{ left: `${p.leftPct}%`, top: `${p.y}%` }}
+                      className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-default"
+                    >
+                      {showLabel && (
+                        <span
+                          className={cn(
+                            "pointer-events-none absolute -top-6 rounded border px-1.5 py-0.5 num text-[10px] font-bold leading-none shadow-sm transition-transform",
+                            isHovered
+                              ? "z-20 scale-110 border-blue-400 bg-[#182840] text-white"
+                              : "z-10 border-[#294366] bg-[#131F32] text-blue-200"
+                          )}
+                        >
+                          {fmtNum(p.val)}
+                        </span>
+                      )}
+                      <span
+                        className={cn(
+                          "rounded-full border-2 border-[#0F1724] transition-all",
+                          isHovered ? "size-3 bg-white ring-2 ring-blue-400/60" : "size-2 bg-blue-400"
+                        )}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* FAIXA 2: Movimentações (Inclusões vs Desligamentos em escala própria) */}
+          <div className="rounded-lg border border-[#1E2C42]/90 bg-[#0F1724]/75 px-3 pt-2.5 pb-2">
+            <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+              <span className="font-medium text-slate-300">Movimentações no período (clique nas barras para listar)</span>
+              <div className="flex items-center gap-3 text-[11px] text-slate-300">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-2.5 rounded-[2px] bg-emerald-500" /> Inclusões
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-2.5 rounded-[2px] bg-red-500" /> Desligamentos
+                </span>
+              </div>
+            </div>
+
+            <div className="flex pt-4">
+              {/* Eixo Y das movimentações */}
+              <div
+                className="w-8 shrink-0 pr-1.5 flex flex-col justify-between text-right num text-[10px] font-medium text-[#64748B]"
+                style={{ height: barPlotHeight }}
+              >
+                {movTicks.map((t) => (
+                  <span key={t} className="leading-none -translate-y-1">
+                    {fmtNum(t)}
+                  </span>
+                ))}
+              </div>
+
+              {/* Área das barras */}
+              <div className="relative flex-1" style={{ height: barPlotHeight }}>
+                <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+                  {movTicks.map((t, idx) => (
+                    <div
+                      key={t}
+                      className={cn(
+                        "w-full border-t",
+                        idx === movTicks.length - 1 ? "border-[#263854]" : "border-[#1E2C42]/70 border-dashed"
+                      )}
+                    />
+                  ))}
+                </div>
+
+                <div className="relative z-10 flex h-full items-end">
+                  {rows.map((r, i) => {
+                    const inc = Number(r.inclusoes || 0);
+                    const desl = Number(r.desligamentos || 0);
+                    const incH = inc > 0 ? Math.max(8, Math.round((inc / movMaxScale) * barPlotHeight)) : 0;
+                    const deslH = desl > 0 ? Math.max(8, Math.round((desl / movMaxScale) * barPlotHeight)) : 0;
+                    const isColHovered = activeIdx === i;
+                    const isColDimmed = activeIdx !== null && activeIdx !== i;
+
+                    return (
+                      <div
+                        key={getLabel(r)}
+                        onMouseEnter={() => setHoveredIdx(i)}
+                        onMouseLeave={() => setHoveredIdx(null)}
+                        className={cn(
+                          "flex h-full flex-1 items-end justify-center gap-1 px-0.5 rounded-t transition-all duration-150",
+                          isColHovered && "bg-[#182335]/60",
+                          isColDimmed ? "opacity-45" : "opacity-100"
+                        )}
+                      >
+                        {/* Barra Inclusões */}
+                        {inc > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => onSelectInclusoes(r)}
+                            title={`${getLabel(r)} · Inclusões: ${fmtNum(inc)}`}
+                            data-testid={`evo-inc-${i}`}
+                            className="group/inc relative flex flex-col items-center justify-end cursor-pointer focus:outline-none"
+                          >
+                            <span className="mb-1 num text-[10px] font-bold leading-none text-emerald-300 group-hover/inc:text-white">
+                              {fmtNum(inc)}
+                            </span>
+                            <div
+                              className={cn(
+                                "rounded-t transition-all",
+                                isAnual ? "w-7 sm:w-9" : "w-2.5 sm:w-3.5",
+                                "bg-gradient-to-t from-emerald-600 to-emerald-400 group-hover/inc:brightness-110"
+                              )}
+                              style={{ height: `${incH}px` }}
+                            />
+                          </button>
+                        ) : (
+                          <div
+                            className={cn(
+                              "rounded-t bg-[#1E2C42]/50",
+                              isAnual ? "w-7 sm:w-9" : "w-2.5 sm:w-3.5"
+                            )}
+                            style={{ height: 3 }}
+                          />
+                        )}
+
+                        {/* Barra Desligamentos */}
+                        {desl > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => onSelectDesligamentos(r)}
+                            title={`${getLabel(r)} · Desligamentos: ${fmtNum(desl)}`}
+                            data-testid={`evo-desl-${i}`}
+                            className="group/desl relative flex flex-col items-center justify-end cursor-pointer focus:outline-none"
+                          >
+                            <span className="mb-1 num text-[10px] font-bold leading-none text-red-300 group-hover/desl:text-white">
+                              {fmtNum(desl)}
+                            </span>
+                            <div
+                              className={cn(
+                                "rounded-t transition-all",
+                                isAnual ? "w-7 sm:w-9" : "w-2.5 sm:w-3.5",
+                                "bg-gradient-to-t from-red-600 to-red-400 group-hover/desl:brightness-110"
+                              )}
+                              style={{ height: `${deslH}px` }}
+                            />
+                          </button>
+                        ) : (
+                          <div
+                            className={cn(
+                              "rounded-t bg-[#1E2C42]/50",
+                              isAnual ? "w-7 sm:w-9" : "w-2.5 sm:w-3.5"
+                            )}
+                            style={{ height: 3 }}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Rótulos do eixo X */}
+            <div className="flex pl-8 pt-1.5">
+              {rows.map((r, i) => (
+                <div key={getLabel(r)} className="flex-1 text-center min-w-0">
+                  <span
+                    className={cn(
+                      "block truncate font-sans text-[10px] sm:text-[11px] font-medium transition-colors",
+                      activeIdx === i ? "font-bold text-white" : "text-slate-400"
+                    )}
+                  >
+                    {getLabel(r)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rodapé de leitura dinâmica */}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#1E2C42]/80 pt-2.5 text-xs text-slate-300">
+        {activeRow ? (() => {
+          const inc = Number(activeRow.inclusoes || 0);
+          const desl = Number(activeRow.desligamentos || 0);
+          const saldo = inc - desl;
+          return (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="font-semibold text-white">{getLabel(activeRow)}</span>
+              <span className="num text-emerald-400">+{fmtNum(inc)} inclusões</span>
+              <span className="num text-red-400">-{fmtNum(desl)} desligamentos</span>
+              <span className={cn("num font-medium", saldo > 0 ? "text-emerald-300" : saldo < 0 ? "text-red-300" : "text-slate-400")}>
+                Saldo: {saldo > 0 ? `+${fmtNum(saldo)}` : fmtNum(saldo)}
+              </span>
+              <span className="num font-semibold text-blue-300">Efetivo: {fmtNum(Number(activeRow.efetivo || 0))}</span>
+            </div>
+          );
+        })() : (
+          <span className="text-[11px] text-slate-400">
+            Passe o cursor sobre um período para comparar entradas, saídas e efetivo acumulado.
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { filters } = useFilters();
   const [drill, setDrill] = useState<Drill | null>(null);
@@ -1099,7 +1664,7 @@ export default function Dashboard() {
     AUXILIAR: "blue",
     CONDUTOR: "amber",
     TEC_ENFERMAGEM: "green",
-    ENFERMEIRO: "purple",
+    ENFERMEIRO: "cyan",
     MEDICO: "rose",
   };
 
@@ -1135,15 +1700,11 @@ export default function Dashboard() {
       <FiltersBar />
 
       <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
           <Kpi id="ativos" label="Temporários ativos" value={v(d?.kpis.ativos)} icon={UserCheck} tone="green" sub={`Efetivo em ${fmtDate(ref)}`}
             isHighlighted={hoveredKpi === "ativos"} isDimmed={hoveredKpi !== null && hoveredKpi !== "ativos"}
             onHoverChange={(h) => setHoveredKpi(h ? "ativos" : null)}
             onClick={() => setDrill({ title: "Temporários ativos", params: { ...base, status: "ATIVO", ativo_em: ref } })} />
-          <Kpi id="inclusoes" label="Inclusões no período" value={v(d?.kpis.inclusoes_periodo)} icon={UserPlus} tone="sky" sub={periodoTxt}
-            isHighlighted={hoveredKpi === "inclusoes"} isDimmed={hoveredKpi !== null && hoveredKpi !== "inclusoes"}
-            onHoverChange={(h) => setHoveredKpi(h ? "inclusoes" : null)}
-            onClick={() => setDrill({ title: "Inclusões no período", params: { ...base, inclusao_ini: d?.periodo_inicio, inclusao_fim: d?.periodo_fim }, allowStatusFilter: true })} />
           <Kpi id="desligamentos" label="Distratos / desligamentos" value={v(d?.kpis.desligamentos_periodo)} icon={UserMinus} tone="red" sub={periodoTxt}
             isHighlighted={hoveredKpi === "desligamentos"} isDimmed={hoveredKpi !== null && hoveredKpi !== "desligamentos"}
             onHoverChange={(h) => setHoveredKpi(h ? "desligamentos" : null)}
@@ -1175,22 +1736,35 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <ChartCard id="efetivo-cargo-ano" glowRgb="59, 130, 246" title="Efetivo por cargo/função" desc="Estoque ao fim de cada ano (ano corrente: data de referência). Clique para listar.">
+        <ChartCard id="efetivo-cargo-ano" glowRgb="59, 130, 246" title="Inclusões por cargo/função e ano" desc={`Militares incluídos em cada ano (inclui posteriores desligamentos) · ${periodoTxt}. Clique para listar.`}>
           {d && d.efetivo_cargo_ano.length ? (
             <EfetivoCargoGroupedChart
               rows={d.efetivo_cargo_ano}
               cats={cats}
-              onSelectBar={(row, c) =>
+              onSelectBar={(row, c) => {
+                const yearIni = `${row.ano}-01-01`;
+                const yearFim = `${row.ano}-12-31`;
+                const inclusaoIni = d.periodo_inicio && d.periodo_inicio > yearIni ? d.periodo_inicio : yearIni;
+                const inclusaoFim = d.periodo_fim && d.periodo_fim < yearFim ? d.periodo_fim : yearFim;
                 setDrill({
-                  title: `${c.nome} — efetivo em ${fmtDate(String(row.data))}`,
-                  params: { ...base, categoria: c.chave, ativo_em: String(row.data) },
-                })
-              }
+                  title: `${c.nome} — inclusões em ${row.ano}`,
+                  params: { ...base, categoria: c.chave, inclusao_ini: inclusaoIni, inclusao_fim: inclusaoFim },
+                  allowStatusFilter: true,
+                });
+              }}
             />
           ) : <Empty />}
         </ChartCard>
 
-        <ChartCard id="desligamentos" glowRgb="239, 68, 68" title="Desligamentos por cargo, ano e motivo" desc={`Data efetiva do desligamento · ${periodoTxt}`}
+        <ChartCard
+          id="desligamentos"
+          glowRgb="239, 68, 68"
+          title="Desligamentos por cargo, ano e motivo"
+          desc={
+            desligView === "cargo"
+              ? `Total de desligamentos por cargo (todos os motivos unidos) · ${periodoTxt}`
+              : `Data efetiva do desligamento · ${periodoTxt}`
+          }
           action={
             <Tabs value={desligView} onValueChange={(x) => setDesligView(String(x))}>
               <TabsList><TabsTrigger value="ano" data-testid="desligamentos-tab-ano">Por ano</TabsTrigger><TabsTrigger value="cargo" data-testid="desligamentos-tab-cargo">Por cargo</TabsTrigger></TabsList>
@@ -1203,9 +1777,29 @@ export default function Dashboard() {
               motivoNome={motivoNome}
               desligView={desligView}
               onSelectBar={(row, k) => {
-                const extra = desligView === "ano"
-                  ? { deslig_ini: `${row.ano}-01-01`, deslig_fim: `${row.ano}-12-31` }
-                  : { categoria: String(row.categoria), deslig_ini: d.periodo_inicio, deslig_fim: d.periodo_fim };
+                if (desligView === "cargo" || !k) {
+                  setDrill({
+                    title: `Desligamentos — ${row.nome} (todos os motivos)`,
+                    params: {
+                      ...base,
+                      status: "DESLIGADO",
+                      categoria: String(row.categoria),
+                      deslig_ini: d.periodo_inicio,
+                      deslig_fim: d.periodo_fim,
+                    },
+                    variant: "desligados",
+                  });
+                  return;
+                }
+                const extra = String(row.ano) === "Sem data"
+                  ? { sem_data_desligamento: "true" }
+                  : (() => {
+                      const yearIni = `${row.ano}-01-01`;
+                      const yearFim = `${row.ano}-12-31`;
+                      const desligIni = d.periodo_inicio && d.periodo_inicio > yearIni ? d.periodo_inicio : yearIni;
+                      const desligFim = d.periodo_fim && d.periodo_fim < yearFim ? d.periodo_fim : yearFim;
+                      return { deslig_ini: desligIni, deslig_fim: desligFim };
+                    })();
                 setDrill({
                   title: `Desligamentos — ${motivoNome(k)} — ${row.ano ?? row.nome}`,
                   params: { ...base, status: "DESLIGADO", motivo_id: k, ...extra },
@@ -1236,50 +1830,44 @@ export default function Dashboard() {
           ) : <Empty />}
         </ChartCard>
 
-        <ChartCard id="evolucao" glowRgb="96, 165, 250" title="Evolução do efetivo" desc="Inclusões e desligamentos por data do evento; efetivo ao fim de cada mês/ano."
+        <ChartCard id="evolucao" glowRgb="96, 165, 250" title="Evolução do efetivo" desc="Efetivo ativo acumulado separado das movimentações (entradas e saídas)."
           className="flex flex-col"
           action={
             <Tabs value={evoView} onValueChange={(x) => setEvoView(String(x))}>
               <TabsList><TabsTrigger value="mensal" data-testid="evolucao-tab-mensal">Mensal</TabsTrigger><TabsTrigger value="anual" data-testid="evolucao-tab-anual">Anual</TabsTrigger></TabsList>
             </Tabs>
           }>
-          {d && d.evolucao_mensal.length ? (
-            <div className="flex-1 min-h-[420px] w-full pt-2">
-              <ResponsiveContainer width="100%" height="100%" minHeight={420}>
-                <ComposedChart
-                  data={evoView === "mensal" ? d.evolucao_mensal : d.evolucao_anual}
-                  margin={{ top: 16, right: 12, left: 0, bottom: 8 }}
-                >
-                  <CartesianGrid stroke="#1E2C42" strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey={evoView === "mensal" ? "rotulo" : "ano"} {...axis} dy={6} />
-                  <YAxis yAxisId="l" {...axis} allowDecimals={false} width={36} />
-                  <YAxis yAxisId="r" orientation="right" {...axis} allowDecimals={false} width={40} />
-                  <Tooltip {...tooltipStyle} />
-                  <Legend
-                    verticalAlign="bottom"
-                    height={36}
-                    iconType="square"
-                    iconSize={10}
-                    wrapperStyle={{ fontSize: 12, paddingTop: 14, borderTop: "1px solid rgba(30, 44, 66, 0.8)" }}
-                  />
-                  <Bar yAxisId="l" dataKey="inclusoes" name="Inclusões" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={38} className="cursor-pointer"
-                    onClick={(e: { payload?: ChartRow }) => {
-                      const r = e.payload;
-                      if (!r) return;
-                      const [ini, fim] = evoView === "mensal" ? [`${r.mes}-01`, `${r.mes}-31`] : [`${r.ano}-01-01`, `${r.ano}-12-31`];
-                      setDrill({ title: `Inclusões — ${r.rotulo ?? r.ano}`, params: { ...base, inclusao_ini: ini, inclusao_fim: fim } });
-                    }} />
-                  <Bar yAxisId="l" dataKey="desligamentos" name="Desligamentos" fill="#EF4444" radius={[4, 4, 0, 0]} maxBarSize={38} className="cursor-pointer"
-                    onClick={(e: { payload?: ChartRow }) => {
-                      const r = e.payload;
-                      if (!r) return;
-                      const [ini, fim] = evoView === "mensal" ? [`${r.mes}-01`, `${r.mes}-31`] : [`${r.ano}-01-01`, `${r.ano}-12-31`];
-                      setDrill({ title: `Desligamentos — ${r.rotulo ?? r.ano}`, params: { ...base, deslig_ini: ini, deslig_fim: fim }, variant: "desligados" });
-                    }} />
-                  <Line yAxisId="r" type="monotone" dataKey="efetivo" name="Efetivo" stroke="#60A5FA" strokeWidth={2.5} dot={{ r: 3.5, fill: "#60A5FA", strokeWidth: 0 }} activeDot={{ r: 5 }} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
+          {d && (evoView === "mensal" ? d.evolucao_mensal : d.evolucao_anual).length ? (
+            <EvolucaoStyledChart
+              rows={evoView === "mensal" ? d.evolucao_mensal : d.evolucao_anual}
+              evoView={evoView}
+              onSelectInclusoes={(r) => {
+                const mes = String(r.mes || "");
+                const [y, mm] = mes.split("-").map(Number);
+                const lastDay = y && mm ? new Date(Date.UTC(y, mm, 0)).getUTCDate() : 31;
+                const rawFim = evoView === "mensal" ? `${mes}-${String(lastDay).padStart(2, "0")}` : `${r.ano}-12-31`;
+                const ini = evoView === "mensal" ? `${mes}-01` : `${r.ano}-01-01`;
+                const fim = ref && rawFim > ref ? ref : rawFim;
+                setDrill({
+                  title: `Inclusões — ${r.rotulo ?? r.ano}`,
+                  params: { ...base, inclusao_ini: ini, inclusao_fim: fim },
+                  allowStatusFilter: true,
+                });
+              }}
+              onSelectDesligamentos={(r) => {
+                const mes = String(r.mes || "");
+                const [y, mm] = mes.split("-").map(Number);
+                const lastDay = y && mm ? new Date(Date.UTC(y, mm, 0)).getUTCDate() : 31;
+                const rawFim = evoView === "mensal" ? `${mes}-${String(lastDay).padStart(2, "0")}` : `${r.ano}-12-31`;
+                const ini = evoView === "mensal" ? `${mes}-01` : `${r.ano}-01-01`;
+                const fim = ref && rawFim > ref ? ref : rawFim;
+                setDrill({
+                  title: `Desligamentos — ${r.rotulo ?? r.ano}`,
+                  params: { ...base, status: "DESLIGADO", deslig_ini: ini, deslig_fim: fim },
+                  variant: "desligados",
+                });
+              }}
+            />
           ) : <Empty />}
         </ChartCard>
 

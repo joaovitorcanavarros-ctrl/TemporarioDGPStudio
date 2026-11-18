@@ -126,25 +126,67 @@ function cleanAvnm<T>(obj: T): T {
   return obj;
 }
 
+function normalizeDateIso(raw: unknown): string {
+  if (raw === null || raw === undefined) return "";
+  if (typeof raw === "object") {
+    const obj = raw as { toDate?: () => Date; seconds?: number };
+    if (typeof obj.toDate === "function") {
+      try {
+        return obj.toDate().toISOString().slice(0, 10);
+      } catch {
+        return "";
+      }
+    }
+    if (typeof obj.seconds === "number") {
+      return new Date(obj.seconds * 1000).toISOString().slice(0, 10);
+    }
+    if (raw instanceof Date && !isNaN(raw.getTime())) {
+      return raw.toISOString().slice(0, 10);
+    }
+    return "";
+  }
+  const s = String(raw).trim();
+  if (!s || s === "-" || s === "—" || s.toLowerCase() === "null" || s.toLowerCase() === "undefined") {
+    return "";
+  }
+  const isoMatch = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2].padStart(2, "0")}-${isoMatch[3].padStart(2, "0")}`;
+  }
+  const slashIsoMatch = s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+  if (slashIsoMatch) {
+    return `${slashIsoMatch[1]}-${slashIsoMatch[2].padStart(2, "0")}-${slashIsoMatch[3].padStart(2, "0")}`;
+  }
+  const brMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (brMatch) {
+    return `${brMatch[3]}-${brMatch[2].padStart(2, "0")}-${brMatch[1].padStart(2, "0")}`;
+  }
+  return s.slice(0, 10);
+}
+
 function sanitizeMilitarRecord(raw: Record<string, any>): CloudCacheState["militares"][number] {
   const cleaned = cleanAvnm(raw);
   const renovacoesDatas = Array.isArray(cleaned.renovacoes_datas)
     ? cleaned.renovacoes_datas
-        .map((d: unknown) => (typeof d === "string" ? d.trim().slice(0, 10) : ""))
+        .map((d: unknown) => normalizeDateIso(d))
         .filter((d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d))
     : [];
+  const rawUltimaRenov = normalizeDateIso(cleaned.data_ultima_renovacao);
   const dataUltimaRenovacao =
-    cleaned.data_ultima_renovacao && /^\d{4}-\d{2}-\d{2}/.test(String(cleaned.data_ultima_renovacao))
-      ? String(cleaned.data_ultima_renovacao).slice(0, 10)
+    rawUltimaRenov && /^\d{4}-\d{2}-\d{2}$/.test(rawUltimaRenov)
+      ? rawUltimaRenov
       : renovacoesDatas.length > 0
         ? renovacoesDatas[renovacoesDatas.length - 1]
         : null;
 
   const anoContratoManual = Boolean(cleaned.ano_contrato_manual);
+  const dataInclusaoNorm = normalizeDateIso(cleaned.data_inclusao);
+  const dataVencimentoNorm = normalizeDateIso(cleaned.data_vencimento_contrato);
+  const dataDesligamentoNorm = normalizeDateIso(cleaned.data_desligamento);
 
   const infoContrato = getInfoContrato({
-    data_inclusao: cleaned.data_inclusao,
-    data_vencimento_contrato: cleaned.data_vencimento_contrato,
+    data_inclusao: dataInclusaoNorm,
+    data_vencimento_contrato: dataVencimentoNorm,
     renovacao_contrato: cleaned.renovacao_contrato,
     ano_contrato: cleaned.ano_contrato,
     ano_contrato_manual: anoContratoManual,
@@ -160,8 +202,8 @@ function sanitizeMilitarRecord(raw: Record<string, any>): CloudCacheState["milit
     lotacao_id: String(cleaned.lotacao_id || ""),
     comando_regional_id: cleaned.comando_regional_id ? String(cleaned.comando_regional_id) : null,
     edital_id: String(cleaned.edital_id || ""),
-    data_inclusao: cleaned.data_inclusao ? String(cleaned.data_inclusao).slice(0, 10) : "",
-    data_vencimento_contrato: cleaned.data_vencimento_contrato ? String(cleaned.data_vencimento_contrato).slice(0, 10) : "",
+    data_inclusao: dataInclusaoNorm,
+    data_vencimento_contrato: dataVencimentoNorm,
     status: cleaned.status === "DESLIGADO" ? "DESLIGADO" : "ATIVO",
     observacoes:
       cleaned.observacoes !== null && cleaned.observacoes !== undefined && String(cleaned.observacoes).trim() !== ""
@@ -172,10 +214,7 @@ function sanitizeMilitarRecord(raw: Record<string, any>): CloudCacheState["milit
         ? String(cleaned.doe_incorporacao)
         : null,
     sub_judice: Boolean(cleaned.sub_judice),
-    data_desligamento:
-      cleaned.data_desligamento !== null && cleaned.data_desligamento !== undefined && String(cleaned.data_desligamento).trim() !== ""
-        ? String(cleaned.data_desligamento).slice(0, 10)
-        : null,
+    data_desligamento: dataDesligamentoNorm || null,
     motivo_desligamento_id: cleaned.motivo_desligamento_id ? String(cleaned.motivo_desligamento_id) : null,
     documento_desligamento:
       cleaned.documento_desligamento !== null && cleaned.documento_desligamento !== undefined && String(cleaned.documento_desligamento).trim() !== ""
@@ -316,14 +355,14 @@ function rebuildSituacoesFromMilitares(militaresList: CloudCacheState["militares
   const syntheticDesligamentos: HistoricoSituacao[] = [];
 
   for (const m of militaresList) {
-    if (m.status === "DESLIGADO") {
+    if (m.status === "DESLIGADO" && m.data_desligamento) {
       const hasManualEvent = existingNonSynthetic.some(
         (s) => s.militar_id === m.id && s.tipo === "DESLIGAMENTO"
       );
       if (!hasManualEvent) {
         const motivoObj = state.motivos.find((mt) => mt.id === m.motivo_desligamento_id);
         const criadorObj = state.usuarios.find((u) => u.id === (m.atualizado_por || m.criado_por));
-        const dtEfetiva = m.data_desligamento || (m.atualizado_em ? m.atualizado_em.slice(0, 10) : "2026-10-01");
+        const dtEfetiva = m.data_desligamento;
         syntheticDesligamentos.push({
           id: `sit_cloud_${m.id}`,
           militar_id: m.id,
@@ -1446,24 +1485,32 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       return { faixa: label, min, max, total: tot };
     });
 
-    const anosInclusao = records.map((m) => parseInt((m.data_inclusao || "").slice(0, 4), 10)).filter(Boolean);
+    const anosInclusao = records.map((m) => parseInt((m.data_inclusao || "").slice(0, 4), 10)).filter((y) => !isNaN(y) && y > 1900);
     const minAno = anosInclusao.length ? Math.min(...anosInclusao) : 2022;
     const refAno = parseInt(ref.slice(0, 4), 10);
     const efetivoCargoAno: ChartRow[] = [];
     for (let a = minAno; a <= refAno; a++) {
+      const aStr = String(a);
       const d =
         Math.min(new Date(`${a}-12-31`).getTime(), new Date(ref).getTime()) === new Date(`${a}-12-31`).getTime()
           ? `${a}-12-31`
           : ref;
-      const row: ChartRow = { ano: String(a), data: d };
+      const row: ChartRow = { ano: aStr, data: d };
       let tot = 0;
       for (const cat of state.categorias) {
-        const c = records.filter((m) => m.categoria === cat.codigo && ativoEm(m, d, hoje)).length;
+        const c = records.filter(
+          (m) =>
+            m.categoria === cat.codigo &&
+            (m.data_inclusao || "").slice(0, 4) === aStr &&
+            noPeriodo(m.data_inclusao, ini, fim)
+        ).length;
         row[cat.codigo] = c;
         tot += c;
       }
       row.total = tot;
-      efetivoCargoAno.push(row);
+      if (tot > 0) {
+        efetivoCargoAno.push(row);
+      }
     }
 
     const totMotivo: Record<string, number> = {};
@@ -1488,8 +1535,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
 
     const desligAnosMap = new Map<string, ChartRow>();
     for (const m of desligPeriodo) {
-      const dt = m.data_desligamento || (m.atualizado_em ? m.atualizado_em.slice(0, 10) : hoje);
-      const anoDesl = dt.slice(0, 4);
+      const dt = (m.data_desligamento || "").slice(0, 10);
+      const anoDesl = /^\d{4}-\d{2}-\d{2}$/.test(dt) ? dt.slice(0, 4) : "Sem data";
       const mid = m.motivo_desligamento_id || "sem_motivo";
       if (!desligAnosMap.has(anoDesl)) {
         const initRow: ChartRow = { ano: anoDesl, total: 0 };
@@ -1500,9 +1547,11 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       row[mid] = Number(row[mid] || 0) + 1;
       row.total = Number(row.total || 0) + 1;
     }
-    const desligPorAno: ChartRow[] = Array.from(desligAnosMap.values()).sort((a, b) =>
-      String(a.ano).localeCompare(String(b.ano))
-    );
+    const desligPorAno: ChartRow[] = Array.from(desligAnosMap.values()).sort((a, b) => {
+      if (a.ano === "Sem data") return 1;
+      if (b.ano === "Sem data") return -1;
+      return String(a.ano).localeCompare(String(b.ano));
+    });
 
     const desligCargoMap = new Map<string, ChartRow>();
     for (const cat of state.categorias) {
@@ -1531,30 +1580,33 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     const currYear = parseInt(ref.slice(0, 4), 10);
     const currMonth = parseInt(ref.slice(5, 7), 10);
     for (let i = 11; i >= 0; i--) {
-      const d = new Date(currYear, currMonth - 1 - i, 1);
-      const y = d.getFullYear();
-      const mm = d.getMonth() + 1;
+      const d = new Date(Date.UTC(currYear, currMonth - 1 - i, 1));
+      const y = d.getUTCFullYear();
+      const mm = d.getUTCMonth() + 1;
       const pref = `${y}-${String(mm).padStart(2, "0")}`;
+      const iniMes = `${pref}-01`;
+      const lastDay = new Date(Date.UTC(y, mm, 0)).getUTCDate();
+      const fimMes = `${pref}-${String(lastDay).padStart(2, "0")}`;
+      const dMes = fimMes > ref ? ref : fimMes;
       evolucaoMensal.push({
         mes: pref,
         rotulo: `${MESES[mm - 1]}/${String(y).slice(2)}`,
-        inclusoes: records.filter((m) => (m.data_inclusao || "").startsWith(pref)).length,
-        desligamentos: records.filter((m) => m.status === "DESLIGADO" && (m.data_desligamento || "").startsWith(pref)).length,
-        efetivo: records.filter((m) => ativoEm(m, `${pref}-28`, hoje)).length,
+        inclusoes: records.filter((m) => noPeriodo(m.data_inclusao, iniMes, dMes)).length,
+        desligamentos: records.filter((m) => m.status === "DESLIGADO" && noPeriodo(m.data_desligamento, iniMes, dMes)).length,
+        efetivo: records.filter((m) => ativoEm(m, dMes, hoje)).length,
       });
     }
 
     const evolucaoAnual: ChartRow[] = [];
     for (let a = minAno; a <= refAno; a++) {
-      const dFim =
-        Math.min(new Date(`${a}-12-31`).getTime(), new Date(ref).getTime()) === new Date(`${a}-12-31`).getTime()
-          ? `${a}-12-31`
-          : ref;
       const aStr = String(a);
+      const iniAno = `${aStr}-01-01`;
+      const fimAno = `${aStr}-12-31`;
+      const dFim = fimAno > ref ? ref : fimAno;
       evolucaoAnual.push({
         ano: aStr,
-        inclusoes: records.filter((m) => (m.data_inclusao || "").startsWith(aStr)).length,
-        desligamentos: records.filter((m) => m.status === "DESLIGADO" && (m.data_desligamento || "").startsWith(aStr)).length,
+        inclusoes: records.filter((m) => noPeriodo(m.data_inclusao, iniAno, dFim)).length,
+        desligamentos: records.filter((m) => m.status === "DESLIGADO" && noPeriodo(m.data_desligamento, iniAno, dFim)).length,
         efetivo: records.filter((m) => ativoEm(m, dFim, hoje)).length,
       });
     }
@@ -1742,20 +1794,24 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     const data_fim = searchParams.get("data_fim");
     const deslig_ini = searchParams.get("deslig_ini");
     const deslig_fim = searchParams.get("deslig_fim");
+    const sem_data_desligamento = searchParams.get("sem_data_desligamento") === "true";
 
     const isDesligado = status === "DESLIGADO";
     const eff_deslig_ini = deslig_ini || (isDesligado ? data_inicio : null);
     const eff_deslig_fim = deslig_fim || (isDesligado ? data_fim : null);
 
+    if (sem_data_desligamento) {
+      list = list.filter((m) => !m.data_desligamento);
+    }
     if (eff_deslig_ini) {
       list = list.filter((m) => {
-        const dt = (m.data_desligamento || (m.atualizado_em ? m.atualizado_em.slice(0, 10) : "")).slice(0, 10);
+        const dt = (m.data_desligamento || "").slice(0, 10);
         return Boolean(dt && dt >= eff_deslig_ini);
       });
     }
     if (eff_deslig_fim) {
       list = list.filter((m) => {
-        const dt = (m.data_desligamento || (m.atualizado_em ? m.atualizado_em.slice(0, 10) : "")).slice(0, 10);
+        const dt = (m.data_desligamento || "").slice(0, 10);
         return Boolean(dt && dt <= eff_deslig_fim);
       });
     }
@@ -1763,7 +1819,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     if (ano) {
       list = list.filter((m) => {
         if (isDesligado) {
-          const dt = m.data_desligamento || (m.atualizado_em ? m.atualizado_em.slice(0, 10) : "");
+          const dt = (m.data_desligamento || "").slice(0, 10);
           return dt.startsWith(ano);
         }
         const incAno = m.data_inclusao ? m.data_inclusao.slice(0, 4) : "";

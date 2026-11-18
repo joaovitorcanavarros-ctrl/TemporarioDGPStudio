@@ -61,7 +61,7 @@ const TREE_DOT_COLORS: Record<string, string> = {
   AUXILIAR: "#22C55E",
   CONDUTOR: "#F97316",
   TEC_ENFERMAGEM: "#E2E8F0",
-  ENFERMEIRO: "#A855F7",
+  ENFERMEIRO: "#06B6D4",
   MEDICO: "#F43F5E",
   OUTROS: "#94A3B8",
 };
