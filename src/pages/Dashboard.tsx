@@ -1355,7 +1355,12 @@ function EvolucaoStyledChart({
                 <span className="size-2 rounded-full bg-blue-400" />
                 Efetivo ativo no período
               </span>
-              <span className="num text-[11px] text-slate-400">
+              <span
+                className={cn(
+                  "num text-[11px] transition-colors duration-150",
+                  activeRow ? "font-semibold text-blue-200" : "text-slate-400"
+                )}
+              >
                 {activeRow
                   ? `${getLabel(activeRow)}: ${fmtNum(Number(activeRow.efetivo || 0))} ativos`
                   : `Atual: ${fmtNum(efetivoAtual)} ativos`}
@@ -1370,6 +1375,32 @@ function EvolucaoStyledChart({
               </div>
 
               <div className="relative flex-1" style={{ height: 96 }}>
+                {/* Faixas verticais interativas por mês para destaque amplo ao passar o cursor */}
+                <div className="absolute inset-0 z-[1] flex">
+                  {rows.map((r, i) => {
+                    const isColHovered = activeIdx === i;
+                    return (
+                      <div
+                        key={getLabel(r)}
+                        onMouseEnter={() => setHoveredIdx(i)}
+                        onMouseLeave={() => setHoveredIdx(null)}
+                        className={cn(
+                          "relative flex-1 h-full rounded-md transition-all duration-150 cursor-pointer",
+                          isColHovered &&
+                            "bg-blue-500/15 ring-1 ring-inset ring-blue-400/45 shadow-[inset_0_0_22px_rgba(96,165,250,0.22)]"
+                        )}
+                      >
+                        {isColHovered && (
+                          <span
+                            aria-hidden="true"
+                            className="pointer-events-none absolute inset-y-1 left-1/2 w-[2px] -translate-x-1/2 rounded-full bg-gradient-to-b from-blue-300/75 via-blue-400/45 to-blue-400/10"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
                 {/* Linhas guia discretas */}
                 <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
                   <div className="border-t border-dashed border-[#1E2C42]/70" />
@@ -1380,7 +1411,7 @@ function EvolucaoStyledChart({
                 <svg
                   viewBox="0 0 1000 100"
                   preserveAspectRatio="none"
-                  className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+                  className="pointer-events-none absolute inset-0 z-[2] h-full w-full overflow-visible"
                 >
                   <defs>
                     <linearGradient id="evolucaoEfetivoGrad" x1="0" y1="0" x2="0" y2="1">
@@ -1411,6 +1442,7 @@ function EvolucaoStyledChart({
                   const isEdge = i === 0 || i === linePoints.length - 1;
                   const changed = prevVal === null || p.val !== prevVal || (nextVal !== null && p.val !== nextVal);
                   const isHovered = activeIdx === i;
+                  const isDimmed = activeIdx !== null && activeIdx !== i;
                   const showLabel = isAnual || rows.length <= 6 || isEdge || changed || isHovered;
 
                   return (
@@ -1419,15 +1451,19 @@ function EvolucaoStyledChart({
                       onMouseEnter={() => setHoveredIdx(i)}
                       onMouseLeave={() => setHoveredIdx(null)}
                       style={{ left: `${p.leftPct}%`, top: `${p.y}%` }}
-                      className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-default"
+                      className={cn(
+                        "absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer transition-opacity duration-150",
+                        isHovered && "z-30",
+                        isDimmed && "opacity-40"
+                      )}
                     >
                       {showLabel && (
                         <span
                           className={cn(
-                            "pointer-events-none absolute -top-6 rounded border px-1.5 py-0.5 num text-[10px] font-bold leading-none shadow-sm transition-transform",
+                            "pointer-events-none absolute rounded border px-1.5 py-0.5 num leading-none transition-all duration-150",
                             isHovered
-                              ? "z-20 scale-110 border-blue-400 bg-[#182840] text-white"
-                              : "z-10 border-[#294366] bg-[#131F32] text-blue-200"
+                              ? "-top-7 z-30 scale-[1.15] border-blue-300 bg-blue-600 px-2 py-1 text-[11px] font-extrabold text-white shadow-[0_4px_14px_rgba(59,130,246,0.65)]"
+                              : "-top-6 z-10 border-[#294366] bg-[#131F32] text-[10px] font-bold text-blue-200 shadow-sm"
                           )}
                         >
                           {fmtNum(p.val)}
@@ -1435,8 +1471,10 @@ function EvolucaoStyledChart({
                       )}
                       <span
                         className={cn(
-                          "rounded-full border-2 border-[#0F1724] transition-all",
-                          isHovered ? "size-3 bg-white ring-2 ring-blue-400/60" : "size-2 bg-blue-400"
+                          "rounded-full border-2 border-[#0F1724] transition-all duration-150",
+                          isHovered
+                            ? "size-4 bg-white ring-4 ring-blue-400/50 shadow-[0_0_16px_rgba(96,165,250,0.95)]"
+                            : "size-2 bg-blue-400"
                         )}
                       />
                     </div>
@@ -1502,9 +1540,10 @@ function EvolucaoStyledChart({
                         onMouseEnter={() => setHoveredIdx(i)}
                         onMouseLeave={() => setHoveredIdx(null)}
                         className={cn(
-                          "flex h-full flex-1 items-end justify-center gap-1 px-0.5 rounded-t transition-all duration-150",
-                          isColHovered && "bg-[#182335]/60",
-                          isColDimmed ? "opacity-45" : "opacity-100"
+                          "flex h-full flex-1 items-end justify-center gap-1 px-0.5 rounded-t-md transition-all duration-150",
+                          isColHovered &&
+                            "bg-blue-500/15 ring-1 ring-inset ring-blue-400/45 shadow-[inset_0_0_20px_rgba(59,130,246,0.18)]",
+                          isColDimmed ? "opacity-35" : "opacity-100"
                         )}
                       >
                         {/* Barra Inclusões */}
@@ -1516,14 +1555,22 @@ function EvolucaoStyledChart({
                             data-testid={`evo-inc-${i}`}
                             className="group/inc relative flex flex-col items-center justify-end cursor-pointer focus:outline-none"
                           >
-                            <span className="mb-1 num text-[10px] font-bold leading-none text-emerald-300 group-hover/inc:text-white">
+                            <span
+                              className={cn(
+                                "mb-1 num leading-none transition-all duration-150",
+                                isColHovered
+                                  ? "text-[11px] font-extrabold text-emerald-200 scale-110"
+                                  : "text-[10px] font-bold text-emerald-300 group-hover/inc:text-white"
+                              )}
+                            >
                               {fmtNum(inc)}
                             </span>
                             <div
                               className={cn(
-                                "rounded-t transition-all",
+                                "rounded-t transition-all duration-150",
                                 isAnual ? "w-7 sm:w-9" : "w-2.5 sm:w-3.5",
-                                "bg-gradient-to-t from-emerald-600 to-emerald-400 group-hover/inc:brightness-110"
+                                "bg-gradient-to-t from-emerald-600 to-emerald-400 group-hover/inc:brightness-110",
+                                isColHovered && "brightness-[1.15] shadow-[0_0_12px_rgba(16,185,129,0.5)] scale-x-110"
                               )}
                               style={{ height: `${incH}px` }}
                             />
@@ -1531,7 +1578,8 @@ function EvolucaoStyledChart({
                         ) : (
                           <div
                             className={cn(
-                              "rounded-t bg-[#1E2C42]/50",
+                              "rounded-t transition-colors",
+                              isColHovered ? "bg-slate-500/40" : "bg-[#1E2C42]/50",
                               isAnual ? "w-7 sm:w-9" : "w-2.5 sm:w-3.5"
                             )}
                             style={{ height: 3 }}
@@ -1547,14 +1595,22 @@ function EvolucaoStyledChart({
                             data-testid={`evo-desl-${i}`}
                             className="group/desl relative flex flex-col items-center justify-end cursor-pointer focus:outline-none"
                           >
-                            <span className="mb-1 num text-[10px] font-bold leading-none text-red-300 group-hover/desl:text-white">
+                            <span
+                              className={cn(
+                                "mb-1 num leading-none transition-all duration-150",
+                                isColHovered
+                                  ? "text-[11px] font-extrabold text-red-200 scale-110"
+                                  : "text-[10px] font-bold text-red-300 group-hover/desl:text-white"
+                              )}
+                            >
                               {fmtNum(desl)}
                             </span>
                             <div
                               className={cn(
-                                "rounded-t transition-all",
+                                "rounded-t transition-all duration-150",
                                 isAnual ? "w-7 sm:w-9" : "w-2.5 sm:w-3.5",
-                                "bg-gradient-to-t from-red-600 to-red-400 group-hover/desl:brightness-110"
+                                "bg-gradient-to-t from-red-600 to-red-400 group-hover/desl:brightness-110",
+                                isColHovered && "brightness-[1.15] shadow-[0_0_12px_rgba(239,68,68,0.5)] scale-x-110"
                               )}
                               style={{ height: `${deslH}px` }}
                             />
@@ -1562,7 +1618,8 @@ function EvolucaoStyledChart({
                         ) : (
                           <div
                             className={cn(
-                              "rounded-t bg-[#1E2C42]/50",
+                              "rounded-t transition-colors",
+                              isColHovered ? "bg-slate-500/40" : "bg-[#1E2C42]/50",
                               isAnual ? "w-7 sm:w-9" : "w-2.5 sm:w-3.5"
                             )}
                             style={{ height: 3 }}
@@ -1577,18 +1634,31 @@ function EvolucaoStyledChart({
 
             {/* Rótulos do eixo X */}
             <div className="flex pl-8 pt-1.5">
-              {rows.map((r, i) => (
-                <div key={getLabel(r)} className="flex-1 text-center min-w-0">
-                  <span
-                    className={cn(
-                      "block truncate font-sans text-[10px] sm:text-[11px] font-medium transition-colors",
-                      activeIdx === i ? "font-bold text-white" : "text-slate-400"
-                    )}
+              {rows.map((r, i) => {
+                const isLblActive = activeIdx === i;
+                const isLblDimmed = activeIdx !== null && activeIdx !== i;
+                return (
+                  <div
+                    key={getLabel(r)}
+                    onMouseEnter={() => setHoveredIdx(i)}
+                    onMouseLeave={() => setHoveredIdx(null)}
+                    className="flex-1 text-center min-w-0 px-0.5 cursor-pointer"
                   >
-                    {getLabel(r)}
-                  </span>
-                </div>
-              ))}
+                    <span
+                      className={cn(
+                        "inline-block max-w-full truncate rounded px-1 py-0.5 font-sans text-[10px] sm:text-[11px] font-medium transition-all duration-150",
+                        isLblActive
+                          ? "bg-blue-500/25 font-bold text-white ring-1 ring-blue-400/50 shadow-[0_0_10px_rgba(59,130,246,0.3)]"
+                          : isLblDimmed
+                            ? "text-slate-500/70"
+                            : "text-slate-400"
+                      )}
+                    >
+                      {getLabel(r)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
