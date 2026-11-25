@@ -1,4 +1,11 @@
-import { useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent as ReactFormEvent,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring } from "motion/react";
 import { useMutation } from "@tanstack/react-query";
@@ -78,6 +85,64 @@ export default function Login() {
     logoScaleRaw.set(1);
   };
 
+  // Efeito 3D suave e profissional ao passar o cursor no card "Acessar Sistema"
+  const cardTiltRef = useRef<HTMLDivElement>(null);
+  const cardTiltTarget = useRef({ rx: 0, ry: 0 });
+  const cardTiltCurrent = useRef({ rx: 0, ry: 0 });
+  const cardTiltRaf = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (cardTiltRaf.current !== null) {
+        window.cancelAnimationFrame(cardTiltRaf.current);
+      }
+    };
+  }, []);
+
+  const runCardTiltLoop = () => {
+    if (cardTiltRaf.current !== null) return;
+    const step = () => {
+      const el = cardTiltRef.current;
+      if (!el) {
+        cardTiltRaf.current = null;
+        return;
+      }
+      const dx = cardTiltTarget.current.rx - cardTiltCurrent.current.rx;
+      const dy = cardTiltTarget.current.ry - cardTiltCurrent.current.ry;
+
+      if (Math.abs(dx) < 0.02 && Math.abs(dy) < 0.02) {
+        cardTiltCurrent.current.rx = cardTiltTarget.current.rx;
+        cardTiltCurrent.current.ry = cardTiltTarget.current.ry;
+        if (cardTiltTarget.current.rx === 0 && cardTiltTarget.current.ry === 0) {
+          el.style.transform = "";
+        } else {
+          el.style.transform = `perspective(1400px) rotateX(${cardTiltCurrent.current.rx.toFixed(2)}deg) rotateY(${cardTiltCurrent.current.ry.toFixed(2)}deg)`;
+        }
+        cardTiltRaf.current = null;
+        return;
+      }
+
+      cardTiltCurrent.current.rx += dx * 0.1;
+      cardTiltCurrent.current.ry += dy * 0.1;
+      el.style.transform = `perspective(1400px) rotateX(${cardTiltCurrent.current.rx.toFixed(2)}deg) rotateY(${cardTiltCurrent.current.ry.toFixed(2)}deg)`;
+      cardTiltRaf.current = window.requestAnimationFrame(step);
+    };
+    cardTiltRaf.current = window.requestAnimationFrame(step);
+  };
+
+  const handleCardMouseMove = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const px = Math.max(-0.5, Math.min(0.5, (event.clientX - rect.left) / Math.max(1, rect.width) - 0.5));
+    const py = Math.max(-0.5, Math.min(0.5, (event.clientY - rect.top) / Math.max(1, rect.height) - 0.5));
+    cardTiltTarget.current = { rx: -py * 8.5, ry: px * 8.5 };
+    runCardTiltLoop();
+  };
+
+  const handleCardMouseLeave = () => {
+    cardTiltTarget.current = { rx: 0, ry: 0 };
+    runCardTiltLoop();
+  };
+
   // Mutation for standard email/password login
   const loginMut = useMutation({
     mutationFn: (body: { email: string; senha: string }) => apiPost<UserOut>("/auth/login", body),
@@ -127,7 +192,7 @@ export default function Login() {
 
   if (me.data && !pendingOtpSignup) return <Navigate to="/" replace />;
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = (e: ReactFormEvent) => {
     e.preventDefault();
     setErro("");
     if (!email.trim() || !senha) {
@@ -137,7 +202,7 @@ export default function Login() {
     loginMut.mutate({ email: email.trim(), senha });
   };
 
-  const handleSignupSubmit = async (e: React.FormEvent) => {
+  const handleSignupSubmit = async (e: ReactFormEvent) => {
     e.preventDefault();
     setErro("");
     const cleanNome = nome.trim();
@@ -428,9 +493,18 @@ export default function Login() {
               animate={{ opacity: 1, y: 0 }}
               exit={reduceMotion ? undefined : { opacity: 0, y: -12, scale: 0.985 }}
               transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-              className="relative z-10 w-full max-w-md space-y-6 rounded-2xl border border-white/[0.15] bg-gradient-to-br from-[#0E182D]/66 via-[#0A1324]/60 to-[#190911]/68 p-8 sm:p-9 shadow-[0_32px_84px_rgba(0,0,0,0.88),inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-2xl backdrop-saturate-150 ring-1 ring-white/10"
-              data-testid="login-form"
+              onMouseMove={handleCardMouseMove}
+              onMouseLeave={handleCardMouseLeave}
+              className="relative z-10 w-full max-w-md"
             >
+              <div
+                ref={cardTiltRef}
+                className="relative"
+              >
+                <div
+                  className="relative space-y-6 rounded-2xl border border-white/[0.15] bg-gradient-to-br from-[#0E182D]/66 via-[#0A1324]/60 to-[#190911]/68 p-8 sm:p-9 shadow-[0_32px_84px_rgba(0,0,0,0.88),inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-2xl backdrop-saturate-150 ring-1 ring-white/10"
+                  data-testid="login-form"
+                >
           {/* Card Header */}
           <div>
             <h2 className="font-heading text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
@@ -695,12 +769,6 @@ export default function Login() {
                 </div>
               </div>
 
-              <p className="text-[11px] leading-relaxed text-slate-400 pt-1">
-                Novos cadastros recebem inicialmente perfil de{" "}
-                <strong className="text-slate-200">Consulta</strong>. Um administrador pode atualizar suas
-                permissões após a validação.
-              </p>
-
               {erro && (
                 <div
                   className="flex items-start gap-2 rounded-xl bg-red-500/10 border border-red-500/20 px-3.5 py-2.5 text-xs text-red-300 animate-rise"
@@ -730,6 +798,8 @@ export default function Login() {
               </ShinyButton>
             </form>
           )}
+                </div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
