@@ -146,11 +146,11 @@ export default function Auditoria() {
   };
 
   if (me.isLoading) {
-    return <p className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-8 text-slate-400">Verificando permissões...</p>;
+    return <p className="glass-panel rounded-xl border p-8 text-slate-400">Verificando permissões...</p>;
   }
   if (!admin) {
     return (
-      <p className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-8 text-slate-400" data-testid="auditoria-no-permission">
+      <p className="glass-panel rounded-xl border p-8 text-slate-400" data-testid="auditoria-no-permission">
         Acesso restrito a administradores do sistema.
       </p>
     );
@@ -175,7 +175,7 @@ export default function Auditoria() {
             size="sm"
             onClick={() => void audit.refetch()}
             disabled={audit.isFetching}
-            className="h-10 sm:h-9 justify-center border-[#1E2C42] bg-[#121B28] text-xs text-slate-200 hover:bg-[#1A2638]"
+            className="h-10 sm:h-9 justify-center border-white/[0.11] bg-[#0B1424]/72 backdrop-blur-md text-xs text-slate-200 hover:bg-white/[0.08] hover:text-white"
             data-testid="auditoria-refresh-button"
           >
             <RefreshCw className={cn("size-4 mr-1.5", audit.isFetching && "animate-spin text-blue-400")} />
@@ -186,7 +186,7 @@ export default function Auditoria() {
             variant="outline"
             size="sm"
             onClick={handleExportCSV}
-            className="h-10 sm:h-9 justify-center border-[#1E2C42] bg-[#121B28] text-xs text-slate-200 hover:bg-[#1A2638]"
+            className="h-10 sm:h-9 justify-center border-white/[0.11] bg-[#0B1424]/72 backdrop-blur-md text-xs text-slate-200 hover:bg-white/[0.08] hover:text-white"
             data-testid="auditoria-export-button"
           >
             <Download className="size-4 mr-1.5 text-blue-400" />
@@ -197,28 +197,28 @@ export default function Auditoria() {
 
       {/* KPI Stats */}
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-4">
-        <div className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-3.5 sm:p-4">
+        <div className="glass-panel rounded-xl border p-3.5 sm:p-4">
           <div className="flex items-center justify-between gap-1">
             <span className="text-[11px] sm:text-xs text-slate-400">Eventos ({limite})</span>
             <History className="size-4 shrink-0 text-blue-400" />
           </div>
           <p className="mt-1.5 sm:mt-2 num font-heading text-xl sm:text-2xl font-bold text-white" data-testid="auditoria-kpi-total">{itens.length}</p>
         </div>
-        <div className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-3.5 sm:p-4">
+        <div className="glass-panel rounded-xl border p-3.5 sm:p-4">
           <div className="flex items-center justify-between gap-1">
             <span className="text-[11px] sm:text-xs text-slate-400">Vencimentos</span>
             <Calendar className="size-4 shrink-0 text-amber-400" />
           </div>
           <p className="mt-1.5 sm:mt-2 num font-heading text-xl sm:text-2xl font-bold text-amber-300" data-testid="auditoria-kpi-vencimento">{totalVencimento}</p>
         </div>
-        <div className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-3.5 sm:p-4">
+        <div className="glass-panel rounded-xl border p-3.5 sm:p-4">
           <div className="flex items-center justify-between gap-1">
             <span className="text-[11px] sm:text-xs text-slate-400">Edições & Cad.</span>
             <CheckCircle2 className="size-4 shrink-0 text-emerald-400" />
           </div>
           <p className="mt-1.5 sm:mt-2 num font-heading text-xl sm:text-2xl font-bold text-emerald-300" data-testid="auditoria-kpi-edicoes">{totalEdicoes}</p>
         </div>
-        <div className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-3.5 sm:p-4">
+        <div className="glass-panel rounded-xl border p-3.5 sm:p-4">
           <div className="flex items-center justify-between gap-1">
             <span className="text-[11px] sm:text-xs text-slate-400">Deslig. / Reat.</span>
             <UserMinus className="size-4 shrink-0 text-red-400" />
@@ -228,14 +228,14 @@ export default function Auditoria() {
       </div>
 
       {/* Search and Filters Bar */}
-      <div className="flex flex-col gap-2.5 rounded-xl border border-[#1E2C42] bg-[#121B28] p-3.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 sm:p-4">
+      <div className="glass-panel flex flex-col gap-2.5 rounded-xl border p-3.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 sm:p-4">
         <div className="relative w-full sm:flex-1 sm:min-w-[240px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
           <Input
             placeholder="Buscar por militar, matrícula, usuário ou alteração..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            className="h-10 sm:h-9 pl-9 bg-[#0F1724] border-[#1E2C42]"
+            className="h-10 sm:h-9 pl-9 bg-[#060B15]/75 border-white/[0.10]"
             data-testid="auditoria-search-input"
           />
         </div>
@@ -247,7 +247,7 @@ export default function Auditoria() {
           <select
             value={filtroEntidade}
             onChange={(e) => setFiltroEntidade(e.target.value)}
-            className="h-10 sm:h-9 w-full sm:w-auto rounded-md border border-[#1E2C42] bg-[#0F1724] px-3 text-xs text-slate-200 outline-none focus:border-blue-500"
+            className="h-10 sm:h-9 w-full sm:w-auto rounded-md border border-white/[0.10] bg-[#060B15]/80 px-3 text-xs text-slate-200 outline-none focus:border-blue-500"
             data-testid="auditoria-filter-entidade"
           >
             <option value="TODOS">Todas as entidades</option>
@@ -264,7 +264,7 @@ export default function Auditoria() {
           <select
             value={filtroOperacao}
             onChange={(e) => setFiltroOperacao(e.target.value)}
-            className="h-10 sm:h-9 w-full sm:w-auto rounded-md border border-[#1E2C42] bg-[#0F1724] px-3 text-xs text-slate-200 outline-none focus:border-blue-500"
+            className="h-10 sm:h-9 w-full sm:w-auto rounded-md border border-white/[0.10] bg-[#060B15]/80 px-3 text-xs text-slate-200 outline-none focus:border-blue-500"
             data-testid="auditoria-filter-operacao"
           >
             <option value="TODAS">Todas as operações</option>
@@ -278,7 +278,7 @@ export default function Auditoria() {
           <select
             value={String(limite)}
             onChange={(e) => setLimite(Number(e.target.value))}
-            className="h-10 sm:h-9 w-full sm:w-auto rounded-md border border-[#1E2C42] bg-[#0F1724] px-3 text-xs text-slate-200 outline-none focus:border-blue-500"
+            className="h-10 sm:h-9 w-full sm:w-auto rounded-md border border-white/[0.10] bg-[#060B15]/80 px-3 text-xs text-slate-200 outline-none focus:border-blue-500"
             data-testid="auditoria-filter-limit"
             title="Limite de leitura por consulta no Firestore (proteção de cotas)"
           >
@@ -289,9 +289,9 @@ export default function Auditoria() {
       </div>
 
       {/* Audit Log Table & Mobile Cards */}
-      <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] overflow-hidden" data-testid="auditoria-table-section">
+      <section className="glass-panel rounded-xl border overflow-hidden" data-testid="auditoria-table-section">
         {/* Mobile card list */}
-        <div className="divide-y divide-[#162234] md:hidden" data-testid="auditoria-mobile-list">
+        <div className="divide-y divide-white/[0.07] md:hidden" data-testid="auditoria-mobile-list">
           {visiveis.length === 0 ? (
             <div className="px-4 py-10 text-center text-sm text-slate-400">
               <History className="mx-auto size-8 text-slate-600 mb-2" />
@@ -342,7 +342,7 @@ export default function Auditoria() {
                         const valAntes = antesObj ? antesObj[k] : undefined;
                         const valDepois = depoisObj ? depoisObj[k] : undefined;
                         return (
-                          <div key={k} className="flex flex-wrap items-center gap-1.5 rounded border border-[#1E2C42] bg-[#0F1724] px-2 py-1">
+                          <div key={k} className="flex flex-wrap items-center gap-1.5 rounded border border-white/[0.08] bg-[#060B15]/70 px-2 py-1">
                             <span className="font-semibold text-slate-400">{k}:</span>
                             {valAntes !== undefined && (
                               <span className="num text-red-400 line-through decoration-red-500/60">{fmtVal(valAntes)}</span>
@@ -368,12 +368,12 @@ export default function Auditoria() {
         <div className="hidden max-h-[640px] overflow-auto md:block">
           <Table>
             <TableHeader>
-              <TableRow className="border-[#1E2C42] hover:bg-transparent">
-                <TableHead className="sticky top-0 bg-[#0F1724] text-[11px] uppercase text-slate-400">Data e Hora</TableHead>
-                <TableHead className="sticky top-0 bg-[#0F1724] text-[11px] uppercase text-slate-400">Usuário Responsável</TableHead>
-                <TableHead className="sticky top-0 bg-[#0F1724] text-[11px] uppercase text-slate-400">Operação</TableHead>
-                <TableHead className="sticky top-0 bg-[#0F1724] text-[11px] uppercase text-slate-400">Entidade / ID</TableHead>
-                <TableHead className="sticky top-0 bg-[#0F1724] text-[11px] uppercase text-slate-400">Detalhes (Antes → Depois)</TableHead>
+              <TableRow className="border-white/[0.08] hover:bg-transparent">
+                <TableHead className="sticky top-0 bg-[#060B15]/88 backdrop-blur-md text-[11px] uppercase text-slate-400">Data e Hora</TableHead>
+                <TableHead className="sticky top-0 bg-[#060B15]/88 backdrop-blur-md text-[11px] uppercase text-slate-400">Usuário Responsável</TableHead>
+                <TableHead className="sticky top-0 bg-[#060B15]/88 backdrop-blur-md text-[11px] uppercase text-slate-400">Operação</TableHead>
+                <TableHead className="sticky top-0 bg-[#060B15]/88 backdrop-blur-md text-[11px] uppercase text-slate-400">Entidade / ID</TableHead>
+                <TableHead className="sticky top-0 bg-[#060B15]/88 backdrop-blur-md text-[11px] uppercase text-slate-400">Detalhes (Antes → Depois)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -400,7 +400,7 @@ export default function Auditoria() {
                   );
 
                   return (
-                    <TableRow key={a.id} className="border-[#162234] align-top hover:bg-[#152134]/50">
+                    <TableRow key={a.id} className="border-white/[0.06] align-top hover:bg-white/[0.04]">
                       {/* Timestamp */}
                       <TableCell className="num whitespace-nowrap py-3 text-xs">
                         <span className="font-semibold text-slate-200">{fmtDateTime(a.data_hora || a.timestamp)}</span>
@@ -460,7 +460,7 @@ export default function Auditoria() {
 
                             if (valAntes !== undefined && valDepois !== undefined) {
                               return (
-                                <div key={k} className="flex flex-wrap items-center gap-1.5 text-xs bg-[#0F1724] border border-[#1E2C42] rounded px-2 py-1">
+                                <div key={k} className="flex flex-wrap items-center gap-1.5 text-xs bg-[#060B15]/70 border border-white/[0.08] rounded px-2 py-1">
                                   <span className="font-semibold text-slate-400">{k}:</span>
                                   <span className="num text-red-400 line-through decoration-red-500/60">{fmtVal(valAntes)}</span>
                                   <span className="text-slate-500">→</span>
@@ -471,7 +471,7 @@ export default function Auditoria() {
 
                             if (valDepois !== undefined) {
                               return (
-                                <div key={k} className="flex flex-wrap items-center gap-1.5 text-xs bg-[#0F1724] border border-[#1E2C42] rounded px-2 py-1">
+                                <div key={k} className="flex flex-wrap items-center gap-1.5 text-xs bg-[#060B15]/70 border border-white/[0.08] rounded px-2 py-1">
                                   <span className="font-semibold text-slate-400">{k}:</span>
                                   <span className="text-slate-200">{fmtVal(valDepois)}</span>
                                 </div>
@@ -479,7 +479,7 @@ export default function Auditoria() {
                             }
 
                             return (
-                              <div key={k} className="flex flex-wrap items-center gap-1.5 text-xs bg-[#0F1724] border border-[#1E2C42] rounded px-2 py-1">
+                              <div key={k} className="flex flex-wrap items-center gap-1.5 text-xs bg-[#060B15]/70 border border-white/[0.08] rounded px-2 py-1">
                                 <span className="font-semibold text-slate-400">{k} (removido):</span>
                                 <span className="text-red-400 line-through">{fmtVal(valAntes)}</span>
                               </div>
@@ -500,14 +500,14 @@ export default function Auditoria() {
 
         {/* Paginação / Carregamento sob demanda */}
         {itens.length >= limite && limite < 150 && (
-          <div className="flex flex-col gap-2 border-t border-[#1E2C42] bg-[#0F1724]/60 px-4 py-3 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 border-t border-white/[0.08] bg-[#060B15]/55 px-4 py-3 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
             <span>Exibindo os últimos {itens.length} registros da nuvem (proteção de cotas ativa).</span>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setLimite((prev) => Math.min(150, prev + 30))}
               disabled={audit.isFetching}
-              className="h-9 sm:h-8 w-full sm:w-auto justify-center border-[#1E2C42] bg-[#121B28] text-xs text-blue-300 hover:bg-[#1A2638] hover:text-white"
+              className="h-9 sm:h-8 w-full sm:w-auto justify-center border-white/[0.11] bg-white/[0.05] text-xs text-blue-300 hover:bg-white/[0.10] hover:text-white"
               data-testid="auditoria-load-more"
             >
               Carregar mais registros (+30)

@@ -101,23 +101,23 @@ function CrudTab({ title, rows, fields, endpoint, invalidateKey, canEdit, canDel
 
   const visible = rows.filter((r) => !filtro || JSON.stringify(r).toLowerCase().includes(filtro.toLowerCase()));
   return (
-    <section className="rounded-xl border border-[#1E2C42] bg-[#121B28]" data-testid={`${testId}-tab`}>
-      <div className="flex flex-col gap-2.5 border-b border-[#1E2C42] p-3.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2 sm:p-4">
+    <section className="glass-panel rounded-xl border" data-testid={`${testId}-tab`}>
+      <div className="flex flex-col gap-2.5 border-b border-white/[0.08] p-3.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2 sm:p-4">
         <h3 className="font-heading font-bold text-white">{title} <span className="num text-sm text-slate-500">({rows.length})</span></h3>
         <div className="flex w-full gap-2 sm:w-auto">
-          <Input placeholder="Filtrar" value={filtro} onChange={(e) => setFiltro(e.target.value)} className="h-9 sm:h-8 flex-1 sm:w-48" data-testid={`${testId}-filter`} />
+          <Input placeholder="Filtrar" value={filtro} onChange={(e) => setFiltro(e.target.value)} className="h-9 sm:h-8 flex-1 sm:w-48 border-white/[0.10] bg-[#060B15]/75" data-testid={`${testId}-filter`} />
           {canEdit && <Button size="sm" className="h-9 sm:h-8 shrink-0 bg-blue-600 hover:bg-blue-700" onClick={() => open(null, true)} data-testid={`${testId}-add-button`}><Plus className="size-4" /> Adicionar</Button>}
         </div>
       </div>
       <div className="max-h-[560px] overflow-auto">
         <Table>
-          <TableHeader><TableRow className="border-[#1E2C42] hover:bg-transparent">
-            {display.map((d) => <TableHead key={d.key} className="sticky top-0 bg-[#0F1724] text-[11px] uppercase text-slate-400">{d.label}</TableHead>)}
-            {canEdit && <TableHead className="sticky top-0 bg-[#0F1724] text-right text-[11px] uppercase text-slate-400">Ações</TableHead>}
+          <TableHeader><TableRow className="border-white/[0.08] hover:bg-transparent">
+            {display.map((d) => <TableHead key={d.key} className="sticky top-0 bg-[#060B15]/88 backdrop-blur-md text-[11px] uppercase text-slate-400">{d.label}</TableHead>)}
+            {canEdit && <TableHead className="sticky top-0 bg-[#060B15]/88 backdrop-blur-md text-right text-[11px] uppercase text-slate-400">Ações</TableHead>}
           </TableRow></TableHeader>
           <TableBody>
             {visible.map((r) => (
-              <TableRow key={r.id} className="border-[#162234]">
+              <TableRow key={r.id} className="border-white/[0.06] hover:bg-white/[0.04]">
                 {display.map((d) => <TableCell key={d.key} className="py-2 text-slate-200">{d.render ? d.render(r) : String(r[d.key] ?? "—")}</TableCell>)}
                 {canEdit && (
                   <TableCell className="py-2 text-right">
@@ -146,7 +146,7 @@ function CrudTab({ title, rows, fields, endpoint, invalidateKey, canEdit, canDel
         </Table>
       </div>
       <Dialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}>
-        <DialogContent className="border-[#1E2C42] bg-[#121B28]" data-testid={`${testId}-dialog`}>
+        <DialogContent className="glass-dialog border" data-testid={`${testId}-dialog`}>
           <DialogHeader><DialogTitle className="text-white">{edit?.id ? "Editar" : "Adicionar"} — {title}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             {fields.map((f) => (
@@ -195,7 +195,7 @@ function CrudTab({ title, rows, fields, endpoint, invalidateKey, canEdit, canDel
 
       {/* Confirmation Dialog for Deletion */}
       <Dialog open={!!deletar} onOpenChange={(o) => !o && setDeletar(null)}>
-        <DialogContent className="border-[#1E2C42] bg-[#121B28]" data-testid={`${testId}-delete-dialog`}>
+        <DialogContent className="glass-dialog border" data-testid={`${testId}-delete-dialog`}>
           <DialogHeader>
             <DialogTitle className="text-white">Confirmar Exclusão</DialogTitle>
           </DialogHeader>
@@ -287,7 +287,7 @@ export default function Configuracoes() {
           {admin && <TabsTrigger value="auditoria" className="shrink-0" data-testid="config-tab-auditoria">Auditoria</TabsTrigger>}
         </TabsList>
         <TabsContent value="geral" className="mt-4">
-          <section className="max-w-lg space-y-3 rounded-xl border border-[#1E2C42] bg-[#121B28] p-5">
+          <section className="glass-panel max-w-lg space-y-3 rounded-xl border p-5">
             <Label>Prazo de alerta de vencimento de contrato (dias)</Label>
             <div className="flex gap-2">
               <Input type="number" min={1} max={365} className="num w-32" disabled={!admin} value={alerta || String(c?.config.alerta_dias ?? "")}

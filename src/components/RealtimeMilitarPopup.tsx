@@ -39,7 +39,7 @@ function PopupCard({
       role="status"
       aria-live="polite"
       data-testid={`realtime-popup-${militar.id}`}
-      className="pointer-events-auto relative overflow-hidden rounded-xl border border-emerald-500/40 bg-[#101928]/95 p-3.5 shadow-[0_18px_45px_rgba(2,6,23,0.78)] backdrop-blur-xl animate-in slide-in-from-top-3 fade-in duration-300"
+      className="pointer-events-auto relative overflow-hidden rounded-xl border border-emerald-400/40 bg-[#0A1324]/82 p-3.5 shadow-[0_22px_54px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-2xl backdrop-saturate-150 animate-in slide-in-from-top-3 fade-in duration-300"
     >
       <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-emerald-400 via-teal-400 to-blue-500" />
       <div className="flex items-start gap-3">

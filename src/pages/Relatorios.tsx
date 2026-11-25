@@ -103,7 +103,7 @@ export default function Relatorios() {
       </div>
       <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
         {/* Mobile / Tablet report picker so report content sits immediately above the fold */}
-        <div className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-3 lg:hidden">
+        <div className="glass-panel rounded-xl border p-3 lg:hidden">
           <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
             Tipo de relatório
           </label>
@@ -115,17 +115,17 @@ export default function Relatorios() {
           />
         </div>
 
-        <nav className="hidden space-y-1 rounded-xl border border-[#1E2C42] bg-[#121B28] p-2 lg:block" data-testid="report-types">
+        <nav className="glass-panel hidden space-y-1 rounded-xl border p-2 lg:block" data-testid="report-types">
           {TIPOS.map((t) => (
             <button key={t.id} onClick={() => setTipo(t.id)} data-testid={`report-type-${t.id}`}
               className={cn("flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
-                tipo === t.id ? "bg-blue-600/15 text-white" : "text-slate-400 hover:bg-[#182335] hover:text-slate-100")}>
+                tipo === t.id ? "bg-blue-600/20 text-white" : "text-slate-400 hover:bg-white/[0.06] hover:text-slate-100")}>
               <FileText className="size-4 shrink-0" /> {t.label}
             </button>
           ))}
         </nav>
-        <section className="min-w-0 rounded-xl border border-[#1E2C42] bg-[#121B28]" data-testid="report-view">
-          <div className="flex flex-col gap-3 border-b border-[#1E2C42] p-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+        <section className="glass-panel min-w-0 rounded-xl border" data-testid="report-view">
+          <div className="flex flex-col gap-3 border-b border-white/[0.08] p-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
             <div className="min-w-0">
               <h3 className="font-heading text-base sm:text-lg font-bold text-white" data-testid="report-title">{r?.titulo ?? TIPOS.find((t) => t.id === tipo)?.label}</h3>
               <p className="text-xs text-slate-400">{r?.descricao}</p>
@@ -214,7 +214,7 @@ export default function Relatorios() {
           </div>
 
           {tipo === "renovacoes" && (
-            <div className="border-b border-[#1E2C42] bg-[#0E1622]/70 p-4" data-testid="report-renovacoes-filter">
+            <div className="border-b border-white/[0.08] bg-[#060B15]/55 p-4" data-testid="report-renovacoes-filter">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-cyan-300">
@@ -226,7 +226,7 @@ export default function Relatorios() {
                   </p>
                 </div>
                 <div className="flex w-full items-center gap-2 sm:w-auto">
-                  <div className="flex w-full items-center gap-2 rounded-lg border border-[#24344D] bg-[#121B28] px-3 py-1.5 shadow-sm sm:w-auto">
+                  <div className="flex w-full items-center gap-2 rounded-lg border border-white/[0.10] bg-[#060B15]/75 px-3 py-1.5 shadow-sm sm:w-auto">
                     <label htmlFor="filter-mes-ano" className="text-xs font-semibold text-slate-300 shrink-0">
                       Mês/ano:
                     </label>
@@ -236,7 +236,7 @@ export default function Relatorios() {
                       data-testid="report-renovacao-mes-ano-input"
                       value={mesAno}
                       onChange={(e) => setMesAno(e.target.value)}
-                      className="h-9 sm:h-8 flex-1 sm:w-44 border-[#24344D] bg-[#0F1724] font-sans text-xs text-white [color-scheme:dark] cursor-pointer"
+                      className="h-9 sm:h-8 flex-1 sm:w-44 border-white/[0.10] bg-[#050912]/80 font-sans text-xs text-white [color-scheme:dark] cursor-pointer"
                     />
                     {mesAno && (
                       <button
@@ -256,7 +256,7 @@ export default function Relatorios() {
           )}
 
           {(tipo === "inclusoes" || tipo === "desligamentos" || tipo === "a-vencer" || tipo === "vencidos") && (
-            <div className="border-b border-[#1E2C42] bg-[#0E1622]/70 p-4" data-testid={`report-${tipo}-filter`}>
+            <div className="border-b border-white/[0.08] bg-[#060B15]/55 p-4" data-testid={`report-${tipo}-filter`}>
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <div className="space-y-0.5">
                   <div className="text-xs font-bold uppercase tracking-wider text-slate-300">
@@ -267,24 +267,24 @@ export default function Relatorios() {
                   </p>
                 </div>
                 <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:items-center">
-                  <div className="flex items-center gap-1.5 rounded-lg border border-[#24344D] bg-[#121B28] px-2.5 py-1">
+                  <div className="flex items-center gap-1.5 rounded-lg border border-white/[0.10] bg-[#060B15]/75 px-2.5 py-1">
                     <span className="text-xs text-slate-400 shrink-0">De:</span>
                     <Input
                       type="date"
                       data-testid="report-data-inicio-input"
                       value={dataInicio}
                       onChange={(e) => setDataInicio(e.target.value)}
-                      className="h-9 sm:h-8 flex-1 sm:w-36 border-[#24344D] bg-[#0F1724] text-xs text-white [color-scheme:dark]"
+                      className="h-9 sm:h-8 flex-1 sm:w-36 border-white/[0.10] bg-[#050912]/80 text-xs text-white [color-scheme:dark]"
                     />
                   </div>
-                  <div className="flex items-center gap-1.5 rounded-lg border border-[#24344D] bg-[#121B28] px-2.5 py-1">
+                  <div className="flex items-center gap-1.5 rounded-lg border border-white/[0.10] bg-[#060B15]/75 px-2.5 py-1">
                     <span className="text-xs text-slate-400 shrink-0">Até:</span>
                     <Input
                       type="date"
                       data-testid="report-data-fim-input"
                       value={dataFim}
                       onChange={(e) => setDataFim(e.target.value)}
-                      className="h-9 sm:h-8 flex-1 sm:w-36 border-[#24344D] bg-[#0F1724] text-xs text-white [color-scheme:dark]"
+                      className="h-9 sm:h-8 flex-1 sm:w-36 border-white/[0.10] bg-[#050912]/80 text-xs text-white [color-scheme:dark]"
                     />
                   </div>
                   {(dataInicio || dataFim) && (
@@ -294,7 +294,7 @@ export default function Relatorios() {
                         setDataInicio("");
                         setDataFim("");
                       }}
-                      className="inline-flex h-9 sm:h-8 items-center justify-center gap-1 rounded border border-[#24344D] px-2.5 text-xs text-slate-300 hover:bg-slate-800 hover:text-white transition-colors sm:border-transparent sm:p-1"
+                      className="inline-flex h-9 sm:h-8 items-center justify-center gap-1 rounded border border-white/[0.10] px-2.5 text-xs text-slate-300 hover:bg-white/[0.08] hover:text-white transition-colors sm:border-transparent sm:p-1"
                       title="Limpar período"
                       data-testid="report-clear-dates"
                     >
@@ -308,7 +308,7 @@ export default function Relatorios() {
           )}
 
           {tipo === "historico" && (
-            <div className="space-y-4 border-b border-[#1E2C42] bg-[#0E1622]/60 p-4">
+            <div className="space-y-4 border-b border-white/[0.08] bg-[#060B15]/55 p-4">
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-semibold uppercase tracking-wider text-slate-300">
                   Buscar Militar por Matrícula ou Nome
@@ -345,7 +345,7 @@ export default function Relatorios() {
 
                   {/* Dropdown list of suggestions */}
                   {showDropdown && sugestoes.data && sugestoes.data.items.length > 0 && cleanMatricula.length >= 2 && (
-                    <div className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-[#24344D] bg-[#121B28] p-1 shadow-2xl">
+                    <div className="glass-dialog absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border p-1">
                       <div className="px-2 py-1 text-[11px] font-semibold uppercase text-slate-400">
                         Militares correspondentes ({sugestoes.data.total}):
                       </div>
@@ -407,7 +407,7 @@ export default function Relatorios() {
                           )}
                         </p>
                         {r.militar.observacoes && r.militar.observacoes.trim() !== "" && r.militar.observacoes.trim() !== "-" && r.militar.observacoes.trim() !== "—" && (
-                          <p className="mt-1.5 rounded border border-blue-500/20 bg-[#0E1622]/80 px-2.5 py-1 text-xs text-slate-300">
+                          <p className="mt-1.5 rounded border border-blue-500/20 bg-[#050A14]/75 px-2.5 py-1 text-xs text-slate-300">
                             <strong className="text-blue-300">OBSERVAÇÕES:</strong> {r.militar.observacoes}
                           </p>
                         )}
@@ -448,13 +448,13 @@ export default function Relatorios() {
           <div className="max-h-[620px] overflow-auto">
             <Table>
               <TableHeader>
-                <TableRow className="border-[#1E2C42] hover:bg-transparent">
-                  {(r?.colunas ?? []).map((c) => <TableHead key={c.key} className="sticky top-0 bg-[#0F1724] text-[11px] uppercase tracking-wider text-slate-400">{c.label}</TableHead>)}
+                <TableRow className="border-white/[0.08] hover:bg-transparent">
+                  {(r?.colunas ?? []).map((c) => <TableHead key={c.key} className="sticky top-0 bg-[#060B15]/88 backdrop-blur-md text-[11px] uppercase tracking-wider text-slate-400">{c.label}</TableHead>)}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {(r?.linhas ?? []).map((li, i) => (
-                  <TableRow key={i} className={cn("border-[#162234]", li[r?.colunas[0]?.key ?? ""] === "TOTAL" && "bg-blue-600/10 font-bold")} data-testid="report-row">
+                  <TableRow key={i} className={cn("border-white/[0.06]", li[r?.colunas[0]?.key ?? ""] === "TOTAL" && "bg-blue-600/12 font-bold")} data-testid="report-row">
                     {(r?.colunas ?? []).map((c) => (
                       <TableCell key={c.key} className={cn("py-2 text-slate-200", typeof li[c.key] === "number" && "num")}>
                         {c.key === "rotulo_ano" ? (

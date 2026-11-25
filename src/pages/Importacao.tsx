@@ -109,10 +109,10 @@ export default function Importacao() {
   };
 
   if (me.isLoading) {
-    return <p className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-8 text-slate-400">Verificando permissões...</p>;
+    return <p className="glass-panel rounded-xl border p-8 text-slate-400">Verificando permissões...</p>;
   }
   if (!canEdit)
-    return <p className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-8 text-slate-400" data-testid="no-permission">Seu perfil (Consulta) não permite importar dados.</p>;
+    return <p className="glass-panel rounded-xl border p-8 text-slate-400" data-testid="no-permission">Seu perfil (Consulta) não permite importar dados.</p>;
 
   const cols = analise ? Math.max(analise.cabecalho.length, ...analise.amostra.map((r) => r.length)) : 0;
   const colOpts = Array.from({ length: cols }, (_, i) => ({ value: String(i), label: `Col. ${i + 1}${analise?.cabecalho[i] ? ` — ${analise.cabecalho[i]}` : ""}` }));
@@ -130,7 +130,7 @@ export default function Importacao() {
       <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="import-steps">
         {STEPS.map((s) => (
           <li key={s.n} className={cn("flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
-            step === s.n ? "border-blue-500/60 bg-blue-500/10 text-white" : step > s.n ? "border-emerald-500/30 text-emerald-300" : "border-[#1E2C42] text-slate-500")}
+            step === s.n ? "border-blue-500/60 bg-blue-500/12 text-white backdrop-blur-md" : step > s.n ? "border-emerald-500/30 bg-emerald-500/[0.05] text-emerald-300 backdrop-blur-md" : "border-white/[0.10] bg-[#09101E]/55 text-slate-400")}
             data-testid={`import-step-${s.n}`}>
             <s.icon className="size-4" /> <span className="num text-xs">{s.n}.</span> {s.label}
           </li>
@@ -138,7 +138,7 @@ export default function Importacao() {
       </ol>
 
       {step === 1 && (
-        <label className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-[#24344D] bg-[#121B28] p-12 text-center transition-colors hover:border-blue-500/60" data-testid="import-dropzone">
+        <label className="glass-panel flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-white/[0.15] p-12 text-center transition-colors hover:border-blue-400/60" data-testid="import-dropzone">
           <Upload className="size-10 text-blue-400" />
           <p className="font-semibold text-white">{analisar.isPending ? "Analisando arquivo..." : "Clique para selecionar o arquivo CSV"}</p>
           <p className="text-xs text-slate-400">Ex.: PLANILHA DE BM TEMPORÁRIOS — AUXILIARES.csv</p>
@@ -148,7 +148,7 @@ export default function Importacao() {
 
       {step === 2 && analise && (
         <div className="space-y-4">
-          <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-5">
+          <section className="glass-panel rounded-xl border p-5">
             <div className="mb-4 flex flex-wrap items-end gap-4 text-sm text-slate-300">
               <p><span className="text-slate-500">Arquivo:</span> {file?.name}</p>
               <p><span className="text-slate-500">Separador:</span> <span className="num">{analise.delimitador === "\t" ? "TAB" : analise.delimitador}</span></p>
@@ -169,13 +169,13 @@ export default function Importacao() {
               ))}
             </div>
           </section>
-          <section className="overflow-x-auto rounded-xl border border-[#1E2C42] bg-[#121B28]" data-testid="import-preview">
-            <p className="border-b border-[#1E2C42] px-4 py-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Pré-visualização (primeiras linhas após o cabeçalho)</p>
+          <section className="glass-panel overflow-x-auto rounded-xl border" data-testid="import-preview">
+            <p className="border-b border-white/[0.08] px-4 py-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Pré-visualização (primeiras linhas após o cabeçalho)</p>
             <table className="w-full text-xs">
-              <thead><tr>{analise.campos.filter((c) => mapping[c.key] !== null && mapping[c.key] !== undefined).map((c) => <th key={c.key} className="whitespace-nowrap bg-[#0F1724] px-3 py-2 text-left text-slate-400">{c.label}</th>)}</tr></thead>
+              <thead><tr>{analise.campos.filter((c) => mapping[c.key] !== null && mapping[c.key] !== undefined).map((c) => <th key={c.key} className="whitespace-nowrap bg-[#060B15]/75 px-3 py-2 text-left text-slate-400">{c.label}</th>)}</tr></thead>
               <tbody>
                 {analise.amostra.map((r, i) => (
-                  <tr key={i} className="border-t border-[#162234]">
+                  <tr key={i} className="border-t border-white/[0.06]">
                     {analise.campos.filter((c) => mapping[c.key] !== null && mapping[c.key] !== undefined).map((c) => (
                       <td key={c.key} className="whitespace-nowrap px-3 py-1.5 text-slate-300">{r[mapping[c.key] as number] ?? ""}</td>
                     ))}
@@ -197,7 +197,7 @@ export default function Importacao() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4" data-testid="import-summary">
             {([["inserir", "Serão inseridos", "text-emerald-300"], ["atualizar", "Possíveis atualizações", "text-blue-300"], ["ignorar", "Ignorados", "text-slate-300"], ["rejeitar", "Rejeitados", "text-red-300"]] as const).map(([k, l, c]) => (
-              <div key={k} className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-4" data-testid={`import-count-${k}`}>
+              <div key={k} className="glass-panel rounded-xl border p-4" data-testid={`import-count-${k}`}>
                 <p className="text-[11px] uppercase tracking-wider text-slate-400">{l}</p>
                 <p className={cn("num mt-1 text-3xl font-bold", c)}>{fmtNum(val.resumo[k])}</p>
               </div>
@@ -228,14 +228,14 @@ export default function Importacao() {
               <button className="ml-2 font-semibold underline" onClick={() => setAprovar(new Set(val.linhas.filter((l) => l.acao === "ATUALIZAR").map((l) => l.matricula)))} data-testid="import-approve-all">Aprovar todas</button>
             </p>
           )}
-          <div className="max-h-[520px] overflow-auto rounded-xl border border-[#1E2C42] bg-[#121B28]" data-testid="import-lines">
+          <div className="glass-panel max-h-[520px] overflow-auto rounded-xl border" data-testid="import-lines">
             <table className="w-full text-xs">
-              <thead className="sticky top-0"><tr className="bg-[#0F1724] text-left text-slate-400">
+              <thead className="sticky top-0"><tr className="bg-[#060B15]/88 backdrop-blur-md text-left text-slate-400">
                 <th className="px-3 py-2">Linha</th><th className="px-3 py-2">Matrícula</th><th className="px-3 py-2">Nome</th><th className="px-3 py-2">Ação</th><th className="px-3 py-2">Detalhes</th>
               </tr></thead>
               <tbody>
                 {linhas.slice(0, 500).map((l) => (
-                  <tr key={l.linha} className="border-t border-[#162234] align-top" data-testid={`import-line-${l.linha}`}>
+                  <tr key={l.linha} className="border-t border-white/[0.06] align-top" data-testid={`import-line-${l.linha}`}>
                     <td className="num px-3 py-2 text-slate-500">{l.linha}</td>
                     <td className="num px-3 py-2 text-slate-300">{l.matricula || "—"}</td>
                     <td className="px-3 py-2 text-slate-200">{l.nome_completo || "—"}</td>
@@ -268,11 +268,11 @@ export default function Importacao() {
       )}
 
       {step === 4 && res && (
-        <section className="space-y-4 rounded-xl border border-emerald-500/30 bg-[#121B28] p-6" data-testid="import-result">
+        <section className="glass-panel space-y-4 rounded-xl border border-emerald-500/30 p-6" data-testid="import-result">
           <h3 className="flex items-center gap-2 font-heading text-lg font-bold text-white"><CheckCircle2 className="size-5 text-emerald-400" /> Importação concluída</h3>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {([["inseridos", "Inseridos"], ["atualizados", "Atualizados"], ["ignorados", "Ignorados"], ["rejeitados", "Rejeitados"]] as const).map(([k, l]) => (
-              <div key={k} className="rounded-lg border border-[#1E2C42] p-3" data-testid={`import-result-${k}`}>
+              <div key={k} className="glass-well rounded-lg border p-3" data-testid={`import-result-${k}`}>
                 <p className="text-[11px] uppercase text-slate-400">{l}</p><p className="num text-2xl font-bold text-white">{res[k]}</p>
               </div>
             ))}

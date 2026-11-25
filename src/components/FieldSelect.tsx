@@ -120,7 +120,7 @@ function SearchableFieldSelect({
           data-testid={testId}
           aria-label={displayLabel}
           className={cn(
-            "flex h-10 sm:h-8 w-full min-w-0 items-center justify-between gap-1.5 rounded-lg border border-[#24344D] bg-[#0F1724] py-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none hover:bg-[#142033] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50",
+            "flex h-10 sm:h-8 w-full min-w-0 items-center justify-between gap-1.5 rounded-lg border border-white/[0.10] bg-[#060B15]/75 py-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none hover:bg-[#0B1424]/85 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50",
             value && allLabel ? "pr-12" : "pr-2"
           )}
         >
@@ -149,10 +149,10 @@ function SearchableFieldSelect({
         <Popover.Portal>
           <Popover.Positioner side="bottom" align="start" sideOffset={6} className="z-50">
             <Popover.Popup
-              className="w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#24344D] bg-[#0F1724] text-slate-100 shadow-2xl shadow-black/60 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
+              className="glass-dialog w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-xl border text-slate-100 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
               data-testid={`${testId}-popover`}
             >
-              <div className="flex items-center gap-2 border-b border-[#1E2C42] bg-[#0B121D] px-3 py-2">
+              <div className="flex items-center gap-2 border-b border-white/[0.08] bg-[#050912]/70 px-3 py-2">
                 <Search className="size-4 shrink-0 text-slate-400" />
                 <input
                   ref={inputRef}
@@ -232,7 +232,7 @@ function SearchableFieldSelect({
                 )}
               </div>
 
-              <div className="flex items-center justify-between border-t border-[#1E2C42] bg-[#0B121D] px-3 py-1.5 text-[11px] text-slate-500">
+              <div className="flex items-center justify-between border-t border-white/[0.08] bg-[#050912]/70 px-3 py-1.5 text-[11px] text-slate-500">
                 <span>
                   {query.trim()
                     ? `${visibleItems.filter((i) => !i.isAll).length} resultado(s)`
@@ -259,7 +259,7 @@ export default function FieldSelect(props: Props) {
   const current = value || (allLabel ? ALL : "");
   return (
     <Select value={current} onValueChange={(v: string) => onChange(v === ALL ? "" : v)} disabled={disabled}>
-      <SelectTrigger data-testid={testId} className={cn("h-10 sm:h-8 w-full min-w-0 bg-[#0F1724] dark:bg-[#0F1724] hover:bg-[#142033] dark:hover:bg-[#142033] border-[#24344D] text-slate-100", className)}>
+      <SelectTrigger data-testid={testId} className={cn("h-10 sm:h-8 w-full min-w-0 bg-[#060B15]/75 dark:bg-[#060B15]/75 hover:bg-[#0B1424]/85 dark:hover:bg-[#0B1424]/85 border-white/[0.10] text-slate-100", className)}>
         <SelectValue placeholder={placeholder}>
           {(v) => <span className={cn("truncate", !v && "text-muted-foreground")}>{v ? labels[v as string] ?? placeholder : placeholder}</span>}
         </SelectValue>

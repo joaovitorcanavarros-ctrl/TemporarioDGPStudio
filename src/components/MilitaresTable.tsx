@@ -261,8 +261,8 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
   };
 
   return (
-    <div className="overflow-hidden rounded-xl border border-[#1E2C42] bg-[#121B28]" data-testid={testId}>
-      <div className="flex flex-col gap-2.5 border-b border-[#1E2C42] px-3.5 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-4">
+    <div className="glass-panel overflow-hidden rounded-xl border" data-testid={testId}>
+      <div className="flex flex-col gap-2.5 border-b border-white/[0.08] px-3.5 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:px-4">
         <p className="text-sm text-slate-400" data-testid="table-total">
           <span className="num font-semibold text-white">{fmtNum(total)}</span> registro(s) encontrados
         </p>
@@ -331,7 +331,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
       </div>
 
       {/* Visualização em Cartões no Mobile (< md) */}
-      <div className="divide-y divide-[#162234] md:hidden" data-testid={`${testId}-mobile-list`}>
+      <div className="divide-y divide-white/[0.07] md:hidden" data-testid={`${testId}-mobile-list`}>
         {items.map((m) => {
           const info = getInfoContrato(m);
           const shortCr = formatCRBMShort(m.comando_regional_nome);
@@ -390,7 +390,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
               </div>
 
               {variant === "desligados" ? (
-                <div className="grid grid-cols-2 gap-2 rounded-lg bg-[#0F1724] px-3 py-2 text-xs">
+                <div className="grid grid-cols-2 gap-2 rounded-lg border border-white/[0.07] bg-[#060B15]/68 px-3 py-2 text-xs">
                   <div>
                     <span className="block text-[10px] uppercase tracking-wider text-slate-500">Desligamento</span>
                     <span className="num font-semibold text-red-300">{fmtDate(m.data_desligamento)}</span>
@@ -401,7 +401,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-2 rounded-lg bg-[#0F1724] px-3 py-2 text-xs">
+                <div className="grid grid-cols-2 gap-2 rounded-lg border border-white/[0.07] bg-[#060B15]/68 px-3 py-2 text-xs">
                   <div>
                     <span className="block text-[10px] uppercase tracking-wider text-slate-500">Inclusão</span>
                     <span className="num font-medium text-slate-200">{fmtDate(m.data_inclusao)}</span>
@@ -421,7 +421,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
                   to={`/temporarios/${m.id}`}
                   className={cn(
                     buttonVariants({ variant: "outline", size: "sm" }),
-                    "h-9 flex-1 border-[#24344D] bg-[#0F1724] text-xs text-slate-200 hover:bg-[#182335]"
+                    "h-9 flex-1 border-white/[0.11] bg-[#060B15]/70 text-xs text-slate-200 hover:bg-white/[0.08]"
                   )}
                 >
                   <History className="size-3.5" /> Detalhes
@@ -440,7 +440,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
                       to={`/temporarios/${m.id}/editar`}
                       className={cn(
                         buttonVariants({ variant: "outline", size: "sm" }),
-                        "h-9 px-3 border-[#24344D] bg-[#0F1724] text-xs text-slate-200 hover:bg-[#182335]"
+                        "h-9 px-3 border-white/[0.11] bg-[#060B15]/70 text-xs text-slate-200 hover:bg-white/[0.08]"
                       )}
                       aria-label="Editar cadastro completo"
                     >
@@ -476,12 +476,12 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
       <div className="hidden md:block">
         <Table>
           <TableHeader>
-            <TableRow className="border-[#1E2C42] hover:bg-transparent">
+            <TableRow className="border-white/[0.08] hover:bg-transparent">
               {cols.map((c) => (
                 <TableHead
                   key={c.key}
                   className={cn(
-                    "bg-[#0F1724] px-2.5 text-[10.5px] uppercase tracking-wider text-slate-400",
+                    "bg-[#060B15]/75 px-2.5 text-[10.5px] uppercase tracking-wider text-slate-400",
                     compact && "px-2",
                     c.className
                   )}
@@ -491,7 +491,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
                   </button>
                 </TableHead>
               ))}
-              <TableHead className={cn("bg-[#0F1724] px-2.5 text-right text-[10.5px] uppercase tracking-wider text-slate-400", compact && "px-2", hasReativarCol ? "w-[180px]" : "w-[96px]")}>Ações</TableHead>
+              <TableHead className={cn("bg-[#060B15]/75 px-2.5 text-right text-[10.5px] uppercase tracking-wider text-slate-400", compact && "px-2", hasReativarCol ? "w-[180px]" : "w-[96px]")}>Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -500,7 +500,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
                 key={m.id}
                 data-testid={`militar-row-${m.matricula}`}
                 className={cn(
-                  "border-[#162234] transition-colors hover:bg-[#182335]",
+                  "border-white/[0.06] transition-colors hover:bg-white/[0.05]",
                   m.alerta === "A_VENCER" && "bg-amber-500/[0.06] shadow-[inset_3px_0_0_#F59E0B]",
                   m.alerta === "VENCIDO" && "bg-red-500/[0.05] shadow-[inset_3px_0_0_#EF4444]",
                 )}
@@ -596,7 +596,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
         </Table>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#1E2C42] px-3.5 py-3 text-xs sm:px-4 sm:text-sm text-slate-400">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.08] px-3.5 py-3 text-xs sm:px-4 sm:text-sm text-slate-400">
         <div className="flex items-center gap-2">
           <span className="hidden sm:inline">Itens por página</span>
           <span className="sm:hidden">Por pág.</span>

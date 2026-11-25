@@ -122,7 +122,7 @@ export default function MilitarDetalhe() {
       <Link to="/temporarios" className="inline-flex h-9 items-center gap-1 text-sm text-slate-400 hover:text-white" data-testid="detail-back-link"><ArrowLeft className="size-4" /> Temporários</Link>
       {q.isError && <p className="text-slate-400" data-testid="detail-error">Registro não encontrado ou indisponível.</p>}
       {m && (
-        <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-4 sm:p-5" data-testid="militar-detail">
+        <section className="glass-panel rounded-xl border p-4 sm:p-5" data-testid="militar-detail">
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
             <div>
               <p className="num text-sm text-blue-300" data-testid="detail-matricula">{m.matricula}</p>
@@ -200,7 +200,7 @@ export default function MilitarDetalhe() {
             <div className="sm:col-span-2 lg:col-span-4"><Info label={m.status === "DESLIGADO" ? "Motivo do desligamento" : "Observações"}><span className="whitespace-pre-line">{m.observacoes || "—"}</span></Info></div>
           </dl>
 
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-[#1E2C42] pt-3 text-xs text-slate-500">
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.08] pt-3 text-xs text-slate-500">
             <span className="inline-flex items-center gap-1.5">
               <Clock className="size-3.5 text-slate-400" />
               <span>Última atualização do cadastro no sistema: <strong className="font-medium text-slate-300">{fmtDateTime(m.atualizado_em)}</strong>{m.atualizado_por_nome ? ` por ${m.atualizado_por_nome}` : ""}</span>
@@ -213,12 +213,12 @@ export default function MilitarDetalhe() {
       )}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
-        <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-4 sm:p-5" data-testid="historico-situacao">
+        <section className="glass-panel rounded-xl border p-4 sm:p-5" data-testid="historico-situacao">
           <h3 className="mb-4 font-heading font-bold text-white">Histórico de situação</h3>
-          <ol className="space-y-3 border-l border-[#24344D] pl-4">
+          <ol className="space-y-3 border-l border-white/[0.12] pl-4">
             {(h.data?.situacao ?? []).map((s) => (
               <li key={s.id} className="relative" data-testid={`situacao-${s.tipo.toLowerCase()}`}>
-                <span className="absolute -left-[21px] top-1.5 size-2.5 rounded-full bg-blue-500 ring-4 ring-[#121B28]" />
+                <span className="absolute -left-[21px] top-1.5 size-2.5 rounded-full bg-blue-500 ring-4 ring-[#0A1221]" />
                 <div className="flex flex-wrap items-center gap-2">
                   <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-bold uppercase", TIPO_STYLE[s.tipo])}>{s.tipo}</span>
                   <span className="num text-sm text-white">{fmtDate(s.data_efetiva)}</span>
@@ -232,7 +232,7 @@ export default function MilitarDetalhe() {
             {h.data?.situacao.length === 0 && <li className="text-sm text-slate-500">Sem eventos.</li>}
           </ol>
         </section>
-        <section className="min-w-0 rounded-xl border border-[#1E2C42] bg-[#121B28] p-4 sm:p-5" data-testid="historico-alteracoes">
+        <section className="glass-panel min-w-0 rounded-xl border p-4 sm:p-5" data-testid="historico-alteracoes">
           <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-heading font-bold text-white">Registro de alterações</h3>
             {isAdmin(me.data) && (h.data?.alteracoes?.length ?? 0) > 0 && (
@@ -273,7 +273,7 @@ export default function MilitarDetalhe() {
                       setSelectedAlteracaoIds([]);
                       setSelectingAlteracoes(true);
                     }}
-                    className="h-7 px-2.5 text-xs text-slate-400 hover:bg-[#182335] hover:text-white"
+                    className="h-7 px-2.5 text-xs text-slate-400 hover:bg-white/[0.06] hover:text-white"
                     data-testid="alteracoes-select-mode-button"
                   >
                     Selecionar
@@ -293,8 +293,8 @@ export default function MilitarDetalhe() {
                     "rounded-lg border p-3 transition-colors",
                     selectingAlteracoes ? "cursor-pointer" : "",
                     isSelected
-                      ? "border-red-500/50 bg-red-950/20"
-                      : "border-[#1E2C42] bg-[#0F1724]"
+                      ? "border-red-500/50 bg-red-950/25"
+                      : "border-white/[0.08] bg-[#060B15]/68"
                   )}
                   data-testid="alteracao-item"
                 >
@@ -307,7 +307,7 @@ export default function MilitarDetalhe() {
                           onChange={() => toggleAlteracaoSelection(a.id)}
                           onClick={(e) => e.stopPropagation()}
                           aria-label="Selecionar registro de alteração"
-                          className="size-3.5 rounded border-[#2A3B58] bg-[#121B28] accent-red-500 cursor-pointer"
+                          className="size-3.5 rounded border-white/[0.16] bg-[#09101E] accent-red-500 cursor-pointer"
                         />
                       )}
                       <span className="font-semibold uppercase tracking-wide text-blue-300">{a.operacao.replace(/_/g, " ")}</span>
@@ -332,7 +332,7 @@ export default function MilitarDetalhe() {
                     <table className="w-full min-w-[260px] text-xs">
                       <tbody>
                         {Object.entries(a.depois ?? {}).filter(([, v]) => a.antes !== null || (v !== null && v !== "")).map(([k, v]) => (
-                          <tr key={k} className="border-t border-[#162234]">
+                          <tr key={k} className="border-t border-white/[0.06]">
                             <td className="py-1 pr-2 text-slate-400">{k}</td>
                             {a.antes !== null && <td className="py-1 pr-2 text-red-300/80 line-through decoration-red-500/40">{fmtVal(a.antes?.[k])}</td>}
                             <td className="py-1 text-emerald-300">{fmtVal(v)}</td>
@@ -353,7 +353,7 @@ export default function MilitarDetalhe() {
       <QuickEditDialog militar={quickEdit} onClose={() => setQuickEdit(null)} />
 
       <Dialog open={excluirModalOpen} onOpenChange={setExcluirModalOpen}>
-        <DialogContent className="border-[#1E2C42] bg-[#121B28] text-white sm:max-w-md">
+        <DialogContent className="glass-dialog border text-white sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-red-400">Excluir Cadastro</DialogTitle>
             <DialogDescription className="text-slate-300">
@@ -365,7 +365,7 @@ export default function MilitarDetalhe() {
               variant="outline"
               onClick={() => setExcluirModalOpen(false)}
               disabled={excluindo}
-              className="border-[#1E2C42] bg-[#182335] text-slate-300 hover:text-white"
+              className="border-white/[0.12] bg-white/[0.05] text-slate-300 hover:bg-white/[0.10] hover:text-white"
             >
               Cancelar
             </Button>
@@ -381,7 +381,7 @@ export default function MilitarDetalhe() {
       </Dialog>
 
       <Dialog open={alteracoesToDelete.length > 0} onOpenChange={(open) => { if (!open && !excluindoAlteracoes) setAlteracoesToDelete([]); }}>
-        <DialogContent className="border-[#1E2C42] bg-[#121B28] text-white sm:max-w-md" data-testid="delete-alteracoes-dialog">
+        <DialogContent className="glass-dialog border text-white sm:max-w-md" data-testid="delete-alteracoes-dialog">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-red-400">Excluir Registro de Alterações</DialogTitle>
             <DialogDescription className="text-slate-300">
@@ -395,7 +395,7 @@ export default function MilitarDetalhe() {
               variant="outline"
               onClick={() => setAlteracoesToDelete([])}
               disabled={excluindoAlteracoes}
-              className="border-[#1E2C42] bg-[#182335] text-slate-300 hover:text-white"
+              className="border-white/[0.12] bg-white/[0.05] text-slate-300 hover:bg-white/[0.10] hover:text-white"
             >
               Cancelar
             </Button>

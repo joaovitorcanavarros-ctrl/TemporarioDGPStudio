@@ -163,9 +163,9 @@ export function SystemEntryProvider({ children }: { children: ReactNode }) {
                 ? { duration: 1.5, delay: 0.12, ease: [0.4, 0, 0.2, 1] }
                 : { duration: 0.5, ease: [0.22, 1, 0.36, 1] }
             }
-            className="absolute inset-0 bg-[#070B14]"
+            className="absolute inset-0 bg-[#03060C]"
           >
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_46%,rgba(220,38,38,0.16),rgba(11,19,43,0.92)_52%,#070B14_100%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_46%,rgba(220,38,38,0.16),rgba(7,12,24,0.92)_52%,#03060C_100%)]" />
           </motion.div>
 
           {/* Subtle ambient halo behind centered emblem */}

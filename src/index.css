@@ -42,9 +42,9 @@
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
-    --color-panel: #121B28;
-    --color-elevated: #182335;
-    --color-page: #0B111A;
+    --color-panel: #0B1424;
+    --color-elevated: #121E33;
+    --color-page: #03060C;
     --color-ativo: #10B981;
     --color-alerta: #F59E0B;
     --color-critico: #EF4444;
@@ -96,23 +96,23 @@
 }
 
 :root, .dark {
-    --background: #0B111A;
+    --background: #03060C;
     --foreground: #F1F5F9;
-    --card: #121B28;
+    --card: #0B1424;
     --card-foreground: #F1F5F9;
-    --popover: #182335;
+    --popover: #0E192D;
     --popover-foreground: #F1F5F9;
     --primary: #2563EB;
     --primary-foreground: #FFFFFF;
-    --secondary: #1B2740;
+    --secondary: #152238;
     --secondary-foreground: #E2E8F0;
-    --muted: #162234;
+    --muted: #0B1322;
     --muted-foreground: #94A3B8;
-    --accent: #1E2C42;
+    --accent: #16243B;
     --accent-foreground: #F8FAFC;
     --destructive: #EF4444;
-    --border: #1E2C42;
-    --input: #24344D;
+    --border: #1D2D46;
+    --input: #213452;
     --ring: #3B82F6;
     --chart-1: #3B82F6;
     --chart-2: #10B981;
@@ -120,13 +120,13 @@
     --chart-4: #EF4444;
     --chart-5: #22D3EE;
     --radius: 0.6rem;
-    --sidebar: #0D1522;
+    --sidebar: #070D19;
     --sidebar-foreground: #F8FAFC;
     --sidebar-primary: #2563EB;
     --sidebar-primary-foreground: #FFFFFF;
-    --sidebar-accent: #15213A;
+    --sidebar-accent: #121F36;
     --sidebar-accent-foreground: #F8FAFC;
-    --sidebar-border: #162234;
+    --sidebar-border: #152338;
     --sidebar-ring: #3B82F6;
 }
 
@@ -148,6 +148,32 @@
 
 .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .recharts-wrapper:focus, .recharts-surface:focus, .recharts-sector:focus, .recharts-rectangle:focus { outline: none; }
+
+/* Superfícies de vidro vívidas sobre fundo escuro obsidian */
+.glass-panel {
+    background: linear-gradient(165deg, rgba(16, 26, 46, 0.70) 0%, rgba(9, 15, 28, 0.80) 100%);
+    border-color: rgba(255, 255, 255, 0.10);
+    box-shadow:
+        0 22px 48px -18px rgba(0, 0, 0, 0.90),
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.10);
+    backdrop-filter: blur(22px) saturate(150%);
+    -webkit-backdrop-filter: blur(22px) saturate(150%);
+}
+
+.glass-dialog {
+    background: linear-gradient(170deg, rgba(17, 28, 49, 0.88) 0%, rgba(9, 15, 28, 0.93) 100%);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow:
+        0 28px 70px -16px rgba(0, 0, 0, 0.94),
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(26px) saturate(155%);
+    -webkit-backdrop-filter: blur(26px) saturate(155%);
+}
+
+.glass-well {
+    background: rgba(5, 9, 18, 0.64);
+    border-color: rgba(255, 255, 255, 0.08);
+}
 
 /* Efeito direcional de borda luminosa adjacente + troca de ícone na navegação lateral */
 .nav-spotlight-item {
@@ -325,3 +351,213 @@
 .scrollbar-none::-webkit-scrollbar {
     display: none;
 }
+
+/* ShinyButton (.shiny-cta) animated conic border & shimmer */
+@property --gradient-angle {
+    syntax: "<angle>";
+    initial-value: 0deg;
+    inherits: false;
+}
+
+@property --gradient-angle-offset {
+    syntax: "<angle>";
+    initial-value: 0deg;
+    inherits: false;
+}
+
+@property --gradient-percent {
+    syntax: "<percentage>";
+    initial-value: 5%;
+    inherits: false;
+}
+
+@property --gradient-shine {
+    syntax: "<color>";
+    initial-value: white;
+    inherits: false;
+}
+
+@layer components {
+    .shiny-cta {
+        --shiny-cta-bg: #000000;
+        --shiny-cta-bg-subtle: #1a1818;
+        --shiny-cta-fg: #ffffff;
+        --shiny-cta-highlight: blue;
+        --shiny-cta-highlight-subtle: #8484ff;
+        --animation: gradient-angle linear infinite;
+        --duration: 9s;
+        --shadow-size: 2px;
+        --transition: 800ms cubic-bezier(0.25, 1, 0.5, 1);
+
+        isolation: isolate;
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+        outline-offset: 4px;
+        padding: 1.25rem 2.5rem;
+        font-family: "Inter", var(--font-sans), sans-serif;
+        font-size: 1.125rem;
+        line-height: 1.2;
+        font-weight: 500;
+        border: 1px solid transparent;
+        border-radius: 360px;
+        color: var(--shiny-cta-fg);
+        background:
+            linear-gradient(var(--shiny-cta-bg), var(--shiny-cta-bg)) padding-box,
+            conic-gradient(
+                from calc(var(--gradient-angle) - var(--gradient-angle-offset)),
+                transparent,
+                var(--shiny-cta-highlight) var(--gradient-percent),
+                var(--gradient-shine) calc(var(--gradient-percent) * 2),
+                var(--shiny-cta-highlight) calc(var(--gradient-percent) * 3),
+                transparent calc(var(--gradient-percent) * 4)
+            ) border-box;
+        box-shadow: inset 0 0 0 1px var(--shiny-cta-bg-subtle);
+        transition: var(--transition);
+        transition-property: --gradient-angle-offset, --gradient-percent, --gradient-shine;
+    }
+
+    .shiny-cta::before,
+    .shiny-cta::after,
+    .shiny-cta > span::before {
+        content: "";
+        pointer-events: none;
+        position: absolute;
+        inset-inline-start: 50%;
+        inset-block-start: 50%;
+        translate: -50% -50%;
+        z-index: -1;
+    }
+
+    .shiny-cta:active:not(:disabled) {
+        translate: 0 1px;
+    }
+
+    .shiny-cta:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    /* Dots pattern */
+    .shiny-cta::before {
+        --size: calc(100% - var(--shadow-size) * 3);
+        --position: 2px;
+        --space: calc(var(--position) * 2);
+        width: var(--size);
+        height: var(--size);
+        background: radial-gradient(
+            circle at var(--position) var(--position),
+            white calc(var(--position) / 4),
+            transparent 0
+        ) padding-box;
+        background-size: var(--space) var(--space);
+        background-repeat: space;
+        mask-image: conic-gradient(
+            from calc(var(--gradient-angle) + 45deg),
+            black,
+            transparent 10% 90%,
+            black
+        );
+        border-radius: inherit;
+        opacity: 0.4;
+        z-index: -1;
+    }
+
+    /* Inner shimmer */
+    .shiny-cta::after {
+        --animation: shimmer linear infinite;
+        width: 100%;
+        aspect-ratio: 1;
+        background: linear-gradient(
+            -50deg,
+            transparent,
+            var(--shiny-cta-highlight),
+            transparent
+        );
+        mask-image: radial-gradient(circle at bottom, transparent 40%, black);
+        opacity: 0.6;
+    }
+
+    .shiny-cta > span {
+        z-index: 1;
+        border-radius: inherit;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+
+    .shiny-cta > span::before {
+        width: calc(100% + 4px);
+        height: calc(100% + 4px);
+        border-radius: inherit;
+        background: radial-gradient(
+            ellipse 95% 95% at 50% 85%,
+            rgba(37, 99, 235, 0.34),
+            rgba(37, 99, 235, 0.14) 55%,
+            transparent 100%
+        );
+        box-shadow: inset 0 -1ex 2rem 4px var(--shiny-cta-highlight);
+        opacity: 0;
+        transition: opacity var(--transition);
+        animation: calc(var(--duration) * 1.5) breathe linear infinite;
+    }
+
+    /* Animate */
+    .shiny-cta,
+    .shiny-cta::before,
+    .shiny-cta::after {
+        animation:
+            var(--animation) var(--duration),
+            var(--animation) calc(var(--duration) / 0.4) reverse paused;
+        animation-composition: add;
+    }
+
+    .shiny-cta:is(:hover, :focus-visible):not(:disabled) {
+        --gradient-percent: 20%;
+        --gradient-angle-offset: 95deg;
+        --gradient-shine: var(--shiny-cta-highlight-subtle);
+    }
+
+    .shiny-cta:is(:hover, :focus-visible):not(:disabled),
+    .shiny-cta:is(:hover, :focus-visible):not(:disabled)::before,
+    .shiny-cta:is(:hover, :focus-visible):not(:disabled)::after {
+        animation-play-state: running;
+    }
+
+    .shiny-cta:is(:hover, :focus-visible):not(:disabled) > span::before {
+        opacity: 1;
+    }
+}
+
+@keyframes gradient-angle {
+    to {
+        --gradient-angle: 360deg;
+    }
+}
+
+@keyframes shimmer {
+    to {
+        rotate: 360deg;
+    }
+}
+
+@keyframes breathe {
+    from, to {
+        scale: 1;
+    }
+    50% {
+        scale: 1.2;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .shiny-cta,
+    .shiny-cta::before,
+    .shiny-cta::after,
+    .shiny-cta > span::before {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+

@@ -72,7 +72,7 @@ export default function AppShell() {
 
   if (me.isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0B111A]">
+      <div className="flex min-h-screen items-center justify-center bg-[#03060C]">
         <div className="flex flex-col items-center gap-3">
           <img src="/cbmmt-logo.png" alt="CBMMT" className="size-12 animate-pulse drop-shadow-[0_4px_10px_rgba(220,38,38,0.35)]" />
           <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Carregando sistema...</p>
@@ -100,7 +100,13 @@ export default function AppShell() {
 
   return (
     <FiltersProvider>
-      <div className="min-h-screen overflow-x-clip bg-[#0B111A]">
+      <div className="relative min-h-screen overflow-x-clip bg-[#03060C]">
+        {/* Profundidade atmosférica discreta sob os painéis translúcidos */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(ellipse_62%_46%_at_16%_8%,rgba(37,99,235,0.14),transparent_68%),radial-gradient(ellipse_55%_44%_at_88%_14%,rgba(14,165,233,0.08),transparent_64%),radial-gradient(ellipse_52%_44%_at_80%_90%,rgba(185,28,28,0.09),transparent_66%)]"
+        />
+
         {/* Barra Lateral Flutuante Glassmorphism (Glassy SideBar V5) */}
         <GlassySidebar
           isExpanded={!collapsed}
@@ -132,25 +138,25 @@ export default function AppShell() {
 
         <div
           className={cn(
-            "transition-[padding] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
+            "relative z-10 transition-[padding] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
             collapsed ? "lg:pl-[104px]" : "lg:pl-[312px]"
           )}
         >
-          <header className="sticky top-0 z-20 mx-auto max-w-[1800px] bg-gradient-to-b from-[#0B111A] via-[#0B111A]/90 to-transparent px-3 pt-2 pb-1 sm:px-6 sm:pt-3 lg:px-6">
+          <header className="sticky top-0 z-20 mx-auto max-w-[1800px] bg-gradient-to-b from-[#03060C] via-[#03060C]/88 to-transparent px-3 pt-2 pb-1 sm:px-6 sm:pt-3 lg:px-6">
             <div
               style={{
                 background:
-                  "linear-gradient(180deg, rgba(18, 27, 40, 0.90) 0%, rgba(13, 21, 34, 0.94) 100%)",
+                  "linear-gradient(180deg, rgba(16, 26, 46, 0.68) 0%, rgba(9, 15, 28, 0.78) 100%)",
                 boxShadow:
-                  "0 16px 36px -16px rgba(0, 0, 0, 0.72), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)",
+                  "0 22px 48px -16px rgba(0, 0, 0, 0.90), inset 0 1px 0 0 rgba(255, 255, 255, 0.12)",
               }}
-              className="flex min-h-[54px] items-center gap-2 rounded-2xl border border-[#1E2C42] px-2.5 py-2 backdrop-blur-xl sm:min-h-[64px] sm:gap-3.5 sm:px-5 sm:py-2.5"
+              className="flex min-h-[54px] items-center gap-2 rounded-2xl border border-white/[0.11] px-2.5 py-2 backdrop-blur-2xl backdrop-saturate-150 sm:min-h-[64px] sm:gap-3.5 sm:px-5 sm:py-2.5"
             >
               <Button
                 variant="ghost"
                 size="icon"
                 aria-label="Abrir menu"
-                className="size-10 shrink-0 rounded-xl text-slate-300 hover:bg-[#182335] hover:text-white lg:hidden"
+                className="size-10 shrink-0 rounded-xl text-slate-300 hover:bg-white/[0.08] hover:text-white lg:hidden"
                 onClick={() => setMobileOpen(true)}
                 data-testid="mobile-menu-button"
               >
@@ -210,7 +216,7 @@ export default function AppShell() {
                   </Link>
                 </>
               )}
-              <div className="hidden h-7 w-px shrink-0 bg-[#1E2C42] md:block" aria-hidden="true" />
+              <div className="hidden h-7 w-px shrink-0 bg-white/[0.10] md:block" aria-hidden="true" />
               <div className="hidden shrink-0 text-right md:block" data-testid="user-identification">
                 <p className="text-sm font-semibold leading-tight text-slate-100">{user?.nome ?? "—"}</p>
                 <p className="mt-0.5 text-[11px] font-medium leading-tight text-blue-400">
@@ -222,7 +228,7 @@ export default function AppShell() {
                 size="icon"
                 title="Sair"
                 aria-label="Sair"
-                className="size-10 shrink-0 rounded-xl text-slate-400 transition-colors hover:bg-[#182335] hover:text-white sm:size-9"
+                className="size-10 shrink-0 rounded-xl text-slate-400 transition-colors hover:bg-white/[0.08] hover:text-white sm:size-9"
                 onClick={() => void endSession()}
                 data-testid="logout-button"
               >
@@ -239,7 +245,7 @@ export default function AppShell() {
         <nav
           aria-label="Navegação principal mobile"
           data-testid="mobile-bottom-nav"
-          className="fixed inset-x-0 bottom-0 z-30 border-t border-[#1E2C42] bg-[#0D1522]/95 backdrop-blur-xl pb-safe lg:hidden"
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-white/[0.10] bg-[#060B16]/84 backdrop-blur-2xl backdrop-saturate-150 shadow-[0_-14px_36px_rgba(0,0,0,0.85)] pb-safe lg:hidden"
         >
           <div className="mx-auto grid h-14 max-w-lg grid-cols-5 items-center px-1">
             {mobileNavTabs.map((tab) => {

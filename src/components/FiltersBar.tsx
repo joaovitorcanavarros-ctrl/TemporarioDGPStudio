@@ -47,7 +47,7 @@ export default function FiltersBar({ hideStatus, hideCargo, onReset }: Props) {
   });
 
   return (
-    <div data-testid="filters-bar" className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-3">
+    <div data-testid="filters-bar" className="glass-panel rounded-xl border p-3">
       {/* Cabeçalho retrátil apenas no mobile */}
       <div className="flex items-center justify-between gap-2 sm:hidden">
         <button
@@ -88,7 +88,7 @@ export default function FiltersBar({ hideStatus, hideCargo, onReset }: Props) {
       <div
         className={cn(
           "gap-2.5 sm:grid sm:grid-cols-3 sm:gap-2 lg:grid-cols-4 xl:grid-cols-7",
-          mobileOpen ? "mt-3 grid grid-cols-1 border-t border-[#1E2C42] pt-3 sm:mt-0 sm:border-t-0 sm:pt-0" : "hidden sm:grid"
+          mobileOpen ? "mt-3 grid grid-cols-1 border-t border-white/[0.08] pt-3 sm:mt-0 sm:border-t-0 sm:pt-0" : "hidden sm:grid"
         )}
       >
         {!hideCargo && (
@@ -141,7 +141,7 @@ export default function FiltersBar({ hideStatus, hideCargo, onReset }: Props) {
               data-testid="filter-data-inicio"
               value={filters.data_inicio || ""}
               onChange={(e) => setFilter("data_inicio", e.target.value)}
-              className="h-10 sm:h-9 bg-[#0F1724] dark:bg-[#0F1724] hover:bg-[#142033] dark:hover:bg-[#142033] border-[#24344D] text-slate-100 [color-scheme:dark]"
+              className="h-10 sm:h-9 bg-[#060B15]/75 dark:bg-[#060B15]/75 hover:bg-[#0B1424]/85 dark:hover:bg-[#0B1424]/85 border-white/[0.10] text-slate-100 [color-scheme:dark]"
             />
           </div>
           <div className="space-y-1 sm:space-y-0">
@@ -155,7 +155,7 @@ export default function FiltersBar({ hideStatus, hideCargo, onReset }: Props) {
               data-testid="filter-data-fim"
               value={filters.data_fim || ""}
               onChange={(e) => setFilter("data_fim", e.target.value)}
-              className="h-10 sm:h-9 bg-[#0F1724] dark:bg-[#0F1724] hover:bg-[#142033] dark:hover:bg-[#142033] border-[#24344D] text-slate-100 [color-scheme:dark]"
+              className="h-10 sm:h-9 bg-[#060B15]/75 dark:bg-[#060B15]/75 hover:bg-[#0B1424]/85 dark:hover:bg-[#0B1424]/85 border-white/[0.10] text-slate-100 [color-scheme:dark]"
             />
           </div>
         </div>

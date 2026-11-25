@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring } 
 import { useMutation } from "@tanstack/react-query";
 import { AlertCircle, Eye, EyeOff, HelpCircle, Lock, ShieldCheck, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ShinyButton } from "@/components/ui/shiny-button";
 import {
   Dialog,
   DialogContent,
@@ -280,30 +281,30 @@ export default function Login() {
     signupChecking;
 
   return (
-    <div className="relative grid min-h-screen lg:grid-cols-[1.15fr_1fr] bg-gradient-to-br from-[#0B132B] via-[#0A1428] to-[#1F080C] overflow-hidden">
+    <div className="relative grid min-h-screen lg:grid-cols-[1.15fr_1fr] bg-gradient-to-br from-[#03060D] via-[#040916] to-[#110307] overflow-hidden">
       {/* Global ambient radial gradients extending seamlessly across both sides */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(37,99,235,0.25),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(185,28,28,0.30),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(30,58,138,0.22),transparent_55%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(37,99,235,0.22),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(185,28,28,0.26),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(30,58,138,0.18),transparent_55%)]" />
 
       {/* 1. LADO ESQUERDO: Apresentação e Identidade Institucional com máxima fidelidade técnica */}
-      <section className="relative hidden overflow-hidden border-r border-white/5 lg:flex lg:flex-col lg:justify-between p-12 xl:p-16 bg-[#0B132B]">
+      <section className="relative hidden overflow-hidden border-r border-white/[0.06] lg:flex lg:flex-col lg:justify-between p-12 xl:p-16 bg-[#03060D]">
         {/* Background photo com sobreposições dramáticas azul-marinho e vermelho escuro */}
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
           <img
             src="/assets/aistudio/download_7723d736.jpg"
             alt="Bombeiro Militar do CBMMT em ação operacional"
-            className="size-full object-cover object-center opacity-42 mix-blend-luminosity filter contrast-125 brightness-105"
+            className="size-full object-cover object-center opacity-38 mix-blend-luminosity filter contrast-125 brightness-100"
           />
-          {/* Tonalidade e Filtros: Azul marinho profundo (#0B132B / #0A1428) no alto-esquerdo, transicionando para vermelho escuro (#1F080C / #300A10) na base direita */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0B132B]/85 via-[#0A1428]/75 to-[#1F080C]/70" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_85%_75%,rgba(85,14,26,0.60),transparent_65%)]" />
+          {/* Tonalidade e Filtros: Azul marinho profundo no alto-esquerdo, transicionando para vermelho escuro na base direita */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#03060D]/88 via-[#040916]/78 to-[#110307]/76" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_85%_75%,rgba(85,14,26,0.52),transparent_65%)]" />
           
           {/* Gradiente de opacidade: escurecimento em direção ao centro da tela para transição com a área de login */}
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#0A1428]/40 to-[#061024]" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#061024]/85 via-transparent to-[#0B132B]/75" />
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#040916]/45 to-[#02050B]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#02050B]/92 via-transparent to-[#03060D]/80" />
 
           {/* Pontos de luz (flare/glow) vermelhos pontuais no topo */}
-          <div className="absolute -top-10 right-20 size-48 rounded-full bg-red-600/30 blur-3xl" />
-          <div className="absolute top-10 right-4 size-32 rounded-full bg-rose-600/35 blur-2xl" />
+          <div className="absolute -top-10 right-20 size-48 rounded-full bg-red-600/25 blur-3xl" />
+          <div className="absolute top-10 right-4 size-32 rounded-full bg-rose-600/30 blur-2xl" />
         </div>
 
         {/* Top Header: Logo CBMMT com fade-in e slide-up suave */}
@@ -404,13 +405,13 @@ export default function Login() {
         </motion.div>
       </section>
 
-      {/* 2. LADO DIREITO: Painel de Login com o mesmo jogo de cores gradientes do lado esquerdo */}
-      <section className="relative flex items-center justify-center p-6 sm:p-10 overflow-y-auto bg-gradient-to-br from-[#0B132B] via-[#0A1428] to-[#1F080C]">
-        {/* Camadas de iluminação e gradientes atmosféricos idênticos aos do lado esquerdo */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_85%_75%,rgba(85,14,26,0.60),transparent_65%)]" />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#061024]/85 via-transparent to-[#0B132B]/75" />
-        <div className="pointer-events-none absolute -top-10 right-20 size-48 rounded-full bg-red-600/25 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-10 left-10 size-48 rounded-full bg-blue-600/20 blur-3xl" />
+      {/* 2. LADO DIREITO: Painel de Login sobre fundo escuro profundo para destacar o card vítreo */}
+      <section className="relative flex items-center justify-center p-6 sm:p-10 overflow-y-auto bg-gradient-to-br from-[#03060D] via-[#040916] to-[#110307]">
+        {/* Camadas de iluminação e gradientes atmosféricos sutis atrás do vidro */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_85%_75%,rgba(85,14,26,0.48),transparent_65%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#02050B]/92 via-transparent to-[#03060D]/80" />
+        <div className="pointer-events-none absolute -top-10 right-20 size-56 rounded-full bg-red-600/24 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-10 left-10 size-56 rounded-full bg-blue-600/22 blur-3xl" />
 
         <AnimatePresence mode="wait">
           {pendingOtpSignup ? (
@@ -428,7 +429,7 @@ export default function Login() {
               animate={{ opacity: 1, y: 0 }}
               exit={reduceMotion ? undefined : { opacity: 0, y: -12, scale: 0.985 }}
               transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-              className="relative z-10 w-full max-w-md space-y-6 rounded-2xl border border-white/12 bg-gradient-to-br from-[#0E1726]/85 via-[#0C1527]/80 to-[#180B12]/85 p-8 sm:p-9 shadow-[0_25px_60px_rgba(0,0,0,0.7)] backdrop-blur-xl ring-1 ring-white/10"
+              className="relative z-10 w-full max-w-md space-y-6 rounded-2xl border border-white/[0.15] bg-gradient-to-br from-[#0E182D]/66 via-[#0A1324]/60 to-[#190911]/68 p-8 sm:p-9 shadow-[0_32px_84px_rgba(0,0,0,0.88),inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-2xl backdrop-saturate-150 ring-1 ring-white/10"
               data-testid="login-form"
             >
           {/* Card Header */}
@@ -487,7 +488,7 @@ export default function Login() {
                 variant="outline"
                 onClick={handleGoogleLogin}
                 disabled={isPending}
-                className="h-11 w-full rounded-xl border border-white/10 bg-[#162032] hover:bg-[#1E2B44] hover:border-white/20 text-slate-100 flex items-center justify-center gap-3 transition-all duration-150 shadow-sm"
+                className="h-11 w-full rounded-xl border border-white/[0.12] bg-white/[0.06] hover:bg-white/[0.11] hover:border-white/25 text-slate-100 flex items-center justify-center gap-3 transition-all duration-150 shadow-sm"
                 data-testid="google-login-button"
               >
                 <svg className="size-4 shrink-0" viewBox="0 0 24 24">
@@ -513,14 +514,13 @@ export default function Login() {
                 </span>
               </Button>
 
-              {/* Divisor Fino e Centralizado */}
-              <div className="relative flex items-center justify-center py-0.5">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-700/60" />
-                </div>
-                <span className="relative bg-[#0E1726] px-3 text-xs tracking-normal text-slate-400">
+              {/* Divisor Fino e Centralizado (transparente sobre o vidro) */}
+              <div className="flex items-center gap-3 py-0.5">
+                <div className="h-px flex-1 bg-white/[0.12]" />
+                <span className="text-xs tracking-normal text-slate-400">
                   ou com e-mail e senha
                 </span>
+                <div className="h-px flex-1 bg-white/[0.12]" />
               </div>
             </>
           )}
@@ -596,16 +596,16 @@ export default function Login() {
                 </div>
               )}
 
-              {/* Botão de Ação Principal: Azul vibrante com cantos arredondados e cadeado */}
-              <Button
+              {/* Botão de Ação Principal com animação e cor ShinyButton */}
+              <ShinyButton
                 type="submit"
-                className="h-11 w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 active:scale-[0.99] transition-all duration-150"
+                className="flex h-11 w-full items-center justify-center rounded-xl px-4 py-0 text-sm font-semibold"
                 disabled={isPending}
                 data-testid="login-submit-button"
               >
-                <Lock className="size-4" />
-                <span>{loginMut.isPending ? "Entrando..." : "Entrar"}</span>
-              </Button>
+                <Lock className="size-4 shrink-0" />
+                {loginMut.isPending ? "Entrando..." : "Entrar"}
+              </ShinyButton>
             </form>
           ) : (
             <form onSubmit={handleSignupSubmit} className="space-y-3.5">
@@ -738,7 +738,7 @@ export default function Login() {
 
       {/* Modal Dialog: Esqueceu a Senha */}
       <Dialog open={forgotModalOpen} onOpenChange={setForgotModalOpen}>
-        <DialogContent className="max-w-md rounded-2xl border border-white/10 bg-[#0E1726] p-6 text-slate-100 shadow-2xl backdrop-blur-xl">
+        <DialogContent className="glass-dialog max-w-md rounded-2xl border p-6 text-slate-100">
           <DialogHeader>
             <div className="flex items-center gap-3">
               <div className="grid size-10 place-items-center rounded-xl bg-blue-500/15 ring-1 ring-blue-500/30">

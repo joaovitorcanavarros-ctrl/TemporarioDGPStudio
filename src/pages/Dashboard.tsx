@@ -28,7 +28,7 @@ const PALETTE = ["#3B82F6", "#F59E0B", "#10B981", "#06B6D4", "#F43F5E", "#14B8A6
 const catColor = (c: string, i: number) => CAT_COLOR[c] ?? PALETTE[i % PALETTE.length];
 
 const tooltipStyle = {
-  contentStyle: { background: "#182335", border: "1px solid #24344D", borderRadius: 8, fontSize: 12, color: "#F1F5F9" },
+  contentStyle: { background: "rgba(10, 17, 31, 0.92)", border: "1px solid rgba(255, 255, 255, 0.12)", borderRadius: 10, fontSize: 12, color: "#F1F5F9", backdropFilter: "blur(14px)" },
   labelStyle: { color: "#F1F5F9", fontWeight: 600 },
   itemStyle: { color: "#CBD5E1" },
   cursor: { fill: "rgba(59,130,246,0.08)" },
@@ -124,14 +124,14 @@ function Kpi({
       onBlur={() => onHoverChange?.(false)}
       data-testid={`kpi-${id}`}
       style={{
-        background: "linear-gradient(180deg, #152031 0%, #101826 100%)",
-        borderColor: isHighlighted ? `${palette.hex}99` : "#1E2C42",
+        background: "linear-gradient(175deg, rgba(16, 26, 46, 0.68) 0%, rgba(9, 15, 28, 0.78) 100%)",
+        borderColor: isHighlighted ? `${palette.hex}99` : "rgba(255, 255, 255, 0.10)",
         boxShadow: isHighlighted
-          ? `0 0 0 1px ${palette.hex}44, 0 14px 32px -10px ${palette.hex}55, 0 12px 24px -12px rgba(0, 0, 0, 0.78)`
-          : "inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 4px 14px -6px rgba(0, 0, 0, 0.45)",
+          ? `0 0 0 1px ${palette.hex}44, 0 18px 38px -10px ${palette.hex}55, 0 16px 32px -12px rgba(0, 0, 0, 0.88), inset 0 1px 0 rgba(255, 255, 255, 0.16)`
+          : "inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 14px 32px -14px rgba(0, 0, 0, 0.85)",
       }}
       className={cn(
-        "group relative animate-rise overflow-hidden rounded-xl border px-3 pb-3 pt-2.5 sm:px-4 sm:pb-4 sm:pt-3 text-left cursor-pointer focus-visible:outline-none",
+        "group relative animate-rise overflow-hidden rounded-xl border backdrop-blur-xl backdrop-saturate-150 px-3 pb-3 pt-2.5 sm:px-4 sm:pb-4 sm:pt-3 text-left cursor-pointer focus-visible:outline-none",
         "transition-[transform,opacity,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
         isHighlighted && "-translate-y-0.5",
         isDimmed && "opacity-75",
@@ -308,27 +308,30 @@ function ChartCard({
       onTouchStart={handleTouch}
       onTouchMove={handleTouch}
       onTouchEnd={() => setActive(false)}
-      className={cn("animate-rise relative overflow-hidden rounded-xl p-4 sm:p-5", className)}
+      className={cn("animate-rise relative overflow-hidden rounded-xl p-4 sm:p-5 shadow-[0_22px_48px_-18px_rgba(0,0,0,0.90)]", className)}
       data-testid={`chart-${id}`}
     >
       {/* Borda base discreta */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-xl bg-[#1E2C42]" />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-xl bg-white/[0.10]" />
 
       {/* Brilho suave da borda seguindo o cursor */}
       <div
         aria-hidden="true"
         className={cn("pointer-events-none absolute inset-0 rounded-xl transition-opacity duration-500", active ? "opacity-100" : "opacity-0")}
         style={{
-          background: `radial-gradient(260px circle at var(--mx, -999px) var(--my, -999px), rgba(${glowRgb}, 0.8), transparent 70%)`,
+          background: `radial-gradient(260px circle at var(--mx, -999px) var(--my, -999px), rgba(${glowRgb}, 0.85), transparent 70%)`,
         }}
       />
 
-      {/* Superfície do cartão + luz interna suave */}
-      <div aria-hidden="true" className="pointer-events-none absolute inset-px overflow-hidden rounded-[11px] bg-[#121B28]">
+      {/* Superfície vítrea translúcida do cartão + luz interna suave */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-px overflow-hidden rounded-[11px] bg-gradient-to-b from-[#0E182B]/78 to-[#080F1D]/84 backdrop-blur-xl backdrop-saturate-150 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.09)]"
+      >
         <div
           className={cn("absolute inset-0 transition-opacity duration-500", active ? "opacity-100" : "opacity-0")}
           style={{
-            background: `radial-gradient(400px circle at var(--mx, -999px) var(--my, -999px), rgba(${glowRgb}, 0.11), transparent 65%)`,
+            background: `radial-gradient(400px circle at var(--mx, -999px) var(--my, -999px), rgba(${glowRgb}, 0.12), transparent 65%)`,
           }}
         />
       </div>
@@ -636,7 +639,7 @@ function DesligamentosGroupedChart({
                   onClick={() => onSelectBar(item.row)}
                   className={cn(
                     "inline-flex items-center gap-2 rounded-md px-2 py-1 text-left transition-colors cursor-pointer",
-                    active ? "bg-[#182335] text-white" : "text-slate-300 hover:bg-[#182335]/60 hover:text-white"
+                    active ? "bg-white/[0.10] text-white" : "text-slate-300 hover:bg-white/[0.06] hover:text-white"
                   )}
                 >
                   <span
@@ -665,7 +668,7 @@ function DesligamentosGroupedChart({
                   }
                   className={cn(
                     "inline-flex items-center gap-2 rounded-md px-2 py-1 text-left transition-colors",
-                    active ? "bg-[#182335] text-white" : "text-slate-300 hover:bg-[#182335]/60 hover:text-white"
+                    active ? "bg-white/[0.10] text-white" : "text-slate-300 hover:bg-white/[0.06] hover:text-white"
                   )}
                 >
                   <span
@@ -870,7 +873,7 @@ function EfetivoCargoGroupedChart({
               }
               className={cn(
                 "inline-flex items-center gap-2 rounded-md px-2 py-1 text-left transition-colors",
-                active ? "bg-[#182335] text-white" : "text-slate-300 hover:bg-[#182335]/60 hover:text-white"
+                active ? "bg-white/[0.10] text-white" : "text-slate-300 hover:bg-white/[0.06] hover:text-white"
               )}
             >
               <span
@@ -922,7 +925,7 @@ function EfetivoUbmStyledChart({
               type="button"
               onClick={() => onSelectUbm(item)}
               data-testid={`ubm-bar-mobile-${item.chave}`}
-              className="flex min-h-[48px] w-full flex-col justify-center gap-1.5 rounded-lg border border-[#1E2C42]/70 bg-[#0F1724]/70 px-3 py-2 text-left transition-colors active:bg-[#182335] cursor-pointer"
+              className="flex min-h-[48px] w-full flex-col justify-center gap-1.5 rounded-lg border border-white/[0.08] bg-[#060B15]/68 px-3 py-2 text-left transition-colors active:bg-white/[0.08] cursor-pointer"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-slate-200 leading-snug">{item.nome}</span>
@@ -968,7 +971,7 @@ function EfetivoUbmStyledChart({
                   title={`${item.nome}: ${fmtNum(item.total)} ativos`}
                   className={cn(
                     "group/ubm flex w-full items-center gap-3 rounded-lg px-1.5 py-1 text-left transition-all duration-150 focus:outline-none cursor-pointer",
-                    isHighlighted && "bg-[#182335]/70",
+                    isHighlighted && "bg-white/[0.06]",
                     isDimmed ? "opacity-40" : "opacity-100"
                   )}
                 >
@@ -1167,7 +1170,7 @@ function DistribuicaoStyledChart({
               innerRadius={isMobile ? 56 : 72}
               outerRadius={isMobile ? 88 : 112}
               paddingAngle={3}
-              stroke="#121B28"
+              stroke="#0A1221"
               strokeWidth={2}
               className="cursor-pointer focus:outline-none"
               labelLine={false}
@@ -1203,7 +1206,7 @@ function DistribuicaoStyledChart({
 
       {/* Redesigned Legend Footer with Value Tags */}
       <div
-        className="mt-3 grid grid-cols-1 gap-1.5 border-t border-[#1E2C42]/80 pt-3.5 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-x-5 sm:gap-y-3 sm:pt-4 sm:px-2"
+        className="mt-3 grid grid-cols-1 gap-1.5 border-t border-white/[0.08] pt-3.5 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-x-5 sm:gap-y-3 sm:pt-4 sm:px-2"
         data-testid="distribuicao-legend"
       >
         {enriched.map((x) => {
@@ -1217,8 +1220,8 @@ function DistribuicaoStyledChart({
               onMouseLeave={() => setHoveredKey(null)}
               onClick={() => onSelectSlice(x)}
               className={cn(
-                "flex w-full items-center justify-between gap-2.5 rounded-lg border border-[#1E2C42]/70 bg-[#0F1724]/60 px-3 py-2 text-left transition-colors cursor-pointer sm:inline-flex sm:w-auto sm:justify-start sm:border-transparent sm:bg-transparent sm:px-2.5 sm:py-1.5",
-                active ? "bg-[#182335] text-white" : "text-slate-300 hover:bg-[#182335]/60 hover:text-white"
+                "flex w-full items-center justify-between gap-2.5 rounded-lg border border-white/[0.08] bg-[#060B15]/68 px-3 py-2 text-left transition-colors cursor-pointer sm:inline-flex sm:w-auto sm:justify-start sm:border-transparent sm:bg-transparent sm:px-2.5 sm:py-1.5",
+                active ? "bg-white/[0.10] text-white" : "text-slate-300 hover:bg-white/[0.06] hover:text-white"
               )}
             >
               <span className="flex min-w-0 items-center gap-2.5">
@@ -1326,15 +1329,15 @@ function EvolucaoStyledChart({
       {/* Resumo rápido + alternância Gráfico / Tabela */}
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="grid w-full grid-cols-3 gap-1.5 sm:flex-1 sm:gap-2 sm:min-w-[260px]">
-          <div className="rounded-lg border border-emerald-500/25 bg-[#0F1724] px-2 py-1.5 sm:px-2.5 sm:py-2">
+          <div className="rounded-lg border border-emerald-500/25 bg-[#060B15]/68 px-2 py-1.5 sm:px-2.5 sm:py-2">
             <p className="truncate text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-slate-400">Inclusões</p>
             <p className="num mt-0.5 text-sm sm:text-base font-bold text-emerald-400">+{fmtNum(totalInc)}</p>
           </div>
-          <div className="rounded-lg border border-red-500/25 bg-[#0F1724] px-2 py-1.5 sm:px-2.5 sm:py-2">
+          <div className="rounded-lg border border-red-500/25 bg-[#060B15]/68 px-2 py-1.5 sm:px-2.5 sm:py-2">
             <p className="truncate text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-slate-400">Desligam.</p>
             <p className="num mt-0.5 text-sm sm:text-base font-bold text-red-400">-{fmtNum(totalDesl)}</p>
           </div>
-          <div className="rounded-lg border border-blue-500/25 bg-[#0F1724] px-2 py-1.5 sm:px-2.5 sm:py-2">
+          <div className="rounded-lg border border-blue-500/25 bg-[#060B15]/68 px-2 py-1.5 sm:px-2.5 sm:py-2">
             <p className="truncate text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-slate-400">Efetivo</p>
             <div className="mt-0.5 flex flex-wrap items-baseline gap-1">
               <span className="num text-sm sm:text-base font-bold text-blue-300">{fmtNum(efetivoAtual)}</span>
@@ -1354,7 +1357,7 @@ function EvolucaoStyledChart({
           type="button"
           onClick={() => setDisplayMode((m) => (m === "chart" ? "table" : "chart"))}
           data-testid="evolucao-toggle-mode"
-          className="inline-flex h-10 sm:h-9 w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg border border-[#24344D] bg-[#0F1724] px-3 text-xs font-medium text-slate-200 transition-colors hover:bg-[#182335] hover:text-white cursor-pointer"
+          className="inline-flex h-10 sm:h-9 w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg border border-white/[0.11] bg-[#060B15]/75 px-3 text-xs font-medium text-slate-200 transition-colors hover:bg-white/[0.08] hover:text-white cursor-pointer"
         >
           {displayMode === "chart" ? (
             <>
@@ -1369,9 +1372,9 @@ function EvolucaoStyledChart({
       </div>
 
       {displayMode === "table" ? (
-        <div className="max-h-[340px] overflow-auto rounded-lg border border-[#1E2C42] bg-[#0F1724]" data-testid="evolucao-table">
+        <div className="max-h-[340px] overflow-auto rounded-lg border border-white/[0.08] bg-[#060B15]/70" data-testid="evolucao-table">
           <table className="w-full min-w-[440px] text-xs">
-            <thead className="sticky top-0 z-10 bg-[#152031] text-[11px] uppercase tracking-wider text-slate-400">
+            <thead className="sticky top-0 z-10 bg-[#0A1324] text-[11px] uppercase tracking-wider text-slate-400">
               <tr>
                 <th className="px-3 py-2 text-left font-semibold">Período</th>
                 <th className="px-3 py-2 text-right font-semibold text-emerald-400">Inclusões</th>
@@ -1380,14 +1383,14 @@ function EvolucaoStyledChart({
                 <th className="px-3 py-2 text-right font-semibold text-blue-300">Efetivo ativo</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#182335]">
+            <tbody className="divide-y divide-white/[0.06]">
               {rows.map((r) => {
                 const inc = Number(r.inclusoes || 0);
                 const desl = Number(r.desligamentos || 0);
                 const saldo = inc - desl;
                 const ef = Number(r.efetivo || 0);
                 return (
-                  <tr key={getLabel(r)} className="transition-colors hover:bg-[#162234]/70">
+                  <tr key={getLabel(r)} className="transition-colors hover:bg-white/[0.04]">
                     <td className="px-3 py-2 font-medium text-slate-200">{getLabel(r)}</td>
                     <td className="px-3 py-2 text-right">
                       {inc > 0 ? (
@@ -1440,7 +1443,7 @@ function EvolucaoStyledChart({
           <div className={cn(needsHorizontalScroll && "overflow-x-auto scrollbar-none -mx-1 px-1")}>
             <div className={cn("flex flex-col gap-3", needsHorizontalScroll && "min-w-[560px] sm:min-w-0")}>
               {/* FAIXA 1: Efetivo ativo acumulado (escala própria, sem sobrepor barras) */}
-              <div className="rounded-lg border border-[#1E2C42]/90 bg-[#0F1724]/75 px-3 pt-2.5 pb-2">
+              <div className="rounded-lg border border-white/[0.08] bg-[#060B15]/68 px-3 pt-2.5 pb-2">
                 <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
                   <span className="inline-flex items-center gap-1.5 font-medium text-blue-300">
                     <span className="size-2 rounded-full bg-blue-400" />
@@ -1564,7 +1567,7 @@ function EvolucaoStyledChart({
                           )}
                           <span
                             className={cn(
-                              "rounded-full border-2 border-[#0F1724] transition-all duration-150",
+                              "rounded-full border-2 border-[#08101E] transition-all duration-150",
                               isHovered
                                 ? "size-4 bg-white ring-4 ring-blue-400/50 shadow-[0_0_16px_rgba(96,165,250,0.95)]"
                                 : "size-2 bg-blue-400"
@@ -1578,7 +1581,7 @@ function EvolucaoStyledChart({
               </div>
 
               {/* FAIXA 2: Movimentações (Inclusões vs Desligamentos em escala própria) */}
-              <div className="rounded-lg border border-[#1E2C42]/90 bg-[#0F1724]/75 px-3 pt-2.5 pb-2">
+              <div className="rounded-lg border border-white/[0.08] bg-[#060B15]/68 px-3 pt-2.5 pb-2">
                 <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px]">
                   <span className="font-medium text-slate-300">Movimentações no período (toque nas barras para listar)</span>
                   <div className="flex items-center gap-3 text-[11px] text-slate-300">
@@ -1857,7 +1860,7 @@ export default function Dashboard() {
               await q.refetch();
             }}
             disabled={q.isFetching}
-            className="h-10 sm:h-8 w-full sm:w-auto justify-center border-[#1E2C42] bg-[#121B28] text-xs text-slate-300 hover:bg-[#182335] hover:text-white"
+            className="h-10 sm:h-8 w-full sm:w-auto justify-center border-white/[0.11] bg-[#0B1424]/72 backdrop-blur-xl text-xs text-slate-300 hover:bg-white/[0.08] hover:text-white"
             data-testid="dashboard-refresh-button"
           >
             <RotateCw className={cn("mr-1.5 size-3.5", q.isFetching && "animate-spin text-blue-400")} />
@@ -2113,7 +2116,7 @@ export default function Dashboard() {
                       venc_max_dias: f.max !== null ? f.max : undefined,
                     }
                   })}
-                  className={cn("rounded-lg border px-2.5 py-2 text-left transition-colors hover:bg-[#182335]", i === 0 ? "border-red-500/30" : i === 1 ? "border-amber-500/30" : "border-[#1E2C42]")}>
+                  className={cn("rounded-lg border bg-[#060B15]/55 px-2.5 py-2 text-left transition-colors hover:bg-white/[0.07]", i === 0 ? "border-red-500/35" : i === 1 ? "border-amber-500/35" : "border-white/[0.09]")}>
                   <p className="text-[10px] text-slate-400">{f.faixa}</p>
                   <p className={cn("num text-lg font-bold", i === 0 ? "text-red-300" : i === 1 ? "text-amber-300" : "text-white")}>{fmtNum(f.total)}</p>
                 </button>

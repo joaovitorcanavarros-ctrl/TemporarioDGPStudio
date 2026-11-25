@@ -30,8 +30,8 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryS
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex min-h-screen items-center justify-center bg-[#0B111A] p-6 text-slate-100">
-          <div className="w-full max-w-md space-y-4 rounded-2xl border border-[#1E2C42] bg-[#121B28] p-6 text-center shadow-2xl">
+        <div className="flex min-h-screen items-center justify-center bg-[#03060C] p-6 text-slate-100">
+          <div className="glass-panel w-full max-w-md space-y-4 rounded-2xl border p-6 text-center">
             <h2 className="font-heading text-xl font-bold text-white">Algo deu errado ao exibir esta tela</h2>
             <p className="text-sm text-slate-400">
               Recarregue a página ou retorne para a tela inicial para continuar utilizando o sistema.
@@ -40,7 +40,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryS
               <button
                 type="button"
                 onClick={() => this.setState({ hasError: false })}
-                className="rounded-lg border border-[#24344D] bg-[#182335] px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-[#1E2C42] cursor-pointer"
+                className="rounded-lg border border-white/10 bg-white/[0.06] px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-white/[0.12] cursor-pointer"
               >
                 Tentar novamente
               </button>

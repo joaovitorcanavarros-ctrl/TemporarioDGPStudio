@@ -130,7 +130,7 @@ export default function Temporarios() {
               queryClient.invalidateQueries({ queryKey: ["militares"] });
               queryClient.invalidateQueries({ queryKey: ["dashboard"] });
             }}
-            className="h-10 sm:h-9 justify-center border-[#1E2C42] bg-[#121B28] text-xs text-slate-300 hover:bg-[#182335] hover:text-white"
+            className="h-10 sm:h-9 justify-center border-white/[0.11] bg-[#0B1424]/72 backdrop-blur-md text-xs text-slate-300 hover:bg-white/[0.08] hover:text-white"
             data-testid="temporarios-sync-button"
           >
             <RotateCw className="mr-1.5 size-3.5 text-blue-400" />
@@ -161,7 +161,7 @@ export default function Temporarios() {
               }
             }}
             placeholder="Pesquisar por nome ou matrícula"
-            className="h-10 sm:h-9 bg-[#121B28] pl-9 pr-8"
+            className="h-10 sm:h-9 border-white/[0.11] bg-[#09101E]/75 backdrop-blur-md pl-9 pr-8"
             data-testid="search-input"
           />
           {qInput && (

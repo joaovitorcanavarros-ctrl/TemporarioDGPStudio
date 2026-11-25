@@ -203,13 +203,13 @@ export default function GlassySidebar({
     .map((p) => p[0]?.toUpperCase())
     .join("");
 
-  // Mesma tonalidade dark mode do restante do site (#0D1522 -> #121B28 e borda #1E2C42)
+  // Vidro fosco vívido e translúcido com destaque especular superior sobre o fundo escuro
   const glassStyle: CSSProperties = {
     background:
-      "linear-gradient(180deg, rgba(18, 27, 40, 0.92) 0%, rgba(13, 21, 34, 0.96) 100%)",
-    border: "1px solid #1E2C42",
+      "linear-gradient(180deg, rgba(16, 26, 46, 0.70) 0%, rgba(8, 14, 26, 0.80) 100%)",
+    border: "1px solid rgba(255, 255, 255, 0.10)",
     boxShadow:
-      "0 20px 40px -15px rgba(0, 0, 0, 0.65), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)",
+      "0 26px 56px -16px rgba(0, 0, 0, 0.92), inset 0 1px 0 0 rgba(255, 255, 255, 0.12)",
   };
 
   const renderMenuLink = (item: MenuItem) => {
@@ -245,8 +245,8 @@ export default function GlassySidebar({
                 ? "w-full gap-3 px-3.5 py-2.5"
                 : "size-11 justify-center p-0",
               isActive
-                ? "bg-blue-600/15 text-white ring-1 ring-blue-500/30 shadow-[0_8px_20px_-6px_rgba(0,0,0,0.45)]"
-                : "text-slate-400 hover:bg-[#182335]/85 hover:text-slate-100"
+                ? "bg-blue-600/18 text-white ring-1 ring-blue-400/35 shadow-[0_8px_22px_-6px_rgba(37,99,235,0.4)]"
+                : "text-slate-400 hover:bg-white/[0.06] hover:text-slate-100"
             )
           }
         >
@@ -311,7 +311,7 @@ export default function GlassySidebar({
                       "ml-2 flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 num text-[11px] font-semibold leading-none",
                       item.badgeTone === "red"
                         ? "bg-red-500 text-white shadow-[0_0_12px_rgba(239,68,68,0.55)]"
-                        : "bg-[#182335] text-slate-200 ring-1 ring-[#24344D]"
+                        : "bg-white/[0.08] text-slate-200 ring-1 ring-white/[0.14]"
                     )}
                   >
                     {item.badge}
@@ -336,7 +336,7 @@ export default function GlassySidebar({
         {!isExpanded && isHovered && (
           <div
             role="tooltip"
-            className="pointer-events-none absolute left-[calc(100%+14px)] top-1/2 z-50 flex -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-xl border border-[#24344D] bg-[#121B28]/95 px-3 py-1.5 text-xs font-medium text-slate-100 shadow-[0_12px_28px_-6px_rgba(0,0,0,0.65)] backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150"
+            className="pointer-events-none absolute left-[calc(100%+14px)] top-1/2 z-50 flex -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-xl border border-white/[0.12] bg-[#0B1324]/90 px-3 py-1.5 text-xs font-medium text-slate-100 shadow-[0_16px_36px_-8px_rgba(0,0,0,0.85)] backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150"
           >
             <span>{item.label}</span>
             {item.badge !== undefined && (
@@ -345,7 +345,7 @@ export default function GlassySidebar({
                   "rounded-full px-1.5 py-0.2 num text-[10px] font-bold",
                   item.badgeTone === "red"
                     ? "bg-red-500 text-white"
-                    : "bg-[#182335] text-slate-200 ring-1 ring-[#24344D]"
+                    : "bg-white/[0.08] text-slate-200 ring-1 ring-white/[0.14]"
                 )}
               >
                 {item.badge}
@@ -362,7 +362,7 @@ export default function GlassySidebar({
       data-testid="sidebar"
       style={glassStyle}
       className={cn(
-        "flex flex-col backdrop-blur-2xl select-none transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
+        "flex flex-col backdrop-blur-2xl backdrop-saturate-150 select-none transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
         mobileMode
           ? "h-full w-full rounded-none"
           : cn(
@@ -447,7 +447,7 @@ export default function GlassySidebar({
             {toggleHover && (
               <div
                 role="tooltip"
-                className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-lg border border-[#24344D] bg-[#121B28]/95 px-2.5 py-1 text-[11px] font-medium text-slate-100 shadow-lg backdrop-blur-xl animate-in fade-in duration-150"
+                className="pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-lg border border-white/[0.12] bg-[#0B1324]/90 px-2.5 py-1 text-[11px] font-medium text-slate-100 shadow-lg backdrop-blur-xl animate-in fade-in duration-150"
               >
                 {isExpanded ? "Collapse" : "Expand"}
               </div>
@@ -459,7 +459,7 @@ export default function GlassySidebar({
             type="button"
             onClick={onClose}
             aria-label="Fechar menu"
-            className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#1E2C42] bg-[#162234]/80 text-slate-300 transition-colors hover:bg-[#1E2C42] hover:text-white active:scale-95 cursor-pointer"
+            className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.10] bg-white/[0.06] text-slate-300 transition-colors hover:bg-white/[0.12] hover:text-white active:scale-95 cursor-pointer"
           >
             <X className="size-4" />
           </button>
@@ -491,7 +491,7 @@ export default function GlassySidebar({
         </div>
 
         {/* Divisor quando colapsado */}
-        {!isExpanded && <div className="mx-auto w-8 h-px bg-[#1E2C42]" />}
+        {!isExpanded && <div className="mx-auto w-8 h-px bg-white/[0.10]" />}
 
         {/* GRUPO WORKSPACE */}
         <div className="space-y-1">
@@ -542,8 +542,8 @@ export default function GlassySidebar({
                     ? "w-full gap-3 px-3.5 py-2.5"
                     : "size-11 justify-center p-0",
                   isQuadroActive
-                    ? "bg-blue-600/15 text-white ring-1 ring-blue-500/30"
-                    : "text-slate-400 hover:bg-[#182335]/85 hover:text-slate-100"
+                    ? "bg-blue-600/18 text-white ring-1 ring-blue-400/35"
+                    : "text-slate-400 hover:bg-white/[0.06] hover:text-slate-100"
                 )}
               >
                 <span className="nav-spotlight-fill-edge" aria-hidden="true" />
@@ -593,7 +593,7 @@ export default function GlassySidebar({
               {!isExpanded && hoveredItem === "__projects_tree__" && (
                 <div
                   role="tooltip"
-                  className="pointer-events-none absolute left-[calc(100%+14px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-xl border border-[#24344D] bg-[#121B28]/95 px-3 py-1.5 text-xs font-medium text-slate-100 shadow-xl backdrop-blur-xl"
+                  className="pointer-events-none absolute left-[calc(100%+14px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-xl border border-white/[0.12] bg-[#0B1324]/90 px-3 py-1.5 text-xs font-medium text-slate-100 shadow-xl backdrop-blur-xl"
                 >
                   Quadros de Efetivo
                 </div>
@@ -609,7 +609,7 @@ export default function GlassySidebar({
                   : "max-h-0 opacity-0"
               )}
             >
-              <div className="relative ml-6 border-l border-[#24344D] pl-3.5 py-1 space-y-0.5">
+              <div className="relative ml-6 border-l border-white/[0.12] pl-3.5 py-1 space-y-0.5">
                 {categorias.map((cat) => {
                   const dotColor = TREE_DOT_COLORS[cat.codigo] ?? "#E2E8F0";
                   const leafId = `quadro-${cat.codigo}`;
@@ -630,8 +630,8 @@ export default function GlassySidebar({
                         cn(
                           "nav-spotlight-item group/leaf relative flex items-center justify-between rounded-xl px-2.5 py-1.5 font-sans text-[12.5px] transition-all duration-200",
                           isActive
-                            ? "bg-blue-600/15 font-semibold text-white ring-1 ring-blue-500/25 shadow-xs"
-                            : "font-normal text-slate-400 hover:bg-[#182335]/85 hover:text-slate-100"
+                            ? "bg-blue-600/18 font-semibold text-white ring-1 ring-blue-400/30 shadow-xs"
+                            : "font-normal text-slate-400 hover:bg-white/[0.06] hover:text-slate-100"
                         )
                       }
                     >
@@ -640,7 +640,7 @@ export default function GlassySidebar({
                       <span className="nav-spotlight-border-edge" aria-hidden="true" />
 
                       {/* Conector horizontal fino ligando à linha vertical da árvore */}
-                      <span className="pointer-events-none absolute -left-3.5 top-1/2 h-px w-2.5 -translate-y-1/2 bg-[#24344D]" />
+                      <span className="pointer-events-none absolute -left-3.5 top-1/2 h-px w-2.5 -translate-y-1/2 bg-white/[0.12]" />
                       <span className="relative z-10 truncate">{cat.nome}</span>
                       <span className="nav-icon-swap-slot relative z-10 ml-2 !h-4 !w-4">
                         <span className="nav-icon-swap-primary">
@@ -669,7 +669,7 @@ export default function GlassySidebar({
       </nav>
 
       {/* 3. RODAPÉ (CARD DE PERFIL DO USUÁRIO) */}
-      <div className={cn("mt-auto border-t border-[#1E2C42] pt-2.5 pb-3.5", mobileMode && "pb-[calc(0.875rem+env(safe-area-inset-bottom,0px))]", isExpanded ? "px-3" : "px-0")}>
+      <div className={cn("mt-auto border-t border-white/[0.08] pt-2.5 pb-3.5", mobileMode && "pb-[calc(0.875rem+env(safe-area-inset-bottom,0px))]", isExpanded ? "px-3" : "px-0")}>
         <div
           className="relative flex justify-center"
           onMouseEnter={() => setHoveredItem("__user_profile__")}
@@ -677,7 +677,7 @@ export default function GlassySidebar({
         >
           <div
             className={cn(
-              "flex items-center rounded-2xl border border-[#1E2C42] bg-[#182335]/70 transition-all duration-300",
+              "flex items-center rounded-2xl border border-white/[0.09] bg-[#060C18]/65 transition-all duration-300",
               isExpanded ? "w-full justify-between gap-2.5 p-2.5" : "size-11 justify-center p-0"
             )}
           >
@@ -687,7 +687,7 @@ export default function GlassySidebar({
                 {initials || <Users className="size-4" />}
               </div>
               <span
-                className="absolute bottom-0 right-0 size-2.5 rounded-full bg-emerald-400 ring-2 ring-[#121B28] shadow-[0_0_8px_#34D399]"
+                className="absolute bottom-0 right-0 size-2.5 rounded-full bg-emerald-400 ring-2 ring-[#080E1A] shadow-[0_0_8px_#34D399]"
                 title="Online"
               />
             </div>
@@ -717,7 +717,7 @@ export default function GlassySidebar({
                 type="button"
                 onClick={onLogout}
                 title="Sair da conta"
-                className="flex size-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-[#24344D] hover:text-white cursor-pointer"
+                className="flex size-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-white/[0.08] hover:text-white cursor-pointer"
               >
                 <LogOut className="size-4" />
               </button>
@@ -727,7 +727,7 @@ export default function GlassySidebar({
           {!isExpanded && hoveredItem === "__user_profile__" && (
             <div
               role="tooltip"
-              className="pointer-events-none absolute left-[calc(100%+14px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-xl border border-[#24344D] bg-[#121B28]/95 px-3 py-1.5 text-xs shadow-xl backdrop-blur-xl"
+              className="pointer-events-none absolute left-[calc(100%+14px)] top-1/2 z-50 -translate-y-1/2 whitespace-nowrap rounded-xl border border-white/[0.12] bg-[#0B1324]/90 px-3 py-1.5 text-xs shadow-xl backdrop-blur-xl"
             >
               <p className="font-semibold text-slate-100">{displayName}</p>
               {displayEmail && <p className="text-[10px] text-slate-400">{displayEmail}</p>}

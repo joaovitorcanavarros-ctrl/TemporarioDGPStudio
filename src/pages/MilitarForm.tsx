@@ -243,10 +243,10 @@ export default function MilitarForm() {
     });
 
   if (me.isLoading) {
-    return <p className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-8 text-slate-400">Verificando permissões...</p>;
+    return <p className="glass-panel rounded-xl border p-8 text-slate-400">Verificando permissões...</p>;
   }
   if (!canEdit) {
-    return <p className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-8 text-slate-400" data-testid="no-permission">Seu perfil (Consulta) não permite cadastrar ou editar registros.</p>;
+    return <p className="glass-panel rounded-xl border p-8 text-slate-400" data-testid="no-permission">Seu perfil (Consulta) não permite cadastrar ou editar registros.</p>;
   }
   const e = form.formState.errors;
   const c = cat.data;
@@ -275,7 +275,7 @@ export default function MilitarForm() {
       )}
 
       <form onSubmit={submit(false)} className="space-y-4 sm:space-y-5" data-testid="militar-form">
-        <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-4 sm:p-5">
+        <section className="glass-panel rounded-xl border p-4 sm:p-5">
           <h3 className="mb-3.5 sm:mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Identificação</h3>
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label="Matrícula / vínculo" req error={e.matricula?.message}>
@@ -287,7 +287,7 @@ export default function MilitarForm() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-4 sm:p-5">
+        <section className="glass-panel rounded-xl border p-4 sm:p-5">
           <h3 className="mb-3.5 sm:mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Dados funcionais e contratuais</h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Cargo / função" req error={e.cargo_id?.message}>
@@ -393,7 +393,7 @@ export default function MilitarForm() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-4 sm:p-5">
+        <section className="glass-panel rounded-xl border p-4 sm:p-5">
           <h3 className="mb-3.5 sm:mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Situação funcional</h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Situação" req>
@@ -428,7 +428,7 @@ export default function MilitarForm() {
           </div>
         </section>
 
-        <div className="grid grid-cols-2 gap-2 rounded-xl border border-[#1E2C42] bg-[#0B111A]/95 p-3 sm:sticky sm:bottom-0 sm:flex sm:flex-wrap sm:px-4 sm:py-3 sm:backdrop-blur">
+        <div className="glass-panel grid grid-cols-2 gap-2 rounded-xl border p-3 sm:sticky sm:bottom-2 sm:flex sm:flex-wrap sm:px-4 sm:py-3">
           <Button type="submit" disabled={mut.isPending} className="col-span-2 h-11 sm:col-span-1 sm:h-9 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-transform" data-testid="save-button">
             <Save className="size-4" /> Salvar Cadastro
           </Button>

@@ -105,7 +105,7 @@ export default function DrillSheet({
                 ? { duration: 0 }
                 : { duration: 0.62, ease: [0.35, 0, 0.25, 1] }
             }
-            className="fixed inset-0 bg-[#050912]/65 backdrop-blur-md"
+            className="fixed inset-0 bg-[#02040A]/76 backdrop-blur-md"
           />
 
           {/* Bottom-up floating pop-up card */}
@@ -143,15 +143,15 @@ export default function DrillSheet({
                     ease: [0.28, 0.05, 0.18, 1],
                   }
             }
-            className="relative z-10 flex max-h-[92dvh] w-full max-w-[min(1680px,100vw)] sm:max-w-[min(1680px,97vw)] flex-col overflow-hidden rounded-t-3xl rounded-b-none border-t border-x border-[#24344D] bg-[#0B111A] pb-safe shadow-[0_-20px_70px_-10px_rgba(0,0,0,0.85),0_0_0_1px_rgba(255,255,255,0.04)] sm:max-h-[90vh] sm:rounded-3xl sm:border will-change-transform"
+            className="glass-dialog relative z-10 flex max-h-[92dvh] w-full max-w-[min(1680px,100vw)] sm:max-w-[min(1680px,97vw)] flex-col overflow-hidden rounded-t-3xl rounded-b-none border-t border-x pb-safe sm:max-h-[90vh] sm:rounded-3xl sm:border will-change-transform"
           >
             {/* Subtle top grabber bar matching bottom-sheet pop-up aesthetic */}
-            <div className="flex justify-center bg-[#0E1624]/95 pt-2.5">
-              <span className="h-1 w-10 rounded-full bg-slate-700/80" aria-hidden="true" />
+            <div className="flex justify-center bg-[#060C18]/75 pt-2.5">
+              <span className="h-1 w-10 rounded-full bg-white/20" aria-hidden="true" />
             </div>
 
             {/* Header */}
-            <div className="flex items-start justify-between gap-3 border-b border-[#1E2C42] bg-[#0E1624]/95 px-4 pb-3.5 pt-2 sm:px-6 sm:pb-4 sm:pt-2.5">
+            <div className="flex items-start justify-between gap-3 border-b border-white/[0.09] bg-[#060C18]/75 px-4 pb-3.5 pt-2 sm:px-6 sm:pb-4 sm:pt-2.5">
               <div className="min-w-0">
                 <h2
                   id={titleId}
@@ -168,7 +168,7 @@ export default function DrillSheet({
                 type="button"
                 onClick={onClose}
                 aria-label="Fechar"
-                className="flex size-10 sm:size-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-[#162234]/80 text-slate-300 transition-colors hover:border-white/20 hover:bg-[#1E2C42] hover:text-white active:scale-95 cursor-pointer"
+                className="flex size-10 sm:size-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-slate-300 transition-colors hover:border-white/20 hover:bg-white/[0.12] hover:text-white active:scale-95 cursor-pointer"
               >
                 <X className="size-4" />
               </button>
@@ -189,7 +189,7 @@ export default function DrillSheet({
                       }
                     }}
                     placeholder="Pesquisar por nome ou matrícula..."
-                    className="h-10 sm:h-9 border-[#1E2C42] bg-[#121B28] pl-9 pr-8 text-slate-100 placeholder:text-slate-500"
+                    className="h-10 sm:h-9 border-white/[0.10] bg-[#060B15]/75 pl-9 pr-8 text-slate-100 placeholder:text-slate-500"
                     data-testid="drill-search-input"
                   />
                   {qInput && (

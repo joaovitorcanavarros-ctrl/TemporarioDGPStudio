@@ -485,7 +485,7 @@ export default function GlassyOtpCard({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={reduceMotion ? undefined : { opacity: 0, y: -12, scale: 0.985 }}
       transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-      className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-white/14 bg-gradient-to-br from-[#0E1726]/92 via-[#0C1527]/88 to-[#180B12]/90 p-6 sm:p-9 shadow-[0_28px_70px_rgba(0,0,0,0.72)] backdrop-blur-xl ring-1 ring-white/10"
+      className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-white/[0.15] bg-gradient-to-br from-[#0E182D]/68 via-[#0A1324]/64 to-[#190911]/72 p-6 sm:p-9 shadow-[0_32px_84px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-2xl backdrop-saturate-150 ring-1 ring-white/10"
       data-testid="glassy-otp-card"
     >
       {/* Brilho atmosférico superior dinâmico (azul CBMMT → verde esmeralda na verificação) */}
@@ -547,7 +547,7 @@ export default function GlassyOtpCard({
                 initial={reduceMotion ? false : { opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.08, duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-                className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#090F1B]/70 px-4 py-3 backdrop-blur-md"
+                className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#040812]/65 px-4 py-3 backdrop-blur-md"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="grid size-9 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/[0.05] text-slate-200">
@@ -567,7 +567,7 @@ export default function GlassyOtpCard({
                 initial={reduceMotion ? false : { opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.16, duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-                className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#090F1B]/70 px-4 py-3 backdrop-blur-md"
+                className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#040812]/65 px-4 py-3 backdrop-blur-md"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="grid size-9 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/[0.05] text-slate-200">

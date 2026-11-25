@@ -92,14 +92,14 @@ export default function Desligamentos() {
       </div>
       <FiltersBar hideStatus />
       <MilitaresTable variant="desligados" params={{ ...baseParams(filters), status: "DESLIGADO", deslig_ini: ini, deslig_fim: fim }} testId="desligados-table" />
-      <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-4 sm:p-5" data-testid="eventos-recentes">
+      <section className="glass-panel rounded-xl border p-4 sm:p-5" data-testid="eventos-recentes">
         <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-2">
           <h3 className="font-heading font-bold text-white">Últimos desligamentos da semana</h3>
           <span className="text-xs text-slate-400" data-testid="semana-atual-label">
             Semana de {fmtDate(semana.inicio)} a {fmtDate(semana.fim)} · {eventos.length} {eventos.length === 1 ? "desligamento" : "desligamentos"}
           </span>
         </div>
-        <div className="divide-y divide-[#162234]">
+        <div className="divide-y divide-white/[0.07]">
           {eventos.map((e) => (
             <div key={e.id} className="flex flex-col gap-1.5 py-3 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 sm:py-2.5">
               <div className="flex flex-wrap items-center gap-2">

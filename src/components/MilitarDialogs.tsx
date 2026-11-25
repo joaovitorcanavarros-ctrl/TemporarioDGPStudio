@@ -29,7 +29,7 @@ function Err({ msg }: { msg?: string }) {
 
 function Resumo({ m }: { m: Militar }) {
   return (
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-[#1E2C42] bg-[#0F1724] p-3 text-sm" data-testid="dialog-militar-resumo">
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-white/[0.09] bg-[#060B15]/70 p-3 text-sm" data-testid="dialog-militar-resumo">
       <div className="col-span-2"><dt className="text-[10px] uppercase tracking-wider text-slate-500">Nome</dt><dd className="font-semibold text-white">{m.nome_completo}</dd></div>
       <div><dt className="text-[10px] uppercase tracking-wider text-slate-500">Matrícula</dt><dd className="num text-slate-200">{m.matricula}</dd></div>
       <div><dt className="text-[10px] uppercase tracking-wider text-slate-500">Cargo</dt><dd className="text-slate-200">{m.cargo_nome}</dd></div>
@@ -87,7 +87,7 @@ export function DesligamentoDialog({ militar, onClose }: { militar: Militar | nu
   const e = form.formState.errors;
   return (
     <Dialog open={!!militar} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="border-[#1E2C42] bg-[#121B28] sm:max-w-lg" data-testid="desligamento-dialog">
+      <DialogContent className="glass-dialog border sm:max-w-lg" data-testid="desligamento-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-white"><AlertTriangle className="size-5 text-red-400" /> Registrar Desligamento</DialogTitle>
           <DialogDescription>O cadastro não será excluído: a situação passa a Desligado e o histórico é preservado.</DialogDescription>
@@ -156,7 +156,7 @@ export function ReativarDialog({ militar, onClose }: { militar: Militar | null; 
   );
   return (
     <Dialog open={!!militar} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="border-[#1E2C42] bg-[#121B28] sm:max-w-lg" data-testid="reativar-dialog">
+      <DialogContent className="glass-dialog border sm:max-w-lg" data-testid="reativar-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-white"><RotateCcw className="size-5 text-emerald-400" /> Reativar Cadastro</DialogTitle>
           <DialogDescription>
@@ -337,7 +337,7 @@ export function QuickEditDialog({ militar, onClose }: { militar: Militar | null;
   return (
     <>
       <Dialog open={!!militar} onOpenChange={(o) => !o && !renovModalOpen && onClose()}>
-        <DialogContent className="border-[#1E2C42] bg-[#121B28] sm:max-w-xl max-h-[90vh] overflow-y-auto" data-testid="quick-edit-dialog">
+        <DialogContent className="glass-dialog border sm:max-w-xl max-h-[90vh] overflow-y-auto" data-testid="quick-edit-dialog">
           <DialogHeader>
             <DialogTitle className="text-white text-lg font-bold">Edição rápida</DialogTitle>
             <DialogDescription className="text-slate-300">

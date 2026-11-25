@@ -121,13 +121,13 @@ export function RenovacaoFocusModal({
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Backdrop
-          className="fixed inset-0 z-[90] bg-[#04070D]/80 backdrop-blur-md animate-staging-backdrop"
+          className="fixed inset-0 z-[90] bg-[#02040A]/84 backdrop-blur-md animate-staging-backdrop"
           data-testid="renovacao-focus-backdrop"
         />
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
           <DialogPrimitive.Popup
             data-testid="renovacao-focus-modal"
-            className="pointer-events-auto relative w-full max-w-xl rounded-xl border border-cyan-500/35 bg-[#0E1623] p-6 text-slate-100 shadow-[0_24px_80px_-12px_rgba(6,182,212,0.28)] outline-none animate-staging-focus"
+            className="glass-dialog pointer-events-auto relative w-full max-w-xl rounded-xl border border-cyan-400/35 p-6 text-slate-100 shadow-[0_28px_84px_-12px_rgba(6,182,212,0.28)] outline-none animate-staging-focus"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3.5">
@@ -203,7 +203,7 @@ export function RenovacaoFocusModal({
                     "flex items-center gap-2.5 rounded-lg border px-4 py-3 text-left text-xs font-semibold transition-all duration-150 cursor-pointer",
                     escolhaSim
                       ? "border-cyan-400 bg-cyan-500/15 text-white ring-1 ring-cyan-400/50"
-                      : "border-[#24344D] bg-[#121B28] text-slate-300 hover:border-slate-500 hover:text-white"
+                      : "border-white/[0.10] bg-[#060B15]/68 text-slate-300 hover:border-white/[0.22] hover:text-white"
                   )}
                 >
                   <CheckCircle2 className={cn("size-4 shrink-0", escolhaSim ? "text-cyan-400" : "text-slate-500")} />
@@ -218,7 +218,7 @@ export function RenovacaoFocusModal({
                     "flex items-center gap-2.5 rounded-lg border px-4 py-3 text-left text-xs font-semibold transition-all duration-150 cursor-pointer",
                     !escolhaSim
                       ? "border-slate-400 bg-slate-700/60 text-white ring-1 ring-slate-400/40"
-                      : "border-[#24344D] bg-[#121B28] text-slate-300 hover:border-slate-500 hover:text-white"
+                      : "border-white/[0.10] bg-[#060B15]/68 text-slate-300 hover:border-white/[0.22] hover:text-white"
                   )}
                 >
                   <XCircle className={cn("size-4 shrink-0", !escolhaSim ? "text-slate-200" : "text-slate-500")} />
@@ -228,7 +228,7 @@ export function RenovacaoFocusModal({
             </div>
 
             {/* Resultado estruturado com espaçamento limpo */}
-            <div className="mt-5 border-t border-[#1E2C42] pt-4">
+            <div className="mt-5 border-t border-white/[0.08] pt-4">
               {escolhaSim ? (
                 <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4" data-testid="renovacao-preview-sim">
                   <div>
