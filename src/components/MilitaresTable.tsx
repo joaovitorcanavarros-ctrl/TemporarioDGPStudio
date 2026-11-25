@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { BadgeCheck, ChevronLeft, ChevronRight, Download, FileDown, History, Loader2, Pencil, RotateCcw, SquarePen, UserMinus } from "lucide-react";
+import { BadgeCheck, ChevronLeft, ChevronRight, Download, FileDown, History, Loader2, Pencil, RotateCcw, SquarePen } from "lucide-react";
 import { toast } from "sonner";
 import FieldSelect from "@/components/FieldSelect";
 import { DesligamentoDialog, QuickEditDialog, ReativarDialog } from "@/components/MilitarDialogs";
@@ -9,7 +9,7 @@ import { AlertaBadge, StatusBadge } from "@/components/StatusBadge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiGet } from "@/lib/api";
-import { exportFile, fmtDate, fmtDateTime, fmtNum, qs } from "@/lib/format";
+import { exportFile, fmtDate, fmtDateTime, fmtNum, qs, sanitizeSpreadsheetValue, toCsv } from "@/lib/format";
 import { isAdmin, podeEditar, useMe } from "@/lib/hooks";
 import { getInfoContrato, type Militar, type MilitarPage } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -224,14 +224,15 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
 
       if (formato === "xlsx") {
         const XLSX = await import("xlsx");
-        const wsData = [headers, ...rows];
+        const safeRows = rows.map((r) => r.map((c) => sanitizeSpreadsheetValue(c)));
+        const wsData = [headers, ...safeRows];
         const ws = XLSX.utils.aoa_to_sheet(wsData);
 
         // Largura automática das colunas
         const colWidths = headers.map((h, i) => {
           let maxLen = h.length;
-          for (let r = 0; r < Math.min(rows.length, 100); r++) {
-            const val = rows[r][i] ? String(rows[r][i]) : "";
+          for (let r = 0; r < Math.min(safeRows.length, 100); r++) {
+            const val = safeRows[r][i] ? String(safeRows[r][i]) : "";
             if (val.length > maxLen) maxLen = Math.min(val.length, 60);
           }
           return { wch: Math.max(maxLen + 2, 12) };
@@ -246,10 +247,7 @@ export default function MilitaresTable({ params, variant = "geral", compact, tes
         });
         exportFile(`${prefixo}_${dataHoje}.xlsx`, blob);
       } else {
-        const csvContent = [
-          headers.join(";"),
-          ...rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")),
-        ].join("\n");
+        const csvContent = toCsv([headers, ...rows]);
         exportFile(`${prefixo}_${dataHoje}.csv`, "\ufeff" + csvContent, "text/csv;charset=utf-8;");
       }
 

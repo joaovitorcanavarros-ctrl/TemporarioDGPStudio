@@ -1050,6 +1050,61 @@ export async function logAudit(entry: {
 
 // ----------------- CLOUD FIRESTORE SERVICE ENDPOINTS -----------------
 
+const VALID_PERFIS = new Set<UserOut["perfil"]>(["ADMIN", "GESTOR", "CONSULTA"]);
+
+function sanitizeText(val: unknown, maxLen = 500): string {
+  if (val === null || val === undefined) return "";
+  return String(val)
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .trim()
+    .slice(0, maxLen);
+}
+
+function sanitizeOptionalText(val: unknown, maxLen = 2000): string | null {
+  const cleaned = sanitizeText(val, maxLen);
+  return cleaned ? cleaned : null;
+}
+
+function requireAuthenticatedUser(): UserOut {
+  const current = getCurrentUser();
+  if (!current) {
+    throw { status: 401, body: { detail: "Sessão expirada ou não autenticado." } };
+  }
+  const latest = state.usuarios.find(
+    (u) => u.id === current.id || u.email.toLowerCase() === current.email.toLowerCase()
+  );
+  const resolved: UserOut = latest
+    ? {
+        id: latest.id,
+        nome: latest.nome,
+        email: latest.email,
+        perfil: VALID_PERFIS.has(latest.perfil) ? latest.perfil : "CONSULTA",
+        ativo: latest.ativo !== false,
+      }
+    : current;
+  if (!resolved.ativo) {
+    setCurrentUser(null);
+    throw { status: 403, body: { detail: "Sua conta está inativa. Contate um administrador." } };
+  }
+  return resolved;
+}
+
+function requireEditor(): UserOut {
+  const user = requireAuthenticatedUser();
+  if (user.perfil !== "ADMIN" && user.perfil !== "GESTOR") {
+    throw { status: 403, body: { detail: "Seu perfil não tem permissão para criar ou alterar registros." } };
+  }
+  return user;
+}
+
+function requireAdmin(): UserOut {
+  const user = requireAuthenticatedUser();
+  if (user.perfil !== "ADMIN") {
+    throw { status: 403, body: { detail: "Acesso restrito a administradores do sistema." } };
+  }
+  return user;
+}
+
 export async function handleBackendRequest<T>(method: string, path: string, body?: any): Promise<T> {
   const url = new URL(path.startsWith("/") ? `http://localhost${path}` : `http://localhost/${path}`);
 
@@ -1144,8 +1199,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   }
 
   if (pathname === "/auth/signup" && method === "POST") {
-    const email = (body?.email || "").trim().toLowerCase();
-    const nome = (body?.nome || "").trim();
+    const email = sanitizeText(body?.email, 160).toLowerCase();
+    const nome = sanitizeText(body?.nome, 160);
     const otpVerified = Boolean(body?.otpVerified);
     const otpVerifiedAt = typeof body?.otpVerifiedAt === "string" ? body.otpVerifiedAt : null;
 
@@ -1239,8 +1294,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   }
 
   if (pathname === "/auth/google" && method === "POST") {
-    const email = (body?.email || "").trim().toLowerCase();
-    const nome = (body?.nome || "").trim() || email.split("@")[0];
+    const email = sanitizeText(body?.email, 160).toLowerCase();
+    const nome = sanitizeText(body?.nome, 160) || email.split("@")[0];
     const otpVerified = Boolean(body?.otpVerified);
     const otpVerifiedAt = typeof body?.otpVerifiedAt === "string" ? body.otpVerifiedAt : null;
 
@@ -1364,8 +1419,10 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   }
 
   if (pathname === "/config" && method === "PUT") {
+    requireAdmin();
     const oldAlerta = state.config.alerta_dias;
-    const newAlerta = Number(body?.alerta_dias) || 30;
+    const parsedAlerta = Math.round(Number(body?.alerta_dias));
+    const newAlerta = Number.isFinite(parsedAlerta) ? Math.min(365, Math.max(1, parsedAlerta)) : 30;
     state.config = { alerta_dias: newAlerta };
     await logAudit({
       entidade: "Configurações",
@@ -1381,6 +1438,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   // Catálogos CRUD em 'corporacao > dados'
   const catMatch = pathname.match(/^\/(categorias|cargos|lotacoes|comandos-regionais|editais|motivos)(\/(.+))?$/);
   if (catMatch) {
+    requireAdmin();
     const rawColl = catMatch[1];
     const coll = (rawColl === "comandos-regionais" ? "comandos_regionais" : rawColl) as
       | "categorias"
@@ -1390,20 +1448,27 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       | "editais"
       | "motivos";
     const itemId = catMatch[3];
+    const cleanBody: Record<string, unknown> = {};
+    if (body && typeof body === "object") {
+      for (const [k, v] of Object.entries(body)) {
+        if (k === "__proto__" || k === "constructor" || k === "prototype") continue;
+        cleanBody[k] = typeof v === "string" ? sanitizeText(v, 240) : v;
+      }
+    }
     if (method === "POST") {
       const newId = `${coll.slice(0, 3)}_${Date.now()}`;
       const extraDefaults =
-        coll === "lotacoes" && !body?.comando_regional_id && body?.nome
-          ? { comando_regional_id: inferComandoRegionalIdByLotacaoNome(String(body.nome)) }
+        coll === "lotacoes" && !cleanBody?.comando_regional_id && cleanBody?.nome
+          ? { comando_regional_id: inferComandoRegionalIdByLotacaoNome(String(cleanBody.nome)) }
           : {};
-      const item = { id: newId, ...extraDefaults, ...body, ativo: true };
+      const item = { id: newId, ...extraDefaults, ...cleanBody, ativo: cleanBody.ativo !== false };
       (state[coll] as any).push(item);
       await logAudit({
         entidade: coll,
         entidade_id: newId,
         operacao: `INSERCAO_${coll.toUpperCase()}`,
         antes: null,
-        depois: { Nome: item.nome || item.codigo, ...item },
+        depois: { Nome: (item as any).nome || (item as any).codigo, ...item },
       });
       await persistDadosCorporacaoExplicitly([coll]);
       return item as T;
@@ -1412,7 +1477,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       const idx = (state[coll] as any).findIndex((x: any) => x.id === itemId);
       if (idx >= 0) {
         const oldItem = { ...state[coll][idx] };
-        state[coll][idx] = { ...state[coll][idx], ...body, id: itemId };
+        state[coll][idx] = { ...state[coll][idx], ...cleanBody, id: itemId };
         await logAudit({
           entidade: coll,
           entidade_id: itemId,
@@ -1974,35 +2039,37 @@ export async function handleBackendRequest<T>(method: string, path: string, body
 
   // Create militar
   if (pathname === "/militares" && method === "POST") {
+    const user = requireEditor();
     const b = body as MilitarIn;
-    const mat = normMatricula(b.matricula);
+    const cleanMatricula = sanitizeText(b.matricula, 40);
+    const cleanNome = sanitizeText(b.nome_completo, 200).toUpperCase();
+    const mat = normMatricula(cleanMatricula);
     const existsLocal = state.militares.find((m) => normMatricula(m.matricula) === mat);
     if (existsLocal) {
       throw {
         status: 409,
         body: {
           detail: {
-            message: `Já existe cadastro para a matrícula ${b.matricula} (${existsLocal.nome_completo}).`,
+            message: `Já existe cadastro para a matrícula ${cleanMatricula} (${existsLocal.nome_completo}).`,
             militar_id: existsLocal.id,
           },
         },
       };
     }
-    const existsCloud = await verificarMatriculaFirestore(b.matricula);
+    const existsCloud = await verificarMatriculaFirestore(cleanMatricula);
     if (existsCloud?.id) {
       upsertMilitaresInMemory([existsCloud]);
       throw {
         status: 409,
         body: {
           detail: {
-            message: `Já existe cadastro para a matrícula ${b.matricula} (${existsCloud.nome_completo || "registrado por outro cadastrante"}).`,
+            message: `Já existe cadastro para a matrícula ${cleanMatricula} (${existsCloud.nome_completo || "registrado por outro cadastrante"}).`,
             militar_id: String(existsCloud.id),
           },
         },
       };
     }
 
-    const user = getCurrentUser() || BOOTSTRAP_USERS[0];
     const nowIso = new Date().toISOString();
     const randomSuffix = Math.random().toString(36).slice(2, 6);
     const lotObjNovo = state.lotacoes.find((l) => l.id === b.lotacao_id);
@@ -2013,8 +2080,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       null;
     const newDoc: CloudCacheState["militares"][number] = {
       id: `mil_${Date.now()}_${randomSuffix}`,
-      matricula: b.matricula.trim(),
-      nome_completo: b.nome_completo.trim().toUpperCase(),
+      matricula: cleanMatricula,
+      nome_completo: cleanNome,
       cargo_id: b.cargo_id,
       lotacao_id: b.lotacao_id,
       comando_regional_id: resolvedCrNovo,
@@ -2022,12 +2089,12 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       data_inclusao: b.data_inclusao,
       data_vencimento_contrato: b.data_vencimento_contrato,
       status: b.status || "ATIVO",
-      observacoes: b.observacoes || null,
-      doe_incorporacao: b.doe_incorporacao || null,
+      observacoes: sanitizeOptionalText(b.observacoes, 2000),
+      doe_incorporacao: sanitizeOptionalText(b.doe_incorporacao, 240),
       sub_judice: Boolean(b.sub_judice),
       data_desligamento: b.data_desligamento || null,
       motivo_desligamento_id: b.motivo_desligamento_id || null,
-      documento_desligamento: b.documento_desligamento || null,
+      documento_desligamento: sanitizeOptionalText(b.documento_desligamento, 120),
       criado_em: nowIso,
       atualizado_em: nowIso,
       criado_por: user.id,
@@ -2121,8 +2188,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     if (!doc) throw { status: 404, body: { detail: "Militar não encontrado" } };
 
     if (method === "PUT") {
+      const user = requireEditor();
       const b = body as MilitarIn;
-      const user = getCurrentUser() || BOOTSTRAP_USERS[0];
       const antes: Record<string, unknown> = {};
       const depois: Record<string, unknown> = {};
       let isVencChange = false;
@@ -2213,8 +2280,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       });
 
       Object.assign(doc, {
-        matricula: b.matricula.trim(),
-        nome_completo: b.nome_completo.trim().toUpperCase(),
+        matricula: sanitizeText(b.matricula, 40),
+        nome_completo: sanitizeText(b.nome_completo, 200).toUpperCase(),
         cargo_id: b.cargo_id,
         lotacao_id: b.lotacao_id,
         comando_regional_id: nextCrId,
@@ -2222,12 +2289,12 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         data_inclusao: b.data_inclusao,
         data_vencimento_contrato: b.data_vencimento_contrato,
         status: b.status,
-        observacoes: b.observacoes || null,
-        doe_incorporacao: b.doe_incorporacao || null,
+        observacoes: sanitizeOptionalText(b.observacoes, 2000),
+        doe_incorporacao: sanitizeOptionalText(b.doe_incorporacao, 240),
         sub_judice: Boolean(b.sub_judice),
         data_desligamento: b.data_desligamento || null,
         motivo_desligamento_id: b.motivo_desligamento_id || null,
-        documento_desligamento: b.documento_desligamento || null,
+        documento_desligamento: sanitizeOptionalText(b.documento_desligamento, 120),
         renovacao_contrato: infoAtualizada.renovado,
         ano_contrato: infoAtualizada.anoContrato,
         ano_contrato_manual: nextManualFlag,
@@ -2270,7 +2337,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     }
 
     if (method === "DELETE") {
-      const user = getCurrentUser() || BOOTSTRAP_USERS[0];
+      const user = requireAdmin();
       const docIdx = state.militares.findIndex((m) => m.id === id);
       if (docIdx >= 0) {
         const removed = state.militares.splice(docIdx, 1)[0];
@@ -2301,11 +2368,11 @@ export async function handleBackendRequest<T>(method: string, path: string, body
 
   const milQuickMatch = pathname.match(/^\/militares\/([^/]+)\/rapido$/);
   if (milQuickMatch && method === "PATCH") {
+    const user = requireEditor();
     const id = milQuickMatch[1];
     const doc = state.militares.find((m) => m.id === id);
     if (!doc) throw { status: 404, body: { detail: "Militar não encontrado" } };
     const b = body as MilitarRapidoIn;
-    const user = getCurrentUser() || BOOTSTRAP_USERS[0];
     const antes: Record<string, unknown> = {};
     const depois: Record<string, unknown> = {};
     let isVencChange = false;
@@ -2339,10 +2406,13 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       depois["Edital"] = newEd;
       doc.edital_id = b.edital_id;
     }
-    if (b.observacoes !== undefined && b.observacoes !== doc.observacoes) {
-      antes["Observações"] = doc.observacoes || "—";
-      depois["Observações"] = b.observacoes || "—";
-      doc.observacoes = b.observacoes;
+    if (b.observacoes !== undefined) {
+      const cleanObs = sanitizeOptionalText(b.observacoes, 2000);
+      if (cleanObs !== doc.observacoes) {
+        antes["Observações"] = doc.observacoes || "—";
+        depois["Observações"] = cleanObs || "—";
+        doc.observacoes = cleanObs;
+      }
     }
     const anoAnteriorLabel = `${getInfoContrato(doc).anoContrato}º Ano de Contrato`;
 
@@ -2433,19 +2503,21 @@ export async function handleBackendRequest<T>(method: string, path: string, body
 
   const milDesligMatch = pathname.match(/^\/militares\/([^/]+)\/(desligar|desligamento)$/);
   if (milDesligMatch && method === "POST") {
+    const user = requireEditor();
     const id = milDesligMatch[1];
     const doc = state.militares.find((m) => m.id === id);
     if (!doc) throw { status: 404, body: { detail: "Militar não encontrado" } };
     const b = body as DesligamentoIn;
-    const user = getCurrentUser() || BOOTSTRAP_USERS[0];
     const motivo = state.motivos.find((mt) => mt.id === b.motivo_id);
+    const cleanDoc = sanitizeOptionalText(b.documento, 120);
+    const cleanObs = sanitizeOptionalText(b.observacoes, 2000);
 
     const oldStatus = doc.status;
     doc.status = "DESLIGADO";
     doc.data_desligamento = b.data_desligamento;
     doc.motivo_desligamento_id = b.motivo_id;
-    doc.documento_desligamento = b.documento || null;
-    if (b.observacoes) doc.observacoes = b.observacoes;
+    doc.documento_desligamento = cleanDoc;
+    if (cleanObs) doc.observacoes = cleanObs;
     doc.atualizado_em = new Date().toISOString();
     doc.atualizado_por = user.id;
     doc.atualizado_por_nome = user.nome;
@@ -2458,9 +2530,9 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       tipo: "DESLIGAMENTO",
       data_efetiva: b.data_desligamento,
       motivo_nome: motivo?.nome || null,
-      documento: b.documento || null,
+      documento: cleanDoc,
       justificativa: null,
-      observacoes: b.observacoes || null,
+      observacoes: cleanObs,
       usuario_nome: user.nome,
       timestamp: new Date().toISOString(),
     });
@@ -2477,8 +2549,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         Situação: "DESLIGADO",
         "Data do desligamento": b.data_desligamento,
         "Status de desligamento": motivo?.nome || b.motivo_id,
-        Documento: b.documento || "—",
-        "Motivo do desligamento": b.observacoes || "—",
+        Documento: cleanDoc || "—",
+        "Motivo do desligamento": cleanObs || "—",
       },
     });
 
@@ -2488,11 +2560,13 @@ export async function handleBackendRequest<T>(method: string, path: string, body
 
   const milReativarMatch = pathname.match(/^\/militares\/([^/]+)\/(reativar|reativacao)$/);
   if (milReativarMatch && method === "POST") {
+    const user = requireAdmin();
     const id = milReativarMatch[1];
     const doc = state.militares.find((m) => m.id === id);
     if (!doc) throw { status: 404, body: { detail: "Militar não encontrado" } };
     const b = body as ReativacaoIn;
-    const user = getCurrentUser() || BOOTSTRAP_USERS[0];
+    const cleanJust = sanitizeText(b.justificativa, 2000);
+    const cleanDoc = sanitizeOptionalText(b.documento, 120);
 
     const oldStatus = doc.status;
     const oldVenc = doc.data_vencimento_contrato;
@@ -2513,8 +2587,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       tipo: "REATIVACAO",
       data_efetiva: hoje,
       motivo_nome: null,
-      documento: b.documento || null,
-      justificativa: b.justificativa,
+      documento: cleanDoc,
+      justificativa: cleanJust,
       observacoes: null,
       usuario_nome: user.nome,
       timestamp: new Date().toISOString(),
@@ -2532,8 +2606,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         Situação: "ATIVO",
         "Data da reativação": hoje,
         "Novo vencimento": doc.data_vencimento_contrato,
-        Justificativa: b.justificativa,
-        Documento: b.documento || "—",
+        Justificativa: cleanJust,
+        Documento: cleanDoc || "—",
       },
     });
 
@@ -3177,14 +3251,21 @@ export async function handleBackendRequest<T>(method: string, path: string, body
 
   // 6. USUÁRIOS & AUDITORIA (Coleções dedicadas 'usuarios' e 'auditoria')
   if (pathname === "/usuarios" && method === "GET") {
+    requireAdmin();
     await sincronizarUsuariosComFirestore(false);
     const list: UserOut[] = state.usuarios.map(({ ...u }) => u);
     return list as T;
   }
 
   if (pathname === "/usuarios" && method === "POST") {
+    requireAdmin();
     const b = body as UsuarioIn;
-    const cleanEmail = b.email.trim().toLowerCase();
+    const cleanEmail = sanitizeText(b.email, 160).toLowerCase();
+    const cleanNome = sanitizeText(b.nome, 160);
+    if (!cleanNome || !cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      throw { status: 400, body: { detail: "Informe nome e e-mail válidos para o usuário." } };
+    }
+    const safePerfil: UserOut["perfil"] = VALID_PERFIS.has(b.perfil) ? b.perfil : "CONSULTA";
     await sincronizarUsuariosComFirestore(true);
     const exists = state.usuarios.find((u) => u.email.toLowerCase() === cleanEmail);
     if (exists) {
@@ -3192,10 +3273,10 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     }
     const user: CloudCacheState["usuarios"][number] = {
       id: `usr_${Date.now()}`,
-      nome: b.nome.trim(),
+      nome: cleanNome,
       email: cleanEmail,
-      perfil: b.perfil,
-      ativo: b.ativo,
+      perfil: safePerfil,
+      ativo: b.ativo !== false,
     };
     state.usuarios.push(user);
 
@@ -3213,19 +3294,26 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   }
 
   if (pathname.startsWith("/usuarios/") && method === "PUT") {
+    requireAdmin();
     const id = pathname.replace("/usuarios/", "");
     const b = body as UsuarioIn;
+    const cleanEmail = sanitizeText(b.email, 160).toLowerCase();
+    const cleanNome = sanitizeText(b.nome, 160);
+    if (!cleanNome || !cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      throw { status: 400, body: { detail: "Informe nome e e-mail válidos para o usuário." } };
+    }
+    const safePerfil: UserOut["perfil"] = VALID_PERFIS.has(b.perfil) ? b.perfil : "CONSULTA";
     await sincronizarUsuariosComFirestore(true);
     let user = state.usuarios.find((u) => u.id === id);
     if (!user) {
-      user = state.usuarios.find((u) => u.email.toLowerCase() === b.email?.trim().toLowerCase());
+      user = state.usuarios.find((u) => u.email.toLowerCase() === cleanEmail);
     }
     if (!user) throw { status: 404, body: { detail: "Usuário não encontrado" } };
     const oldU = { Nome: user.nome, "E-mail": user.email, Perfil: user.perfil, Ativo: user.ativo ? "Sim" : "Não" };
-    user.nome = b.nome.trim();
-    user.email = b.email.trim().toLowerCase();
-    user.perfil = b.perfil;
-    user.ativo = b.ativo;
+    user.nome = cleanNome;
+    user.email = cleanEmail;
+    user.perfil = safePerfil;
+    user.ativo = b.ativo !== false;
 
     await salvarUsuarioFirestore(user);
 
@@ -3246,7 +3334,11 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   }
 
   if (pathname.startsWith("/usuarios/") && method === "DELETE") {
+    const adminUser = requireAdmin();
     const id = pathname.replace("/usuarios/", "");
+    if (id === adminUser.id) {
+      throw { status: 400, body: { detail: "Não é permitido excluir o próprio usuário autenticado." } };
+    }
     const user = state.usuarios.find((u) => u.id === id);
     if (user) {
       state.usuarios = state.usuarios.filter((u) => u.id !== id);
@@ -3263,6 +3355,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   }
 
   if (pathname === "/auditoria" && method === "GET") {
+    requireAdmin();
     const rawLimit = parseInt(searchParams.get("limit") || "30", 10);
     const safeLimit = Math.min(150, Math.max(1, isNaN(rawLimit) ? 30 : rawLimit));
     const cloudItems = await buscarAuditoriaFirestore(safeLimit);
@@ -3302,11 +3395,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
 
   const auditDeleteMatch = pathname.match(/^\/auditoria\/([^/]+)$/);
   if (auditDeleteMatch && method === "DELETE") {
+    requireAdmin();
     const auditId = auditDeleteMatch[1];
-    const user = getCurrentUser();
-    if (user && user.perfil !== "ADMIN") {
-      throw { status: 403, body: { detail: "Apenas administradores podem excluir registros de auditoria." } };
-    }
     await excluirAuditoriaFirestore([auditId]);
     void queryClient.invalidateQueries({ queryKey: ["auditoria"] });
     void queryClient.invalidateQueries({ queryKey: ["militar"] });
@@ -3314,10 +3404,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   }
 
   if (pathname === "/auditoria/excluir" && method === "POST") {
-    const user = getCurrentUser();
-    if (user && user.perfil !== "ADMIN") {
-      throw { status: 403, body: { detail: "Apenas administradores podem excluir registros de auditoria." } };
-    }
+    requireAdmin();
     const ids = Array.isArray((body as { ids?: unknown[] } | null)?.ids)
       ? ((body as { ids: unknown[] }).ids.map((x) => String(x || "").trim()).filter(Boolean))
       : [];
@@ -3332,7 +3419,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
 
   // 7. IMPORTAÇÃO
   if (pathname === "/importacao/analisar" && method === "POST") {
-    const content = body?.content || "";
+    requireEditor();
+    const content = typeof body?.content === "string" ? body.content : "";
     const lines = content.split(/\r?\n/).filter((l: string) => l.trim().length > 0);
     const delim = content.includes(";") ? ";" : ",";
     const headerRow = lines[0]
@@ -3387,8 +3475,9 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   }
 
   if (pathname === "/importacao/validar" && method === "POST") {
+    requireEditor();
     const b = body as ImportValidarIn;
-    const content = b.content || "";
+    const content = typeof b.content === "string" ? b.content : "";
     const lines = content.split(/\r?\n/).filter((l: string) => l.trim().length > 0);
     const delim = content.includes(";") ? ";" : ",";
     const headerIdx = (b.linha_cabecalho || 1) - 1;
@@ -3402,7 +3491,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     const novosEditais: string[] = [];
 
     dataLines.forEach((line: string, i: number) => {
-      const parts = line.split(delim).map((c: string) => c.replace(/^["']|["']$/g, "").trim());
+      const parts = line.split(delim).map((c: string) => sanitizeText(c.replace(/^["']|["']$/g, ""), 500));
       const rec: Record<string, string> = {};
       for (const [k, idx] of Object.entries(b.mapeamento)) {
         if (idx !== null && idx !== undefined && parts[idx] !== undefined) {
@@ -3460,18 +3549,20 @@ export async function handleBackendRequest<T>(method: string, path: string, body
   }
 
   if ((pathname === "/importacao/aplicar" || pathname === "/importacao/confirmar") && method === "POST") {
+    const user = requireEditor();
     const validacao = body?.validacao as ImportValidacao | undefined;
     let inseridos = 0;
     const novosDocs: Array<CloudCacheState["militares"][number]> = [];
-    const user = getCurrentUser() || BOOTSTRAP_USERS[0];
     const existingMats = new Set(state.militares.map((m) => normMatricula(m.matricula)));
 
     if (validacao && validacao.linhas) {
       for (const li of validacao.linhas) {
         if (li.acao === "INSERIR") {
           const rec = li.dados;
-          const matNorm = normMatricula(rec.matricula);
-          if (!matNorm || existingMats.has(matNorm)) continue;
+          const cleanMat = sanitizeText(rec.matricula, 40);
+          const cleanNome = sanitizeText(rec.nome_completo, 200).toUpperCase();
+          const matNorm = normMatricula(cleanMat);
+          if (!matNorm || !cleanNome || existingMats.has(matNorm)) continue;
           existingMats.add(matNorm);
 
           const cargo = state.cargos[0];
@@ -3481,8 +3572,8 @@ export async function handleBackendRequest<T>(method: string, path: string, body
           const rand = Math.random().toString(36).slice(2, 6);
           const newDoc = sanitizeMilitarRecord({
             id: `mil_${Date.now()}_${inseridos}_${rand}`,
-            matricula: rec.matricula,
-            nome_completo: rec.nome_completo.toUpperCase(),
+            matricula: cleanMat,
+            nome_completo: cleanNome,
             cargo_id: cargo ? cargo.id : "crg_1",
             lotacao_id: lot ? lot.id : "lot_1",
             comando_regional_id:
@@ -3490,11 +3581,11 @@ export async function handleBackendRequest<T>(method: string, path: string, body
               inferComandoRegionalIdByLotacaoNome(lot?.nome) ||
               null,
             edital_id: ed ? ed.id : "ed_1",
-            data_inclusao: rec.data_inclusao || hoje,
-            data_vencimento_contrato: rec.data_vencimento_contrato || hoje,
+            data_inclusao: sanitizeText(rec.data_inclusao, 20) || hoje,
+            data_vencimento_contrato: sanitizeText(rec.data_vencimento_contrato, 20) || hoje,
             status: "ATIVO",
-            observacoes: rec.observacoes || null,
-            doe_incorporacao: rec.doe_incorporacao || null,
+            observacoes: sanitizeOptionalText(rec.observacoes, 2000),
+            doe_incorporacao: sanitizeOptionalText(rec.doe_incorporacao, 240),
             sub_judice: false,
             data_desligamento: null,
             motivo_desligamento_id: null,

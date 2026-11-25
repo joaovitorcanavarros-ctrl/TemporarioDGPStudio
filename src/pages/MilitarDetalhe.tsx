@@ -67,7 +67,7 @@ export default function MilitarDetalhe() {
   const m = q.isError ? undefined : q.data;
 
   const handleExcluir = async () => {
-    if (!m) return;
+    if (!m || !isAdmin(me.data)) return;
     setExcluindo(true);
     try {
       await apiDelete(`/militares/${m.id}`);
@@ -92,7 +92,7 @@ export default function MilitarDetalhe() {
   };
 
   const handleExcluirAlteracoes = async () => {
-    if (alteracoesToDelete.length === 0) return;
+    if (alteracoesToDelete.length === 0 || !isAdmin(me.data)) return;
     setExcluindoAlteracoes(true);
     try {
       if (alteracoesToDelete.length === 1) {

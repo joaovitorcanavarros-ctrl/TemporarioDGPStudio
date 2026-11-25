@@ -82,7 +82,8 @@ export default function MilitarForm() {
     payload: RenovacaoConfirmPayload;
   } | null>(null);
 
-  const atual = useQuery({ queryKey: ["militar", id], queryFn: () => apiGet<Militar>(`/militares/${id}`), enabled: editing });
+  const canEdit = podeEditar(me.data);
+  const atual = useQuery({ queryKey: ["militar", id], queryFn: () => apiGet<Militar>(`/militares/${id}`), enabled: editing && canEdit });
   const form = useForm<F>({ resolver: zodResolver(schema), defaultValues: EMPTY });
   const status = useWatch({ control: form.control, name: "status" });
   const hoje = meta.data?.data_hoje ?? "";
@@ -153,6 +154,10 @@ export default function MilitarForm() {
   });
 
   const executeMutation = (v: F, outro: boolean, decisionOverride?: { decidedForDate: string; payload: RenovacaoConfirmPayload } | null) => {
+    if (!canEdit) {
+      toast.error("Seu perfil não tem permissão para cadastrar ou editar registros.");
+      return;
+    }
     if (v.status === "DESLIGADO" && hoje && v.data_desligamento && v.data_desligamento > hoje) {
       form.setError("data_desligamento", { message: "A data não pode ser futura" });
       return;
@@ -237,7 +242,10 @@ export default function MilitarForm() {
       executeMutation(v, outro);
     });
 
-  if (me.data && !podeEditar(me.data)) {
+  if (me.isLoading) {
+    return <p className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-8 text-slate-400">Verificando permissões...</p>;
+  }
+  if (!canEdit) {
     return <p className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-8 text-slate-400" data-testid="no-permission">Seu perfil (Consulta) não permite cadastrar ou editar registros.</p>;
   }
   const e = form.formState.errors;

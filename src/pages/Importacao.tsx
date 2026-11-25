@@ -30,6 +30,7 @@ const ACAO_STYLE: Record<ImportLinha["acao"], string> = {
 
 export default function Importacao() {
   const me = useMe();
+  const canEdit = podeEditar(me.data);
   const invalidate = useInvalidateMilitares();
   const [step, setStep] = useState(1);
   const [file, setFile] = useState<{ name: string; content: string } | null>(null);
@@ -42,7 +43,10 @@ export default function Importacao() {
   const [res, setRes] = useState<ImportResultado | null>(null);
 
   const analisar = useMutation({
-    mutationFn: (f: { name: string; content: string }) => apiPost<ImportAnalise>("/importacao/analisar", { content: f.content, filename: f.name }),
+    mutationFn: (f: { name: string; content: string }) => {
+      if (!canEdit) throw new Error("Seu perfil não permite importar dados.");
+      return apiPost<ImportAnalise>("/importacao/analisar", { content: f.content, filename: f.name });
+    },
     onSuccess: (a) => {
       setAnalise(a);
       setMapping(a.mapeamento);
@@ -57,20 +61,31 @@ export default function Importacao() {
     mapeamento: mapping, aprovar_atualizacoes: Array.from(aprovar),
   });
   const validar = useMutation({
-    mutationFn: () => apiPost<ImportValidacao>("/importacao/validar", body()),
+    mutationFn: () => {
+      if (!canEdit) throw new Error("Seu perfil não permite importar dados.");
+      return apiPost<ImportValidacao>("/importacao/validar", body());
+    },
     onSuccess: (v) => { setVal(v); setAprovar(new Set()); setStep(3); },
     onError: (e) => toast.error(errMsg(e)),
   });
   const confirmar = useMutation({
-    mutationFn: () => apiPost<ImportResultado>("/importacao/confirmar", body()),
+    mutationFn: () => {
+      if (!canEdit) throw new Error("Seu perfil não permite importar dados.");
+      return apiPost<ImportResultado>("/importacao/confirmar", body());
+    },
     onSuccess: (r) => { setRes(r); setStep(4); invalidate(); toast.success("Importação concluída"); },
     onError: (e) => toast.error(errMsg(e)),
   });
 
   const onFile = (f: File | undefined) => {
-    if (!f) return;
+    if (!f || !canEdit) return;
+    if (!f.name.toLowerCase().endsWith(".csv") && f.type && !f.type.includes("csv") && f.type !== "text/plain") {
+      toast.error("Formato inválido. Selecione um arquivo CSV (.csv).");
+      return;
+    }
     if (f.size > 8_000_000) { toast.error("Arquivo muito grande (máx. 8 MB)"); return; }
     const reader = new FileReader();
+    reader.onerror = () => toast.error("Não foi possível ler o arquivo selecionado.");
     reader.onload = () => {
       const content = String(reader.result ?? "");
       setFile({ name: f.name, content });
@@ -93,7 +108,10 @@ export default function Importacao() {
     downloadText(`relatorio_validacao_${file?.name ?? "importacao"}.csv`, toCsv(rows));
   };
 
-  if (me.data && !podeEditar(me.data))
+  if (me.isLoading) {
+    return <p className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-8 text-slate-400">Verificando permissões...</p>;
+  }
+  if (!canEdit)
     return <p className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-8 text-slate-400" data-testid="no-permission">Seu perfil (Consulta) não permite importar dados.</p>;
 
   const cols = analise ? Math.max(analise.cabecalho.length, ...analise.amostra.map((r) => r.length)) : 0;

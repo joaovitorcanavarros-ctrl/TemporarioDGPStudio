@@ -7,7 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiGet } from "@/lib/api";
-import { exportFile, fmtDate, qs } from "@/lib/format";
+import { downloadText, exportFile, fmtDate, qs, sanitizeSpreadsheetValue, toCsv } from "@/lib/format";
 import { gerarPdfRelatorio } from "@/lib/pdfRelatorio";
 import type { MilitarPage, Relatorio } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -160,12 +160,16 @@ export default function Relatorios() {
               <button
                 onClick={() => {
                   if (!r) return;
-                  const cols = r.colunas;
-                  const csvLines = [
-                    cols.map((c) => `"${c.label}"`).join(";"),
-                    ...r.linhas.map((row) => cols.map((c) => `"${String(row[c.key] ?? "").replace(/"/g, '""')}"`).join(";")),
-                  ];
-                  exportFile(`relatorio_${tipo}_${new Date().toISOString().slice(0, 10)}.csv`, "\ufeff" + csvLines.join("\n"));
+                  try {
+                    const cols = r.colunas;
+                    const csvRows = [
+                      cols.map((c) => c.label),
+                      ...r.linhas.map((row) => cols.map((c) => fmtCell(row[c.key]))),
+                    ];
+                    downloadText(`relatorio_${tipo}_${new Date().toISOString().slice(0, 10)}.csv`, toCsv(csvRows));
+                  } catch {
+                    toast.error("Não foi possível gerar o arquivo CSV.");
+                  }
                 }}
                 className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-10 sm:h-8 justify-center", (!r || r.linhas.length === 0) && "pointer-events-none opacity-50")}
                 data-testid="report-export-csv"
@@ -179,7 +183,7 @@ export default function Relatorios() {
                     const XLSX = await import("xlsx");
                     const cols = r.colunas;
                     const headers = cols.map((c) => c.label);
-                    const rows = r.linhas.map((row) => cols.map((c) => fmtCell(row[c.key])));
+                    const rows = r.linhas.map((row) => cols.map((c) => sanitizeSpreadsheetValue(fmtCell(row[c.key]))));
                     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
                     ws["!cols"] = headers.map((h, i) => {
                       let maxLen = h.length;

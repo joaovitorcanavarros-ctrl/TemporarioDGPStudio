@@ -38,6 +38,7 @@ function CrudTab({ title, rows, fields, endpoint, invalidateKey, canEdit, canDel
   const [vals, setVals] = useState<Record<string, unknown>>({});
   const [filtro, setFiltro] = useState("");
   const open = (r: Row | null, isNew = false) => {
+    if (!canEdit) return;
     setEdit(isNew ? ({ id: "" } as Row) : r);
     const init: Record<string, unknown> = {};
     for (const f of fields) init[f.key] = r ? r[f.key] ?? "" : f.type === "bool" ? true : "";
@@ -45,6 +46,7 @@ function CrudTab({ title, rows, fields, endpoint, invalidateKey, canEdit, canDel
   };
   const mut = useMutation({
     mutationFn: () => {
+      if (!canEdit) throw new Error("Seu perfil não tem permissão para alterar estes registros.");
       const body: Record<string, unknown> = {};
       for (const f of fields) {
         const v = vals[f.key];
@@ -80,7 +82,10 @@ function CrudTab({ title, rows, fields, endpoint, invalidateKey, canEdit, canDel
   });
 
   const delMut = useMutation({
-    mutationFn: (id: string) => apiDelete(`${endpoint}/${id}`),
+    mutationFn: (id: string) => {
+      if (!canDelete) throw new Error("Seu perfil não tem permissão para excluir registros.");
+      return apiDelete(`${endpoint}/${id}`);
+    },
     onSuccess: () => {
       toast.success("Registro excluído com sucesso");
       void qc.invalidateQueries({ queryKey: [invalidateKey] });
@@ -231,7 +236,8 @@ export default function Configuracoes() {
   const [alerta, setAlerta] = useState<string>("");
   const [searchParams, setSearchParams] = useSearchParams();
   const rawTab = searchParams.get("tab") || "geral";
-  const validTabs = ["geral", "categorias", "cargos", "lotacoes", "comandos-regionais", "editais", "motivos", "usuarios", "auditoria"];
+  const baseTabs = ["geral", "categorias", "cargos", "lotacoes", "comandos-regionais", "editais", "motivos"];
+  const validTabs = admin ? [...baseTabs, "usuarios", "auditoria"] : baseTabs;
   const currentTab = validTabs.includes(rawTab) ? rawTab : "geral";
 
   const usuarios = useQuery({
@@ -242,7 +248,10 @@ export default function Configuracoes() {
     refetchOnWindowFocus: false,
   });
   const saveCfg = useMutation({
-    mutationFn: (b: Config) => apiPut<Config>("/config", b),
+    mutationFn: (b: Config) => {
+      if (!admin) throw new Error("Acesso restrito a administradores.");
+      return apiPut<Config>("/config", b);
+    },
     onSuccess: () => {
       toast.success("Configuração salva");
       void qc.invalidateQueries({ queryKey: ["catalogos"] });

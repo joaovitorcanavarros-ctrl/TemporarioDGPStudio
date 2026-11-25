@@ -535,10 +535,6 @@ export async function gerarPdfRelatorio(relatorio: Relatorio, filtrosDescricao?:
   const totalPages = (doc as any).internal.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    // Replace the placeholder with actual total page count
-    (doc as any).internal.pageSize; // trigger
-    // jsPDF replacement string
-    const str = `${totalPages}`;
     const footerY = pageHeight - 10;
     // Replace text inside document
     if (typeof (doc as any).putTotalPages === "function") {

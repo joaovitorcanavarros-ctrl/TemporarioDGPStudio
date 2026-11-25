@@ -8,7 +8,9 @@ import MilitaresTable from "@/components/MilitaresTable";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 import { useFilters } from "@/lib/filters";
+import { errMsg } from "@/lib/format";
 import { podeEditar, useCatalogos, useMe } from "@/lib/hooks";
 import { apiPost } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -122,7 +124,9 @@ export default function Temporarios() {
             onClick={async () => {
               try {
                 await apiPost("/militares/sincronizar");
-              } catch (_) {}
+              } catch (err) {
+                toast.error(errMsg(err, "Não foi possível sincronizar os dados agora."));
+              }
               queryClient.invalidateQueries({ queryKey: ["militares"] });
               queryClient.invalidateQueries({ queryKey: ["dashboard"] });
             }}

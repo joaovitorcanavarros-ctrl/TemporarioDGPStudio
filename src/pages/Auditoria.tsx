@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiGet } from "@/lib/api";
-import { exportFile, fmtDate, fmtDateTime } from "@/lib/format";
+import { downloadText, fmtDate, fmtDateTime, toCsv } from "@/lib/format";
+import { isAdmin, useMe } from "@/lib/hooks";
 import type { AuditoriaPage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -69,6 +70,8 @@ const fmtVal = (v: unknown): string => {
 };
 
 export default function Auditoria() {
+  const me = useMe();
+  const admin = isAdmin(me.data);
   const [busca, setBusca] = useState("");
   const [filtroEntidade, setFiltroEntidade] = useState("TODOS");
   const [filtroOperacao, setFiltroOperacao] = useState("TODAS");
@@ -77,6 +80,7 @@ export default function Auditoria() {
   const audit = useQuery({
     queryKey: ["auditoria", limite],
     queryFn: () => apiGet<AuditoriaPage>(`/auditoria?limit=${limite}`),
+    enabled: admin,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
@@ -122,24 +126,35 @@ export default function Auditoria() {
   const totalDesligReat = itens.filter((a) => a.operacao === "DESLIGAMENTO" || a.operacao === "REATIVACAO").length;
 
   const handleExportCSV = () => {
+    if (!admin) return;
     const headers = ["Data/Hora", "Usuário", "E-mail", "Entidade", "ID/Matrícula", "Operação", "Antes", "Depois"];
     const rows = visiveis.map((a) => {
       const antesObj = a.detalhes?.antes ?? a.antes;
       const depoisObj = a.detalhes?.depois ?? a.depois;
       return [
         fmtDateTime(a.data_hora || a.timestamp),
-        `"${a.usuario_nome || ""}"`,
-        `"${a.usuario_email || ""}"`,
-        `"${a.entidade || ""}"`,
-        `"${a.matricula || a.entidade_id || ""}"`,
-        `"${a.operacao || ""}"`,
-        `"${JSON.stringify(antesObj || {}).replace(/"/g, '""')}"`,
-        `"${JSON.stringify(depoisObj || {}).replace(/"/g, '""')}"`,
+        a.usuario_nome || "",
+        a.usuario_email || "",
+        a.entidade || "",
+        a.matricula || a.entidade_id || "",
+        a.operacao || "",
+        JSON.stringify(antesObj || {}),
+        JSON.stringify(depoisObj || {}),
       ];
     });
-    const csvContent = [headers.join(";"), ...rows.map((r) => r.join(";"))].join("\n");
-    exportFile(`auditoria_cbmmt_${new Date().toISOString().slice(0, 10)}.csv`, csvContent);
+    downloadText(`auditoria_cbmmt_${new Date().toISOString().slice(0, 10)}.csv`, toCsv([headers, ...rows]));
   };
+
+  if (me.isLoading) {
+    return <p className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-8 text-slate-400">Verificando permissões...</p>;
+  }
+  if (!admin) {
+    return (
+      <p className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-8 text-slate-400" data-testid="auditoria-no-permission">
+        Acesso restrito a administradores do sistema.
+      </p>
+    );
+  }
 
   return (
     <div className="space-y-4 sm:space-y-5" data-testid="auditoria-page">

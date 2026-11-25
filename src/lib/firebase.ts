@@ -4,9 +4,6 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   signOut as firebaseSignOut,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  updateProfile,
   type User,
 } from "firebase/auth";
 import {
@@ -45,7 +42,6 @@ const existingFirestoreApp = getApps().find((a) => a.name === "cbmmt-firestore")
 const firestoreApp = existingFirestoreApp || initializeApp(firebaseConfig, "cbmmt-firestore");
 
 let dbInstance: Firestore;
-let indexedDbPersistenceActive = false;
 
 if (typeof window !== "undefined") {
   try {
@@ -58,18 +54,15 @@ if (typeof window !== "undefined") {
       },
       firebaseConfig.firestoreDatabaseId
     );
-    indexedDbPersistenceActive = true;
   } catch {
     // Em HMR ou se o IndexedDB estiver indisponível no navegador, reaproveita instância existente
     dbInstance = getFirestore(firestoreApp, firebaseConfig.firestoreDatabaseId);
-    indexedDbPersistenceActive = true;
   }
 } else {
   dbInstance = getFirestore(firestoreApp, firebaseConfig.firestoreDatabaseId);
 }
 
 export const db = dbInstance;
-export const isIndexedDbPersistenceActive = indexedDbPersistenceActive;
 
 const DELTA_TS_STORAGE_KEY = `cbmmt_militares_delta_ts_${firebaseConfig.firestoreDatabaseId}`;
 
@@ -127,6 +120,14 @@ export interface FirestoreErrorInfo {
   };
 }
 
+function maskEmailForLog(email?: string | null): string | null {
+  if (!email) return null;
+  const [local, domain] = email.split("@");
+  if (!domain) return "***";
+  const prefix = local.length <= 2 ? `${local[0] || "*"}*` : `${local.slice(0, 2)}***`;
+  return `${prefix}@${domain}`;
+}
+
 export function handleFirestoreError(
   error: unknown,
   operationType: OperationType,
@@ -137,20 +138,25 @@ export function handleFirestoreError(
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
       userId: auth.currentUser?.uid ?? null,
-      email: auth.currentUser?.email ?? null,
+      email: maskEmailForLog(auth.currentUser?.email),
       emailVerified: auth.currentUser?.emailVerified ?? null,
       isAnonymous: auth.currentUser?.isAnonymous ?? null,
       tenantId: auth.currentUser?.tenantId ?? null,
       providerInfo:
         auth.currentUser?.providerData?.map((provider) => ({
           providerId: provider.providerId,
-          email: provider.email,
+          email: maskEmailForLog(provider.email),
         })) || [],
     },
     operationType,
     path,
   };
-  console.error("Firestore Error:", JSON.stringify(errInfo));
+  console.error("Firestore Error:", JSON.stringify({
+    operationType: errInfo.operationType,
+    path: errInfo.path,
+    authenticated: Boolean(errInfo.authInfo.userId),
+    error: errInfo.error,
+  }));
   if (rethrow) {
     throw new Error(JSON.stringify(errInfo));
   }
@@ -220,27 +226,6 @@ export async function logoutFirebase(): Promise<void> {
     await firebaseSignOut(auth);
   } catch (e) {
     console.warn("Firebase sign out error", e);
-  }
-}
-
-export async function registerWithFirebaseEmail(nome: string, email: string, pass: string): Promise<User> {
-  try {
-    const res = await createUserWithEmailAndPassword(auth, email, pass);
-    await updateProfile(res.user, { displayName: nome });
-    return res.user;
-  } catch (err) {
-    handleFirestoreError(err, OperationType.CREATE, "auth/register");
-    throw err;
-  }
-}
-
-export async function loginWithFirebaseEmail(email: string, pass: string): Promise<User> {
-  try {
-    const res = await signInWithEmailAndPassword(auth, email, pass);
-    return res.user;
-  } catch (err) {
-    handleFirestoreError(err, OperationType.GET, "auth/login");
-    throw err;
   }
 }
 

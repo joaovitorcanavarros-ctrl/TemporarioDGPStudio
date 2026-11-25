@@ -186,14 +186,14 @@ function isSameOriginRequest(req: Request): boolean {
 
     if (expectedHosts.has(originHost)) return true;
 
-    // Quando o proxy reverso do ambiente encaminha para localhost/127.0.0.1 sem X-Forwarded-Host,
-    // permite a origem hospedada do próprio aplicativo (*.run.app)
+    // Quando o proxy reverso do ambiente encaminha para localhost/127.0.0.1 sem X-Forwarded-Host
+    // e APP_URL não está explicitamente configurado, permite a origem HTTPS hospedada (*.run.app)
     const isLocalHost =
       directHost.startsWith("localhost:") ||
       directHost.startsWith("127.0.0.1:") ||
       directHost === "localhost" ||
       directHost === "127.0.0.1";
-    if (isLocalHost && originUrl.protocol === "https:" && originHost.endsWith(".run.app")) {
+    if (!appUrl && isLocalHost && originUrl.protocol === "https:" && originHost.endsWith(".run.app")) {
       return true;
     }
 
@@ -214,8 +214,9 @@ async function resolveOtpIdentity(req: Request): Promise<ResolvedOtpIdentity> {
   if (!rawEmail || rawEmail.length > 120 || !GMAIL_EMAIL_REGEX.test(rawEmail)) {
     const err = new Error(
       "Informe um endereço @gmail.com válido para receber o código de verificação."
-    ) as Error & { statusCode?: number };
+    ) as Error & { statusCode?: number; exposeMessage?: boolean };
     err.statusCode = 400;
+    err.exposeMessage = true;
     throw err;
   }
 
@@ -502,7 +503,14 @@ async function sendOtpEmailViaGmailSmtp(params: {
 
 async function startServer() {
   const app = express();
+  app.disable("x-powered-by");
   app.set("trust proxy", 1);
+  app.use((_req: Request, res: Response, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    next();
+  });
   app.use(express.json({ limit: "32kb" }));
 
   // Healthcheck
@@ -624,10 +632,13 @@ async function startServer() {
       }
 
       console.error("[OTP] Erro ao enviar código:", err?.message || err);
-      const statusCode = typeof err?.statusCode === "number" ? err.statusCode : 400;
+      const isClientValidation = Boolean(err?.exposeMessage) && typeof err?.statusCode === "number";
+      const statusCode = isClientValidation ? err.statusCode : 500;
       res.status(statusCode).json({
-        detail: err?.message || "Não foi possível enviar o código de verificação agora.",
-        code: err?.code || "OTP_SEND_FAILED",
+        detail: isClientValidation
+          ? err.message
+          : "Não foi possível enviar o código de verificação agora. Tente novamente em instantes.",
+        code: isClientValidation ? (err?.code || "OTP_VALIDATION_ERROR") : "OTP_SEND_FAILED",
       });
     }
   });
@@ -719,9 +730,12 @@ async function startServer() {
       });
     } catch (err: any) {
       console.error("[OTP] Erro ao verificar código:", err?.message || err);
-      const statusCode = typeof err?.statusCode === "number" ? err.statusCode : 400;
+      const isClientValidation = Boolean(err?.exposeMessage) && typeof err?.statusCode === "number";
+      const statusCode = isClientValidation ? err.statusCode : 400;
       res.status(statusCode).json({
-        detail: err?.message || "Não foi possível validar o código informado.",
+        detail: isClientValidation
+          ? err.message
+          : "Não foi possível validar o código informado. Tente novamente.",
         code: "OTP_VERIFY_FAILED",
       });
     }

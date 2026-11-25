@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { apiPatch, apiPost } from "@/lib/api";
 import { errMsg, fmtDate } from "@/lib/format";
-import { MILITAR_KEYS, useCatalogos, useMeta } from "@/lib/hooks";
+import { isAdmin, MILITAR_KEYS, podeEditar, useCatalogos, useMe, useMeta } from "@/lib/hooks";
 import { getInfoContrato, type DesligamentoIn, type Militar, type MilitarRapidoIn, type ReativacaoIn } from "@/lib/types";
 import { RenovacaoFocusModal, type RenovacaoConfirmPayload } from "@/components/RenovacaoPrompt";
 import { cn } from "@/lib/utils";
@@ -47,6 +47,7 @@ const desligSchema = z.object({
 type DesligForm = z.infer<typeof desligSchema>;
 
 export function DesligamentoDialog({ militar, onClose }: { militar: Militar | null; onClose: () => void }) {
+  const me = useMe();
   const cat = useCatalogos();
   const meta = useMeta();
   const invalidate = useInvalidateMilitares();
@@ -56,7 +57,10 @@ export function DesligamentoDialog({ militar, onClose }: { militar: Militar | nu
     if (militar) form.reset({ data_desligamento: hoje, motivo_id: "", documento: "", observacoes: "" });
   }, [militar, hoje, form]);
   const mut = useMutation({
-    mutationFn: (b: DesligamentoIn) => apiPost<Militar>(`/militares/${militar?.id}/desligar`, b),
+    mutationFn: (b: DesligamentoIn) => {
+      if (!podeEditar(me.data)) throw new Error("Seu perfil não tem permissão para registrar desligamentos.");
+      return apiPost<Militar>(`/militares/${militar?.id}/desligar`, b);
+    },
     onSuccess: (m) => {
       toast.success(`Desligamento registrado: ${m.nome_completo}`);
       invalidate();
@@ -133,13 +137,17 @@ const reatSchema = z.object({
 type ReatForm = z.infer<typeof reatSchema>;
 
 export function ReativarDialog({ militar, onClose }: { militar: Militar | null; onClose: () => void }) {
+  const me = useMe();
   const invalidate = useInvalidateMilitares();
   const form = useForm<ReatForm>({ resolver: zodResolver(reatSchema), defaultValues: { justificativa: "", data_vencimento_contrato: "", documento: "" } });
   useEffect(() => {
     if (militar) form.reset({ justificativa: "", data_vencimento_contrato: militar.data_vencimento_contrato, documento: "" });
   }, [militar, form]);
   const mut = useMutation({
-    mutationFn: (b: ReativacaoIn) => apiPost<Militar>(`/militares/${militar?.id}/reativar`, b),
+    mutationFn: (b: ReativacaoIn) => {
+      if (!isAdmin(me.data)) throw new Error("Apenas administradores podem reativar cadastros.");
+      return apiPost<Militar>(`/militares/${militar?.id}/reativar`, b);
+    },
     onSuccess: (m) => { toast.success(`Cadastro reativado: ${m.nome_completo}`); invalidate(); onClose(); },
     onError: (e) => toast.error(errMsg(e)),
   });
@@ -195,6 +203,7 @@ const rapidoSchema = z.object({
 type RapidoForm = z.infer<typeof rapidoSchema>;
 
 export function QuickEditDialog({ militar, onClose }: { militar: Militar | null; onClose: () => void }) {
+  const me = useMe();
   const cat = useCatalogos();
   const invalidate = useInvalidateMilitares();
   const form = useForm<RapidoForm>({
@@ -244,7 +253,10 @@ export function QuickEditDialog({ militar, onClose }: { militar: Militar | null;
   const vencRegister = form.register("data_vencimento_contrato");
 
   const mut = useMutation({
-    mutationFn: (b: MilitarRapidoIn) => apiPatch<Militar>(`/militares/${militar?.id}/rapido`, b),
+    mutationFn: (b: MilitarRapidoIn) => {
+      if (!podeEditar(me.data)) throw new Error("Seu perfil não tem permissão para editar registros.");
+      return apiPatch<Militar>(`/militares/${militar?.id}/rapido`, b);
+    },
     onSuccess: (updated) => {
       const info = getInfoContrato(updated);
       toast.success(
