@@ -138,15 +138,15 @@ function Kpi({
         className
       )}
     >
-      {/* Brilho radial superior descendente (efeito holofote LED do card) */}
+      {/* Brilho radial superior descendente discreto */}
       <span
         aria-hidden="true"
         className={cn(
-          "pointer-events-none absolute inset-0 transition-opacity duration-200",
-          isHighlighted ? "opacity-100" : "opacity-15"
+          "pointer-events-none absolute inset-0 transition-opacity duration-300",
+          isHighlighted ? "opacity-90" : "opacity-10"
         )}
         style={{
-          background: `radial-gradient(78% 64% at 50% 0%, ${palette.hex}38 0%, ${palette.hex}12 46%, transparent 100%)`,
+          background: `radial-gradient(78% 64% at 50% 0%, ${palette.hex}24 0%, ${palette.hex}0A 46%, transparent 100%)`,
         }}
       />
 
@@ -258,8 +258,8 @@ function ChartCard({
         rafRef.current = null;
         return;
       }
-      currentPos.current.x += dx * 0.16;
-      currentPos.current.y += dy * 0.16;
+      currentPos.current.x += dx * 0.08;
+      currentPos.current.y += dy * 0.08;
       applyPos(currentPos.current.x, currentPos.current.y);
       rafRef.current = window.requestAnimationFrame(step);
     };
@@ -314,24 +314,24 @@ function ChartCard({
       {/* Borda base discreta */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-xl bg-white/[0.10]" />
 
-      {/* Brilho suave da borda seguindo o cursor */}
+      {/* Brilho suave e discreto da borda seguindo o cursor */}
       <div
         aria-hidden="true"
-        className={cn("pointer-events-none absolute inset-0 rounded-xl transition-opacity duration-500", active ? "opacity-100" : "opacity-0")}
+        className={cn("pointer-events-none absolute inset-0 rounded-xl transition-opacity duration-700", active ? "opacity-100" : "opacity-0")}
         style={{
-          background: `radial-gradient(260px circle at var(--mx, -999px) var(--my, -999px), rgba(${glowRgb}, 0.85), transparent 70%)`,
+          background: `radial-gradient(260px circle at var(--mx, -999px) var(--my, -999px), rgba(${glowRgb}, 0.42), transparent 70%)`,
         }}
       />
 
-      {/* Superfície vítrea translúcida do cartão + luz interna suave */}
+      {/* Superfície vítrea translúcida do cartão + luz interna sutil */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-px overflow-hidden rounded-[11px] bg-gradient-to-b from-[#0E182B]/78 to-[#080F1D]/84 backdrop-blur-xl backdrop-saturate-150 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.09)]"
       >
         <div
-          className={cn("absolute inset-0 transition-opacity duration-500", active ? "opacity-100" : "opacity-0")}
+          className={cn("absolute inset-0 transition-opacity duration-700", active ? "opacity-100" : "opacity-0")}
           style={{
-            background: `radial-gradient(400px circle at var(--mx, -999px) var(--my, -999px), rgba(${glowRgb}, 0.12), transparent 65%)`,
+            background: `radial-gradient(400px circle at var(--mx, -999px) var(--my, -999px), rgba(${glowRgb}, 0.06), transparent 65%)`,
           }}
         />
       </div>

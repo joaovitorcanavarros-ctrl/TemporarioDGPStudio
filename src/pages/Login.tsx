@@ -281,30 +281,29 @@ export default function Login() {
     signupChecking;
 
   return (
-    <div className="relative grid min-h-screen lg:grid-cols-[1.15fr_1fr] bg-gradient-to-br from-[#03060D] via-[#040916] to-[#110307] overflow-hidden">
+    <div className="relative grid min-h-screen lg:grid-cols-[1.15fr_1fr] bg-gradient-to-br from-[#03060D] via-[#040812] to-[#0A0408] overflow-hidden">
       {/* Global ambient radial gradients extending seamlessly across both sides */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(37,99,235,0.22),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(185,28,28,0.26),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(30,58,138,0.18),transparent_55%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(37,99,235,0.045),transparent_55%),radial-gradient(ellipse_at_bottom_right,rgba(185,28,28,0.05),transparent_55%),radial-gradient(ellipse_at_bottom_left,rgba(30,58,138,0.04),transparent_55%)]" />
 
       {/* 1. LADO ESQUERDO: Apresentação e Identidade Institucional com máxima fidelidade técnica */}
       <section className="relative hidden overflow-hidden border-r border-white/[0.06] lg:flex lg:flex-col lg:justify-between p-12 xl:p-16 bg-[#03060D]">
-        {/* Background photo com sobreposições dramáticas azul-marinho e vermelho escuro */}
+        {/* Background photo do bombeiro com leve desfoque e escurecimento equilibrado */}
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
           <img
             src="/assets/aistudio/download_7723d736.jpg"
             alt="Bombeiro Militar do CBMMT em ação operacional"
-            className="size-full object-cover object-center opacity-38 mix-blend-luminosity filter contrast-125 brightness-100"
+            className="size-full scale-[1.03] object-cover object-center opacity-42 mix-blend-luminosity filter blur-[2px] contrast-115 brightness-95"
           />
-          {/* Tonalidade e Filtros: Azul marinho profundo no alto-esquerdo, transicionando para vermelho escuro na base direita */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#03060D]/88 via-[#040916]/78 to-[#110307]/76" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_85%_75%,rgba(85,14,26,0.52),transparent_65%)]" />
+          {/* Tonalidade escura equilibrada para integrar a foto desfocada ao fundo */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#03060D]/72 via-[#040812]/58 to-[#0A0408]/62" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_85%_75%,rgba(85,14,26,0.10),transparent_65%)]" />
           
-          {/* Gradiente de opacidade: escurecimento em direção ao centro da tela para transição com a área de login */}
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#040916]/45 to-[#02050B]" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#02050B]/92 via-transparent to-[#03060D]/80" />
+          {/* Transição suave para a borda direita e contraste discreto no topo/base */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#040812]/30 to-[#03060D]/92" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#02050B]/80 via-transparent to-[#03060D]/62" />
 
-          {/* Pontos de luz (flare/glow) vermelhos pontuais no topo */}
-          <div className="absolute -top-10 right-20 size-48 rounded-full bg-red-600/25 blur-3xl" />
-          <div className="absolute top-10 right-4 size-32 rounded-full bg-rose-600/30 blur-2xl" />
+          {/* Ponto de luz vermelho discreto no topo */}
+          <div className="absolute -top-12 right-16 size-48 rounded-full bg-red-600/5 blur-3xl" />
         </div>
 
         {/* Top Header: Logo CBMMT com fade-in e slide-up suave */}
@@ -381,7 +380,7 @@ export default function Login() {
               staggerDuration={0.038}
               mainClassName="mx-1 inline-flex items-baseline align-baseline rounded-md border border-blue-500/35 px-2 py-[1px] font-sans text-xs sm:text-sm font-semibold leading-snug tracking-normal shadow-sm"
               splitLevelClassName="overflow-hidden"
-              rotationInterval={2500}
+              rotationInterval={3800}
               blur={6}
               pauseOnHover
             />
@@ -406,12 +405,12 @@ export default function Login() {
       </section>
 
       {/* 2. LADO DIREITO: Painel de Login sobre fundo escuro profundo para destacar o card vítreo */}
-      <section className="relative flex items-center justify-center p-6 sm:p-10 overflow-y-auto bg-gradient-to-br from-[#03060D] via-[#040916] to-[#110307]">
-        {/* Camadas de iluminação e gradientes atmosféricos sutis atrás do vidro */}
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_85%_75%,rgba(85,14,26,0.48),transparent_65%)]" />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#02050B]/92 via-transparent to-[#03060D]/80" />
-        <div className="pointer-events-none absolute -top-10 right-20 size-56 rounded-full bg-red-600/24 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-10 left-10 size-56 rounded-full bg-blue-600/22 blur-3xl" />
+      <section className="relative flex items-center justify-center p-6 sm:p-10 overflow-y-auto bg-gradient-to-br from-[#03060D] via-[#040812] to-[#0A0408]">
+        {/* Camadas de iluminação e gradientes atmosféricos sóbrios atrás do vidro */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_85%_75%,rgba(85,14,26,0.09),transparent_65%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#02050B]/94 via-transparent to-[#03060D]/84" />
+        <div className="pointer-events-none absolute -top-12 right-20 size-56 rounded-full bg-red-600/5 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-10 left-10 size-56 rounded-full bg-blue-600/5 blur-3xl" />
 
         <AnimatePresence mode="wait">
           {pendingOtpSignup ? (
@@ -712,13 +711,13 @@ export default function Login() {
                 </div>
               )}
 
-              <Button
+              <ShinyButton
                 type="submit"
-                className="h-11 w-full rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 active:scale-[0.99] transition-all duration-150"
+                className="flex h-11 w-full items-center justify-center rounded-xl px-4 py-0 text-sm font-semibold"
                 disabled={isPending}
                 data-testid="signup-submit-button"
               >
-                <UserPlus className="size-4" />
+                <UserPlus className="size-4 shrink-0" />
                 <span>
                   {signupChecking
                     ? "Verificando e-mail..."
@@ -728,7 +727,7 @@ export default function Login() {
                     ? "Enviar código de 4 dígitos"
                     : "Criar minha conta"}
                 </span>
-              </Button>
+              </ShinyButton>
             </form>
           )}
             </motion.div>

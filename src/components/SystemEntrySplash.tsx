@@ -165,7 +165,7 @@ export function SystemEntryProvider({ children }: { children: ReactNode }) {
             }
             className="absolute inset-0 bg-[#03060C]"
           >
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_46%,rgba(220,38,38,0.16),rgba(7,12,24,0.92)_52%,#03060C_100%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_46%,rgba(220,38,38,0.08),rgba(7,12,24,0.94)_52%,#03060C_100%)]" />
           </motion.div>
 
           {/* Subtle ambient halo behind centered emblem */}
@@ -174,13 +174,13 @@ export function SystemEntryProvider({ children }: { children: ReactNode }) {
             animate={
               phase === "docking"
                 ? { opacity: 0, scale: 0.45 }
-                : { opacity: 0.85, scale: 1 }
+                : { opacity: 0.5, scale: 1 }
             }
             transition={{
-              duration: phase === "docking" ? 1.15 : 0.75,
+              duration: phase === "docking" ? 1.3 : 1.0,
               ease: [0.4, 0, 0.2, 1],
             }}
-            className="pointer-events-none absolute size-52 sm:size-64 rounded-full bg-red-600/20 blur-3xl"
+            className="pointer-events-none absolute size-52 sm:size-64 rounded-full bg-red-600/10 blur-3xl"
           />
 
           {/* CBMMT Emblem animating from center to sidebar brand-logo position */}

@@ -488,20 +488,20 @@ export default function GlassyOtpCard({
       className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-white/[0.15] bg-gradient-to-br from-[#0E182D]/68 via-[#0A1324]/64 to-[#190911]/72 p-6 sm:p-9 shadow-[0_32px_84px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-2xl backdrop-saturate-150 ring-1 ring-white/10"
       data-testid="glassy-otp-card"
     >
-      {/* Brilho atmosférico superior dinâmico (azul CBMMT → verde esmeralda na verificação) */}
+      {/* Brilho atmosférico superior discreto */}
       <motion.div
         aria-hidden="true"
         animate={{
-          opacity: isVerifiedPhase ? 0.95 : errorText ? 0.75 : 0.7,
+          opacity: isVerifiedPhase ? 0.55 : errorText ? 0.45 : 0.4,
         }}
-        transition={{ duration: 0.45 }}
+        transition={{ duration: 0.7 }}
         className={cn(
-          "pointer-events-none absolute -top-20 left-1/2 h-44 w-72 -translate-x-1/2 rounded-full blur-3xl transition-colors duration-500",
+          "pointer-events-none absolute -top-20 left-1/2 h-44 w-72 -translate-x-1/2 rounded-full blur-3xl transition-colors duration-700",
           isVerifiedPhase
-            ? "bg-emerald-500/24"
+            ? "bg-emerald-500/14"
             : errorText
-            ? "bg-red-500/22"
-            : "bg-blue-500/20"
+            ? "bg-red-500/14"
+            : "bg-blue-500/12"
         )}
       />
 

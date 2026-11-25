@@ -101,10 +101,10 @@ export default function AppShell() {
   return (
     <FiltersProvider>
       <div className="relative min-h-screen overflow-x-clip bg-[#03060C]">
-        {/* Profundidade atmosférica discreta sob os painéis translúcidos */}
+        {/* Profundidade atmosférica sóbria sob os painéis translúcidos */}
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(ellipse_62%_46%_at_16%_8%,rgba(37,99,235,0.14),transparent_68%),radial-gradient(ellipse_55%_44%_at_88%_14%,rgba(14,165,233,0.08),transparent_64%),radial-gradient(ellipse_52%_44%_at_80%_90%,rgba(185,28,28,0.09),transparent_66%)]"
+          className="pointer-events-none fixed inset-0 z-0 bg-[radial-gradient(ellipse_62%_46%_at_16%_8%,rgba(37,99,235,0.06),transparent_68%),radial-gradient(ellipse_55%_44%_at_88%_14%,rgba(14,165,233,0.035),transparent_64%),radial-gradient(ellipse_52%_44%_at_80%_90%,rgba(185,28,28,0.04),transparent_66%)]"
         />
 
         {/* Barra Lateral Flutuante Glassmorphism (Glassy SideBar V5) */}
