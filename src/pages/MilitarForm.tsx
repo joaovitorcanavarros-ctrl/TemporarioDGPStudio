@@ -247,40 +247,40 @@ export default function MilitarForm() {
     : [{ value: "ATIVO", label: "Ativo" }, { value: "DESLIGADO", label: "Desligado" }];
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="mx-auto max-w-4xl space-y-4 sm:space-y-5">
       <div>
-        <Link to={editing ? `/temporarios/${id}` : "/temporarios"} className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-white" data-testid="form-back-link">
+        <Link to={editing ? `/temporarios/${id}` : "/temporarios"} className="inline-flex h-9 items-center gap-1 text-sm text-slate-400 hover:text-white" data-testid="form-back-link">
           <ArrowLeft className="size-4" /> Voltar
         </Link>
-        <h2 className="mt-2 font-heading text-2xl font-extrabold text-white sm:text-3xl" data-testid="page-title">
+        <h2 className="mt-1 font-heading text-xl font-extrabold text-white sm:mt-2 sm:text-2xl md:text-3xl" data-testid="page-title">
           {editing ? "Editar cadastro" : "Cadastro de militar temporário"}
         </h2>
-        <p className="text-sm text-slate-400">Campos marcados com * são obrigatórios. Todas as alterações ficam registradas no histórico.</p>
+        <p className="text-xs sm:text-sm text-slate-400">Campos marcados com * são obrigatórios. Todas as alterações ficam registradas no histórico.</p>
       </div>
 
       {dup && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200" data-testid="duplicate-alert">
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3.5 sm:p-4 text-sm text-amber-200" data-testid="duplicate-alert">
           <AlertCircle className="size-5 shrink-0" />
           <p className="flex-1">{dup.msg} Não é permitido duplicar matrículas.</p>
           <Link to={`/temporarios/${dup.id}`} className={buttonVariants({ size: "sm", variant: "outline" })} data-testid="open-existing-button">Abrir cadastro existente</Link>
         </div>
       )}
 
-      <form onSubmit={submit(false)} className="space-y-5" data-testid="militar-form">
-        <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-5">
-          <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Identificação</h3>
+      <form onSubmit={submit(false)} className="space-y-4 sm:space-y-5" data-testid="militar-form">
+        <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-4 sm:p-5">
+          <h3 className="mb-3.5 sm:mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Identificação</h3>
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label="Matrícula / vínculo" req error={e.matricula?.message}>
-              <Input className="num" data-testid="input-matricula" placeholder="000000/01" {...form.register("matricula", { onBlur: checkMatricula })} />
+              <Input className="num h-10 sm:h-9" data-testid="input-matricula" placeholder="000000/01" {...form.register("matricula", { onBlur: checkMatricula })} />
             </Field>
             <Field label="Nome completo" req error={e.nome_completo?.message} className="sm:col-span-2">
-              <Input data-testid="input-nome" {...form.register("nome_completo")} />
+              <Input className="h-10 sm:h-9" data-testid="input-nome" {...form.register("nome_completo")} />
             </Field>
           </div>
         </section>
 
-        <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-5">
-          <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Dados funcionais e contratuais</h3>
+        <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-4 sm:p-5">
+          <h3 className="mb-3.5 sm:mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Dados funcionais e contratuais</h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Cargo / função" req error={e.cargo_id?.message}>
               <Controller control={form.control} name="cargo_id" render={({ field }) => (
@@ -385,8 +385,8 @@ export default function MilitarForm() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-5">
-          <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Situação funcional</h3>
+        <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-4 sm:p-5">
+          <h3 className="mb-3.5 sm:mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400">Situação funcional</h3>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Situação" req>
               <Controller control={form.control} name="status" render={({ field }) => (
@@ -396,7 +396,7 @@ export default function MilitarForm() {
             {status === "DESLIGADO" && (
               <>
                 <Field label="Data do desligamento" req error={e.data_desligamento?.message}>
-                  <Input type="date" max={hoje} className="[color-scheme:dark]" data-testid="input-data-desligamento" {...form.register("data_desligamento")} />
+                  <Input type="date" max={hoje} className="h-10 sm:h-9 [color-scheme:dark]" data-testid="input-data-desligamento" {...form.register("data_desligamento")} />
                 </Field>
                 <Field label="Status de desligamento" req error={e.motivo_desligamento_id?.message}>
                   <Controller control={form.control} name="motivo_desligamento_id" render={({ field }) => (
@@ -405,7 +405,7 @@ export default function MilitarForm() {
                   )} />
                 </Field>
                 <Field label="Documento / processo">
-                  <Input data-testid="input-documento" {...form.register("documento_desligamento")} />
+                  <Input className="h-10 sm:h-9" data-testid="input-documento" {...form.register("documento_desligamento")} />
                 </Field>
               </>
             )}
@@ -420,18 +420,18 @@ export default function MilitarForm() {
           </div>
         </section>
 
-        <div className="sticky bottom-0 -mx-4 flex flex-wrap gap-2 border-t border-[#1E2C42] bg-[#0B111A]/90 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-xl sm:border">
-          <Button type="submit" disabled={mut.isPending} className="bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-transform" data-testid="save-button">
+        <div className="grid grid-cols-2 gap-2 rounded-xl border border-[#1E2C42] bg-[#0B111A]/95 p-3 sm:sticky sm:bottom-0 sm:flex sm:flex-wrap sm:px-4 sm:py-3 sm:backdrop-blur">
+          <Button type="submit" disabled={mut.isPending} className="col-span-2 h-11 sm:col-span-1 sm:h-9 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-transform" data-testid="save-button">
             <Save className="size-4" /> Salvar Cadastro
           </Button>
           {!editing && (
-            <Button type="button" variant="secondary" disabled={mut.isPending} onClick={() => void submit(true)()} data-testid="save-and-new-button">
+            <Button type="button" variant="secondary" disabled={mut.isPending} onClick={() => void submit(true)()} className="col-span-2 h-10 sm:col-span-1 sm:h-9" data-testid="save-and-new-button">
               <SaveAll className="size-4" /> Salvar e Cadastrar Outro
             </Button>
           )}
-          <Button type="button" variant="outline" onClick={() => nav(-1)} data-testid="cancel-button">Cancelar</Button>
-          <Button type="button" variant="ghost" onClick={() => { form.reset(editing ? undefined : EMPTY); setDup(null); }} data-testid="clear-button">
-            <Eraser className="size-4" /> Limpar Formulário
+          <Button type="button" variant="outline" onClick={() => nav(-1)} className="h-10 sm:h-9" data-testid="cancel-button">Cancelar</Button>
+          <Button type="button" variant="ghost" onClick={() => { form.reset(editing ? undefined : EMPTY); setDup(null); }} className="h-10 sm:h-9" data-testid="clear-button">
+            <Eraser className="size-4" /> Limpar
           </Button>
         </div>
       </form>

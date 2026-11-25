@@ -105,17 +105,17 @@ export default function Temporarios() {
   );
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="space-y-4 sm:space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-400">
+          <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-blue-400">
             {categoria ? "Quadro de efetivo" : "Cadastro geral"}
           </p>
-          <h2 className="font-heading text-2xl font-extrabold text-white sm:text-3xl" data-testid="page-title">
+          <h2 className="font-heading text-xl font-extrabold text-white sm:text-2xl md:text-3xl" data-testid="page-title">
             {categoria ? catNome : "Temporários Geral"}
           </h2>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
           <Button
             variant="outline"
             size="sm"
@@ -126,14 +126,14 @@ export default function Temporarios() {
               queryClient.invalidateQueries({ queryKey: ["militares"] });
               queryClient.invalidateQueries({ queryKey: ["dashboard"] });
             }}
-            className="border-[#1E2C42] bg-[#121B28] text-xs text-slate-300 hover:bg-[#182335] hover:text-white"
+            className="h-10 sm:h-9 justify-center border-[#1E2C42] bg-[#121B28] text-xs text-slate-300 hover:bg-[#182335] hover:text-white"
             data-testid="temporarios-sync-button"
           >
             <RotateCw className="mr-1.5 size-3.5 text-blue-400" />
             Sincronizar Firestore
           </Button>
           {podeEditar(me.data) && (
-            <Link to="/temporarios/novo" className={cn(buttonVariants(), "bg-blue-600 hover:bg-blue-700")} data-testid="new-militar-button">
+            <Link to="/temporarios/novo" className={cn(buttonVariants(), "h-10 sm:h-9 justify-center bg-blue-600 hover:bg-blue-700")} data-testid="new-militar-button">
               <UserPlus className="size-4" /> Cadastrar temporário
             </Link>
           )}
@@ -144,7 +144,7 @@ export default function Temporarios() {
       <FiltersBar hideStatus hideCargo={!!categoria} onReset={handleLimparTudo} />
 
       {/* Search, expiration and situation tabs row */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+      <div className="flex flex-col gap-2.5 sm:gap-3 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
           <Input
@@ -157,7 +157,7 @@ export default function Temporarios() {
               }
             }}
             placeholder="Pesquisar por nome ou matrícula"
-            className="bg-[#121B28] pl-9 pr-8"
+            className="h-10 sm:h-9 bg-[#121B28] pl-9 pr-8"
             data-testid="search-input"
           />
           {qInput && (
@@ -169,7 +169,7 @@ export default function Temporarios() {
                 setQApplied("");
                 queryClient.invalidateQueries({ queryKey: ["militares"] });
               }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white"
               title="Limpar busca"
             >
               <X className="size-4" />
@@ -192,10 +192,17 @@ export default function Temporarios() {
         <Tabs
           value={situacao}
           onValueChange={(v) => setSituacao(String(v) as "ATIVO" | "DESLIGADO" | "TODOS")}
+          className="w-full sm:w-auto"
         >
-          <TabsList>
-            <TabsTrigger value="ATIVO" data-testid="view-ativos">Somente ativos</TabsTrigger>
-            <TabsTrigger value="DESLIGADO" data-testid="view-desligados">Somente desligados</TabsTrigger>
+          <TabsList className="grid h-10 w-full grid-cols-3 sm:inline-flex sm:h-8 sm:w-fit">
+            <TabsTrigger value="ATIVO" data-testid="view-ativos">
+              <span className="sm:hidden">Ativos</span>
+              <span className="hidden sm:inline">Somente ativos</span>
+            </TabsTrigger>
+            <TabsTrigger value="DESLIGADO" data-testid="view-desligados">
+              <span className="sm:hidden">Desligados</span>
+              <span className="hidden sm:inline">Somente desligados</span>
+            </TabsTrigger>
             <TabsTrigger value="TODOS" data-testid="view-todos">Todos</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -206,7 +213,7 @@ export default function Temporarios() {
             size="sm"
             onClick={handleLimparTudo}
             data-testid="clear-all-quick-filters"
-            className="text-xs text-blue-300 hover:text-white hover:bg-blue-600/20 gap-1.5 shrink-0"
+            className="h-10 sm:h-8 w-full sm:w-auto justify-center text-xs text-blue-300 hover:text-white hover:bg-blue-600/20 gap-1.5 shrink-0"
             title="Limpar todos os filtros e termos de pesquisa"
           >
             <FilterX className="size-3.5" />

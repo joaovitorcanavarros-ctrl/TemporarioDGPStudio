@@ -98,6 +98,7 @@ function Kpi({
   isHighlighted = false,
   isDimmed = false,
   onHoverChange,
+  className,
 }: {
   id: string;
   label: string;
@@ -109,6 +110,7 @@ function Kpi({
   isHighlighted?: boolean;
   isDimmed?: boolean;
   onHoverChange?: (hovering: boolean) => void;
+  className?: string;
 }) {
   const palette = KPI_TONE_STYLE[tone];
 
@@ -129,10 +131,11 @@ function Kpi({
           : "inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 4px 14px -6px rgba(0, 0, 0, 0.45)",
       }}
       className={cn(
-        "group relative animate-rise overflow-hidden rounded-xl border px-4 pb-4 pt-3 text-left cursor-pointer focus-visible:outline-none",
+        "group relative animate-rise overflow-hidden rounded-xl border px-3 pb-3 pt-2.5 sm:px-4 sm:pb-4 sm:pt-3 text-left cursor-pointer focus-visible:outline-none",
         "transition-[transform,opacity,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
         isHighlighted && "-translate-y-0.5",
-        isDimmed && "opacity-75"
+        isDimmed && "opacity-75",
+        className
       )}
     >
       {/* Brilho radial superior descendente (efeito holofote LED do card) */}
@@ -151,7 +154,7 @@ function Kpi({
       <span
         aria-hidden="true"
         className={cn(
-          "relative z-10 mx-auto mb-3 block h-[4px] w-14 rounded-full transition-[transform,opacity,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          "relative z-10 mx-auto mb-2 sm:mb-3 block h-[4px] w-12 sm:w-14 rounded-full transition-[transform,opacity,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
           isHighlighted ? "scale-x-115 opacity-100" : "opacity-35"
         )}
         style={{
@@ -166,7 +169,7 @@ function Kpi({
         <div className="flex items-start justify-between gap-2">
           <p
             className={cn(
-              "text-[11px] font-semibold uppercase tracking-wider transition-colors duration-200",
+              "text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider leading-tight transition-colors duration-200",
               isHighlighted ? "text-slate-200" : "text-slate-400"
             )}
           >
@@ -174,16 +177,16 @@ function Kpi({
           </p>
           <span
             className={cn(
-              "grid size-8 shrink-0 place-items-center rounded-lg ring-1 transition-[transform,box-shadow,background-color,color] duration-200",
+              "grid size-7 sm:size-8 shrink-0 place-items-center rounded-lg ring-1 transition-[transform,box-shadow,background-color,color] duration-200",
               isHighlighted ? cn(palette.iconActive, "scale-105") : palette.iconIdle
             )}
           >
-            <Icon className="size-4" />
+            <Icon className="size-3.5 sm:size-4" />
           </span>
         </div>
         <p
           className={cn(
-            "num mt-2 text-3xl font-bold transition-colors duration-200",
+            "num mt-1.5 sm:mt-2 text-2xl sm:text-3xl font-bold transition-colors duration-200",
             isHighlighted ? "text-white" : "text-slate-100"
           )}
           data-testid={`kpi-${id}-value`}
@@ -193,7 +196,7 @@ function Kpi({
         {sub && (
           <p
             className={cn(
-              "mt-1 truncate text-xs transition-colors duration-200",
+              "mt-1 truncate text-[11px] sm:text-xs transition-colors duration-200",
               isHighlighted ? "text-slate-300" : "text-slate-400"
             )}
           >
@@ -414,202 +417,211 @@ function DesligamentosGroupedChart({
   const yTicks = [maxScale, step * 3, step * 2, step, 0];
   const plotHeight = 196;
 
+  const totalVisibleBars = isCargoConsolidated
+    ? cargoItems.length
+    : rows.reduce((sum, r) => sum + orderedMotivos.filter((m) => Number(r[m.chave] || 0) > 0).length, 0);
+  const needsScroll = isCargoConsolidated ? cargoItems.length > 4 : totalVisibleBars > 5 || rows.length > 2;
+
   return (
     <div className="flex flex-col select-none" data-testid="desligamentos-grouped-chart">
-      {/* Main Chart Plot Area */}
-      <div className="relative flex pt-5 pb-1">
-        {/* Y-Axis Labels */}
-        <div
-          className="flex flex-col justify-between pr-3 text-right num text-[11px] font-medium text-[#64748B]"
-          style={{ height: plotHeight }}
-        >
-          {yTicks.map((t) => (
-            <span key={t} className="leading-none -translate-y-1">
-              {fmtNum(t)}
-            </span>
-          ))}
-        </div>
+      <div className={cn(needsScroll && "overflow-x-auto scrollbar-none -mx-1 px-1")}>
+        <div className={cn(needsScroll && "min-w-[440px] sm:min-w-0")}>
+          {/* Main Chart Plot Area */}
+          <div className="relative flex pt-5 pb-1">
+            {/* Y-Axis Labels */}
+            <div
+              className="flex flex-col justify-between pr-2 sm:pr-3 text-right num text-[11px] font-medium text-[#64748B]"
+              style={{ height: plotHeight }}
+            >
+              {yTicks.map((t) => (
+                <span key={t} className="leading-none -translate-y-1">
+                  {fmtNum(t)}
+                </span>
+              ))}
+            </div>
 
-        {/* Grid & Grouped Columns */}
-        <div className="relative flex-1" style={{ height: plotHeight }}>
-          {/* Discrete Horizontal Grid Lines */}
-          <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
-            {yTicks.map((t, idx) => (
-              <div
-                key={t}
-                className={cn(
-                  "w-full border-t",
-                  idx === yTicks.length - 1 ? "border-[#263854]" : "border-[#1E2C42]/80 border-dashed"
-                )}
-              />
-            ))}
-          </div>
+            {/* Grid & Grouped Columns */}
+            <div className="relative flex-1" style={{ height: plotHeight }}>
+              {/* Discrete Horizontal Grid Lines */}
+              <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+                {yTicks.map((t, idx) => (
+                  <div
+                    key={t}
+                    className={cn(
+                      "w-full border-t",
+                      idx === yTicks.length - 1 ? "border-[#263854]" : "border-[#1E2C42]/80 border-dashed"
+                    )}
+                  />
+                ))}
+              </div>
 
-          {/* Groups (Consolidated Cargos or Years by Motivo) */}
-          <div className="relative z-10 flex h-full items-end justify-around px-3 sm:px-6 gap-4">
-            {isCargoConsolidated
-              ? cargoItems.map((item) => {
-                  const ratio = Math.min(1, item.valor / maxScale);
-                  const barHeight = Math.max(8, Math.round(ratio * plotHeight));
-                  const isDimmed = hoveredCargo !== null && hoveredCargo !== item.chave;
-                  const isHighlighted = hoveredCargo === item.chave;
+              {/* Groups (Consolidated Cargos or Years by Motivo) */}
+              <div className="relative z-10 flex h-full items-end justify-around px-1.5 sm:px-6 gap-2 sm:gap-4">
+                {isCargoConsolidated
+                  ? cargoItems.map((item) => {
+                      const ratio = Math.min(1, item.valor / maxScale);
+                      const barHeight = Math.max(8, Math.round(ratio * plotHeight));
+                      const isDimmed = hoveredCargo !== null && hoveredCargo !== item.chave;
+                      const isHighlighted = hoveredCargo === item.chave;
 
-                  return (
-                    <div
-                      key={item.chave}
-                      className="flex h-full flex-1 flex-col items-center justify-end min-w-0"
-                    >
-                      <div className="flex h-full items-end justify-center px-2">
-                        <button
-                          type="button"
-                          onClick={() => onSelectBar(item.row)}
-                          onMouseEnter={() => setHoveredCargo(item.chave)}
-                          onMouseLeave={() => setHoveredCargo(null)}
-                          data-testid={`bar-cargo-${item.chave}`}
-                          title={`${item.nome}: ${fmtNum(item.valor)} desligamentos`}
-                          className={cn(
-                            "group/bar relative flex flex-col items-center justify-end focus:outline-none transition-all duration-200 cursor-pointer",
-                            isDimmed ? "opacity-35" : "opacity-100"
-                          )}
+                      return (
+                        <div
+                          key={item.chave}
+                          className="flex h-full flex-1 flex-col items-center justify-end min-w-0"
                         >
-                          <div
-                            className={cn(
-                              "mb-1.5 flex items-center justify-center rounded-md border px-2 py-0.5 num text-[11px] font-bold leading-tight text-white shadow-sm transition-transform duration-150",
-                              isHighlighted && "scale-110 shadow-md"
-                            )}
-                            style={{
-                              backgroundColor: "#162234",
-                              borderColor: `${item.color}88`,
-                              boxShadow: isHighlighted ? `0 0 12px ${item.color}40` : undefined,
-                            }}
-                          >
-                            {fmtNum(item.valor)}
-                          </div>
-
-                          <div
-                            className={cn(
-                              "w-9 sm:w-11 md:w-12 rounded-t-md transition-all duration-200",
-                              isHighlighted && "brightness-110 ring-1 ring-white/40"
-                            )}
-                            style={{
-                              height: `${barHeight}px`,
-                              background: `linear-gradient(180deg, ${item.color} 0%, ${item.color}CC 100%)`,
-                              boxShadow: `0 4px 14px -2px ${item.color}33`,
-                            }}
-                          />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              : rows.map((row) => {
-                  const groupLabel = String(row.ano);
-                  const activeBars = orderedMotivos
-                    .map((m) => ({
-                      ...m,
-                      valor: Number(row[m.chave] || 0),
-                    }))
-                    .filter((b) => b.valor > 0);
-
-                  return (
-                    <div
-                      key={groupLabel}
-                      className="flex h-full flex-1 flex-col items-center justify-end"
-                    >
-                      {/* Side-by-side columns container */}
-                      <div className="flex h-full items-end justify-center gap-2 sm:gap-3.5 px-2">
-                        {activeBars.map((bar) => {
-                          const ratio = Math.min(1, bar.valor / maxScale);
-                          const barHeight = Math.max(8, Math.round(ratio * plotHeight));
-                          const isDimmed =
-                            (hoveredMotivo !== null && hoveredMotivo !== bar.chave) ||
-                            (hoveredBar !== null &&
-                              (hoveredBar.groupKey !== groupLabel || hoveredBar.motivoKey !== bar.chave));
-                          const isHighlighted =
-                            hoveredMotivo === bar.chave ||
-                            (hoveredBar?.groupKey === groupLabel && hoveredBar?.motivoKey === bar.chave);
-
-                          return (
+                          <div className="flex h-full items-end justify-center px-1 sm:px-2">
                             <button
-                              key={bar.chave}
                               type="button"
-                              onClick={() => onSelectBar(row, bar.chave)}
-                              onMouseEnter={() =>
-                                setHoveredBar({ groupKey: groupLabel, motivoKey: bar.chave })
-                              }
-                              onMouseLeave={() => setHoveredBar(null)}
-                              data-testid={`bar-${groupLabel}-${bar.chave}`}
-                              title={`${groupLabel} · ${bar.nome}: ${fmtNum(bar.valor)}`}
+                              onClick={() => onSelectBar(item.row)}
+                              onMouseEnter={() => setHoveredCargo(item.chave)}
+                              onMouseLeave={() => setHoveredCargo(null)}
+                              data-testid={`bar-cargo-${item.chave}`}
+                              title={`${item.nome}: ${fmtNum(item.valor)} desligamentos`}
                               className={cn(
                                 "group/bar relative flex flex-col items-center justify-end focus:outline-none transition-all duration-200 cursor-pointer",
                                 isDimmed ? "opacity-35" : "opacity-100"
                               )}
                             >
-                              {/* Floating Value Tag / Balloon right above the column */}
                               <div
                                 className={cn(
-                                  "mb-1.5 flex items-center justify-center rounded-md border px-2 py-0.5 num text-[11px] font-bold leading-tight text-white shadow-sm transition-transform duration-150",
+                                  "mb-1.5 flex items-center justify-center rounded-md border px-1.5 sm:px-2 py-0.5 num text-[10px] sm:text-[11px] font-bold leading-tight text-white shadow-sm transition-transform duration-150",
                                   isHighlighted && "scale-110 shadow-md"
                                 )}
                                 style={{
                                   backgroundColor: "#162234",
-                                  borderColor: `${bar.color}88`,
-                                  boxShadow: isHighlighted ? `0 0 12px ${bar.color}40` : undefined,
+                                  borderColor: `${item.color}88`,
+                                  boxShadow: isHighlighted ? `0 0 12px ${item.color}40` : undefined,
                                 }}
                               >
-                                {fmtNum(bar.valor)}
+                                {fmtNum(item.valor)}
                               </div>
 
-                              {/* Column Bar */}
                               <div
                                 className={cn(
-                                  "w-6 sm:w-8 md:w-9 rounded-t-md transition-all duration-200",
+                                  "w-7 sm:w-11 md:w-12 rounded-t-md transition-all duration-200",
                                   isHighlighted && "brightness-110 ring-1 ring-white/40"
                                 )}
                                 style={{
                                   height: `${barHeight}px`,
-                                  background: `linear-gradient(180deg, ${bar.color} 0%, ${bar.color}CC 100%)`,
-                                  boxShadow: `0 4px 14px -2px ${bar.color}33`,
+                                  background: `linear-gradient(180deg, ${item.color} 0%, ${item.color}CC 100%)`,
+                                  boxShadow: `0 4px 14px -2px ${item.color}33`,
                                 }}
                               />
                             </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-          </div>
-        </div>
-      </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  : rows.map((row) => {
+                      const groupLabel = String(row.ano);
+                      const activeBars = orderedMotivos
+                        .map((m) => ({
+                          ...m,
+                          valor: Number(row[m.chave] || 0),
+                        }))
+                        .filter((b) => b.valor > 0);
 
-      {/* X-Axis Group Labels */}
-      <div className="flex pl-9 pt-2.5">
-        <div className="flex flex-1 items-center justify-around px-3 sm:px-6 gap-4">
-          {isCargoConsolidated
-            ? cargoItems.map((item) => (
-                <div key={item.chave} className="flex-1 text-center min-w-0">
-                  <span className="block truncate font-sans text-xs font-semibold tracking-wide text-slate-200">
-                    {item.nome}
-                  </span>
-                </div>
-              ))
-            : rows.map((row) => {
-                const groupLabel = String(row.ano);
-                return (
-                  <div key={groupLabel} className="flex-1 text-center">
-                    <span className="font-sans text-xs font-semibold tracking-wide text-slate-200">
-                      {groupLabel}
-                    </span>
-                  </div>
-                );
-              })}
+                      return (
+                        <div
+                          key={groupLabel}
+                          className="flex h-full flex-1 flex-col items-center justify-end"
+                        >
+                          {/* Side-by-side columns container */}
+                          <div className="flex h-full items-end justify-center gap-1.5 sm:gap-3.5 px-1 sm:px-2">
+                            {activeBars.map((bar) => {
+                              const ratio = Math.min(1, bar.valor / maxScale);
+                              const barHeight = Math.max(8, Math.round(ratio * plotHeight));
+                              const isDimmed =
+                                (hoveredMotivo !== null && hoveredMotivo !== bar.chave) ||
+                                (hoveredBar !== null &&
+                                  (hoveredBar.groupKey !== groupLabel || hoveredBar.motivoKey !== bar.chave));
+                              const isHighlighted =
+                                hoveredMotivo === bar.chave ||
+                                (hoveredBar?.groupKey === groupLabel && hoveredBar?.motivoKey === bar.chave);
+
+                              return (
+                                <button
+                                  key={bar.chave}
+                                  type="button"
+                                  onClick={() => onSelectBar(row, bar.chave)}
+                                  onMouseEnter={() =>
+                                    setHoveredBar({ groupKey: groupLabel, motivoKey: bar.chave })
+                                  }
+                                  onMouseLeave={() => setHoveredBar(null)}
+                                  data-testid={`bar-${groupLabel}-${bar.chave}`}
+                                  title={`${groupLabel} · ${bar.nome}: ${fmtNum(bar.valor)}`}
+                                  className={cn(
+                                    "group/bar relative flex flex-col items-center justify-end focus:outline-none transition-all duration-200 cursor-pointer",
+                                    isDimmed ? "opacity-35" : "opacity-100"
+                                  )}
+                                >
+                                  {/* Floating Value Tag / Balloon right above the column */}
+                                  <div
+                                    className={cn(
+                                      "mb-1.5 flex items-center justify-center rounded-md border px-1.5 sm:px-2 py-0.5 num text-[10px] sm:text-[11px] font-bold leading-tight text-white shadow-sm transition-transform duration-150",
+                                      isHighlighted && "scale-110 shadow-md"
+                                    )}
+                                    style={{
+                                      backgroundColor: "#162234",
+                                      borderColor: `${bar.color}88`,
+                                      boxShadow: isHighlighted ? `0 0 12px ${bar.color}40` : undefined,
+                                    }}
+                                  >
+                                    {fmtNum(bar.valor)}
+                                  </div>
+
+                                  {/* Column Bar */}
+                                  <div
+                                    className={cn(
+                                      "w-5 sm:w-8 md:w-9 rounded-t-md transition-all duration-200",
+                                      isHighlighted && "brightness-110 ring-1 ring-white/40"
+                                    )}
+                                    style={{
+                                      height: `${barHeight}px`,
+                                      background: `linear-gradient(180deg, ${bar.color} 0%, ${bar.color}CC 100%)`,
+                                      boxShadow: `0 4px 14px -2px ${bar.color}33`,
+                                    }}
+                                  />
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+              </div>
+            </div>
+          </div>
+
+          {/* X-Axis Group Labels */}
+          <div className="flex pl-7 sm:pl-9 pt-2.5">
+            <div className="flex flex-1 items-center justify-around px-1.5 sm:px-6 gap-2 sm:gap-4">
+              {isCargoConsolidated
+                ? cargoItems.map((item) => (
+                    <div key={item.chave} className="flex-1 text-center min-w-0">
+                      <span className="block truncate font-sans text-[11px] sm:text-xs font-semibold tracking-wide text-slate-200">
+                        {item.nome}
+                      </span>
+                    </div>
+                  ))
+                : rows.map((row) => {
+                    const groupLabel = String(row.ano);
+                    return (
+                      <div key={groupLabel} className="flex-1 text-center">
+                        <span className="font-sans text-[11px] sm:text-xs font-semibold tracking-wide text-slate-200">
+                          {groupLabel}
+                        </span>
+                      </div>
+                    );
+                  })}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Redesigned Legend Footer */}
       <div
-        className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5 border-t border-[#1E2C42]/80 pt-3.5 px-2"
+        className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 sm:gap-x-5 sm:gap-y-2.5 border-t border-[#1E2C42]/80 pt-3.5 px-1 sm:px-2"
         data-testid="desligamentos-legend"
       >
         {isCargoConsolidated
@@ -701,138 +713,148 @@ function EfetivoCargoGroupedChart({
   const yTicks = [maxScale, step * 3, step * 2, step, 0];
   const plotHeight = 196;
 
+  const totalBars = rows.reduce(
+    (sum, r) => sum + catMeta.filter((c) => Number(r[c.chave] || 0) > 0).length,
+    0
+  );
+  const needsScroll = totalBars > 5 || rows.length > 2;
+
   return (
     <div className="flex flex-col select-none" data-testid="efetivo-cargo-grouped-chart">
-      {/* Main Chart Plot Area */}
-      <div className="relative flex pt-5 pb-1">
-        {/* Y-Axis Labels */}
-        <div
-          className="flex flex-col justify-between pr-3 text-right num text-[11px] font-medium text-[#64748B]"
-          style={{ height: plotHeight }}
-        >
-          {yTicks.map((t) => (
-            <span key={t} className="leading-none -translate-y-1">
-              {fmtNum(t)}
-            </span>
-          ))}
-        </div>
-
-        {/* Grid & Grouped Columns */}
-        <div className="relative flex-1" style={{ height: plotHeight }}>
-          {/* Discrete Horizontal Grid Lines */}
-          <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
-            {yTicks.map((t, idx) => (
-              <div
-                key={t}
-                className={cn(
-                  "w-full border-t",
-                  idx === yTicks.length - 1 ? "border-[#263854]" : "border-[#1E2C42]/80 border-dashed"
-                )}
-              />
-            ))}
-          </div>
-
-          {/* Groups by Year */}
-          <div className="relative z-10 flex h-full items-end justify-around px-2 sm:px-4 gap-2 sm:gap-4">
-            {rows.map((row) => {
-              const anoLabel = String(row.ano);
-              const activeBars = catMeta
-                .map((c) => ({
-                  ...c,
-                  valor: Number(row[c.chave] || 0),
-                }))
-                .filter((b) => b.valor > 0);
-
-              return (
-                <div
-                  key={anoLabel}
-                  className="flex h-full flex-1 flex-col items-center justify-end min-w-0"
-                >
-                  <div className="flex h-full items-end justify-center gap-1.5 sm:gap-2.5 px-1">
-                    {activeBars.map((bar) => {
-                      const ratio = Math.min(1, bar.valor / maxScale);
-                      const barHeight = Math.max(8, Math.round(ratio * plotHeight));
-                      const isDimmed =
-                        (hoveredCat !== null && hoveredCat !== bar.chave) ||
-                        (hoveredBar !== null &&
-                          (hoveredBar.ano !== anoLabel || hoveredBar.catKey !== bar.chave));
-                      const isHighlighted =
-                        hoveredCat === bar.chave ||
-                        (hoveredBar?.ano === anoLabel && hoveredBar?.catKey === bar.chave);
-
-                      return (
-                        <button
-                          key={bar.chave}
-                          type="button"
-                          onClick={() => onSelectBar(row, bar)}
-                          onMouseEnter={() =>
-                            setHoveredBar({ ano: anoLabel, catKey: bar.chave })
-                          }
-                          onMouseLeave={() => setHoveredBar(null)}
-                          data-testid={`efetivo-bar-${anoLabel}-${bar.chave}`}
-                          title={`${anoLabel} · ${bar.nome}: ${fmtNum(bar.valor)}`}
-                          className={cn(
-                            "group/bar relative flex flex-col items-center justify-end focus:outline-none transition-all duration-200 cursor-pointer",
-                            isDimmed ? "opacity-35" : "opacity-100"
-                          )}
-                        >
-                          {/* Floating Value Tag / Balloon right above the column */}
-                          <div
-                            className={cn(
-                              "mb-1.5 flex items-center justify-center rounded-md border px-1.5 py-0.5 num text-[10px] sm:text-[11px] font-bold leading-tight text-white shadow-sm transition-transform duration-150",
-                              isHighlighted && "scale-110 shadow-md"
-                            )}
-                            style={{
-                              backgroundColor: "#162234",
-                              borderColor: `${bar.color}88`,
-                              boxShadow: isHighlighted ? `0 0 12px ${bar.color}40` : undefined,
-                            }}
-                          >
-                            {fmtNum(bar.valor)}
-                          </div>
-
-                          {/* Column Bar */}
-                          <div
-                            className={cn(
-                              "w-5 sm:w-7 md:w-8 rounded-t-md transition-all duration-200",
-                              isHighlighted && "brightness-110 ring-1 ring-white/40"
-                            )}
-                            style={{
-                              height: `${barHeight}px`,
-                              background: `linear-gradient(180deg, ${bar.color} 0%, ${bar.color}CC 100%)`,
-                              boxShadow: `0 4px 14px -2px ${bar.color}33`,
-                            }}
-                          />
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* X-Axis Year Labels */}
-      <div className="flex pl-9 pt-2.5">
-        <div className="flex flex-1 items-center justify-around px-2 sm:px-4 gap-2 sm:gap-4">
-          {rows.map((row) => {
-            const anoLabel = String(row.ano);
-            return (
-              <div key={anoLabel} className="flex-1 text-center">
-                <span className="font-sans text-xs font-semibold tracking-wide text-slate-200">
-                  {anoLabel}
+      <div className={cn(needsScroll && "overflow-x-auto scrollbar-none -mx-1 px-1")}>
+        <div className={cn(needsScroll && "min-w-[460px] sm:min-w-0")}>
+          {/* Main Chart Plot Area */}
+          <div className="relative flex pt-5 pb-1">
+            {/* Y-Axis Labels */}
+            <div
+              className="flex flex-col justify-between pr-2 sm:pr-3 text-right num text-[11px] font-medium text-[#64748B]"
+              style={{ height: plotHeight }}
+            >
+              {yTicks.map((t) => (
+                <span key={t} className="leading-none -translate-y-1">
+                  {fmtNum(t)}
                 </span>
+              ))}
+            </div>
+
+            {/* Grid & Grouped Columns */}
+            <div className="relative flex-1" style={{ height: plotHeight }}>
+              {/* Discrete Horizontal Grid Lines */}
+              <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+                {yTicks.map((t, idx) => (
+                  <div
+                    key={t}
+                    className={cn(
+                      "w-full border-t",
+                      idx === yTicks.length - 1 ? "border-[#263854]" : "border-[#1E2C42]/80 border-dashed"
+                    )}
+                  />
+                ))}
               </div>
-            );
-          })}
+
+              {/* Groups by Year */}
+              <div className="relative z-10 flex h-full items-end justify-around px-1.5 sm:px-4 gap-2 sm:gap-4">
+                {rows.map((row) => {
+                  const anoLabel = String(row.ano);
+                  const activeBars = catMeta
+                    .map((c) => ({
+                      ...c,
+                      valor: Number(row[c.chave] || 0),
+                    }))
+                    .filter((b) => b.valor > 0);
+
+                  return (
+                    <div
+                      key={anoLabel}
+                      className="flex h-full flex-1 flex-col items-center justify-end min-w-0"
+                    >
+                      <div className="flex h-full items-end justify-center gap-1 sm:gap-2.5 px-0.5 sm:px-1">
+                        {activeBars.map((bar) => {
+                          const ratio = Math.min(1, bar.valor / maxScale);
+                          const barHeight = Math.max(8, Math.round(ratio * plotHeight));
+                          const isDimmed =
+                            (hoveredCat !== null && hoveredCat !== bar.chave) ||
+                            (hoveredBar !== null &&
+                              (hoveredBar.ano !== anoLabel || hoveredBar.catKey !== bar.chave));
+                          const isHighlighted =
+                            hoveredCat === bar.chave ||
+                            (hoveredBar?.ano === anoLabel && hoveredBar?.catKey === bar.chave);
+
+                          return (
+                            <button
+                              key={bar.chave}
+                              type="button"
+                              onClick={() => onSelectBar(row, bar)}
+                              onMouseEnter={() =>
+                                setHoveredBar({ ano: anoLabel, catKey: bar.chave })
+                              }
+                              onMouseLeave={() => setHoveredBar(null)}
+                              data-testid={`efetivo-bar-${anoLabel}-${bar.chave}`}
+                              title={`${anoLabel} · ${bar.nome}: ${fmtNum(bar.valor)}`}
+                              className={cn(
+                                "group/bar relative flex flex-col items-center justify-end focus:outline-none transition-all duration-200 cursor-pointer",
+                                isDimmed ? "opacity-35" : "opacity-100"
+                              )}
+                            >
+                              {/* Floating Value Tag / Balloon right above the column */}
+                              <div
+                                className={cn(
+                                  "mb-1.5 flex items-center justify-center rounded-md border px-1 sm:px-1.5 py-0.5 num text-[10px] sm:text-[11px] font-bold leading-tight text-white shadow-sm transition-transform duration-150",
+                                  isHighlighted && "scale-110 shadow-md"
+                                )}
+                                style={{
+                                  backgroundColor: "#162234",
+                                  borderColor: `${bar.color}88`,
+                                  boxShadow: isHighlighted ? `0 0 12px ${bar.color}40` : undefined,
+                                }}
+                              >
+                                {fmtNum(bar.valor)}
+                              </div>
+
+                              {/* Column Bar */}
+                              <div
+                                className={cn(
+                                  "w-4 sm:w-7 md:w-8 rounded-t-md transition-all duration-200",
+                                  isHighlighted && "brightness-110 ring-1 ring-white/40"
+                                )}
+                                style={{
+                                  height: `${barHeight}px`,
+                                  background: `linear-gradient(180deg, ${bar.color} 0%, ${bar.color}CC 100%)`,
+                                  boxShadow: `0 4px 14px -2px ${bar.color}33`,
+                                }}
+                              />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* X-Axis Year Labels */}
+          <div className="flex pl-7 sm:pl-9 pt-2.5">
+            <div className="flex flex-1 items-center justify-around px-1.5 sm:px-4 gap-2 sm:gap-4">
+              {rows.map((row) => {
+                const anoLabel = String(row.ano);
+                return (
+                  <div key={anoLabel} className="flex-1 text-center">
+                    <span className="font-sans text-[11px] sm:text-xs font-semibold tracking-wide text-slate-200">
+                      {anoLabel}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Redesigned Legend Footer */}
       <div
-        className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5 border-t border-[#1E2C42]/80 pt-3.5 px-2"
+        className="mt-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 sm:gap-x-5 sm:gap-y-2.5 border-t border-[#1E2C42]/80 pt-3.5 px-1 sm:px-2"
         data-testid="efetivo-cargo-legend"
       >
         {catMeta.map((c) => {
@@ -889,89 +911,128 @@ function EfetivoUbmStyledChart({
 
   return (
     <div className="flex flex-col select-none" data-testid="efetivo-ubm-styled-chart">
-      <div className={cn("relative", ubmAll && "max-h-[520px] overflow-y-auto pr-1")}>
-        <div className="relative space-y-2 py-1">
-          {items.map((item) => {
-            const ratio = Math.min(1, item.total / maxScale);
-            const widthPct = Math.max(3, Math.round(ratio * 100));
-            const isDimmed = hoveredKey !== null && hoveredKey !== item.chave;
-            const isHighlighted = hoveredKey === item.chave;
-
-            return (
-              <button
-                key={item.chave}
-                type="button"
-                onClick={() => onSelectUbm(item)}
-                onMouseEnter={() => setHoveredKey(item.chave)}
-                onMouseLeave={() => setHoveredKey(null)}
-                data-testid={`ubm-bar-${item.chave}`}
-                title={`${item.nome}: ${fmtNum(item.total)} ativos`}
-                className={cn(
-                  "group/ubm flex w-full items-center gap-3 rounded-lg px-1.5 py-1 text-left transition-all duration-150 focus:outline-none cursor-pointer",
-                  isHighlighted && "bg-[#182335]/70",
-                  isDimmed ? "opacity-40" : "opacity-100"
-                )}
-              >
-                {/* UBM Name */}
-                <span className="w-[155px] sm:w-[195px] shrink-0 truncate text-right font-sans text-[11px] font-medium text-slate-300 group-hover/ubm:text-white">
-                  {item.nome}
+      {/* Mobile: stacked 2-line bars so UBM names never truncate and bars get full width */}
+      <div className={cn("sm:hidden space-y-2", ubmAll && "max-h-[460px] overflow-y-auto pr-1")}>
+        {items.map((item) => {
+          const ratio = Math.min(1, item.total / maxScale);
+          const widthPct = Math.max(4, Math.round(ratio * 100));
+          return (
+            <button
+              key={item.chave}
+              type="button"
+              onClick={() => onSelectUbm(item)}
+              data-testid={`ubm-bar-mobile-${item.chave}`}
+              className="flex min-h-[48px] w-full flex-col justify-center gap-1.5 rounded-lg border border-[#1E2C42]/70 bg-[#0F1724]/70 px-3 py-2 text-left transition-colors active:bg-[#182335] cursor-pointer"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-slate-200 leading-snug">{item.nome}</span>
+                <span
+                  className="shrink-0 rounded-md border px-2 py-0.5 num text-[11px] font-bold text-white"
+                  style={{ backgroundColor: "#162234", borderColor: `${barColor}88` }}
+                >
+                  {fmtNum(item.total)}
                 </span>
-
-                {/* Horizontal Bar + Floating Value Tag */}
-                <div className="relative flex flex-1 items-center pr-12">
-                  {/* Subtle background track */}
-                  <div className="pointer-events-none absolute inset-y-0 left-0 right-12 flex justify-between">
-                    {xTicks.map((t, idx) => (
-                      <div
-                        key={t}
-                        className={cn(
-                          "h-full border-l",
-                          idx === 0 ? "border-[#263854]" : "border-[#1E2C42]/60 border-dashed"
-                        )}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Bar */}
-                  <div
-                    className={cn(
-                      "relative z-10 h-5 rounded-r-md transition-all duration-200",
-                      isHighlighted && "brightness-110 ring-1 ring-white/40"
-                    )}
-                    style={{
-                      width: `${widthPct}%`,
-                      background: `linear-gradient(90deg, ${barColor}CC 0%, ${barColor} 100%)`,
-                      boxShadow: `0 2px 10px -2px ${barColor}44`,
-                    }}
-                  />
-
-                  {/* Value Tag / Balloon right next to bar */}
-                  <div
-                    className={cn(
-                      "relative z-10 ml-2 flex items-center justify-center rounded-md border px-2 py-0.5 num text-[11px] font-bold leading-tight text-white shadow-sm transition-transform duration-150",
-                      isHighlighted && "scale-105 shadow-md"
-                    )}
-                    style={{
-                      backgroundColor: "#162234",
-                      borderColor: `${barColor}88`,
-                      boxShadow: isHighlighted ? `0 0 12px ${barColor}40` : undefined,
-                    }}
-                  >
-                    {fmtNum(item.total)}
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-[#1E2C42]/70">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${widthPct}%`,
+                    background: `linear-gradient(90deg, ${barColor}CC 0%, ${barColor} 100%)`,
+                  }}
+                />
+              </div>
+            </button>
+          );
+        })}
       </div>
 
-      {/* X-Axis Scale Labels */}
-      <div className="mt-2 flex items-center pl-[167px] sm:pl-[207px] pr-14">
-        <div className="flex flex-1 justify-between num text-[11px] font-medium text-[#64748B]">
-          {xTicks.map((t) => (
-            <span key={t}>{fmtNum(t)}</span>
-          ))}
+      {/* Desktop / Tablet: horizontal bar chart with aligned X-axis ticks */}
+      <div className="hidden sm:block">
+        <div className={cn("relative", ubmAll && "max-h-[520px] overflow-y-auto pr-1")}>
+          <div className="relative space-y-2 py-1">
+            {items.map((item) => {
+              const ratio = Math.min(1, item.total / maxScale);
+              const widthPct = Math.max(3, Math.round(ratio * 100));
+              const isDimmed = hoveredKey !== null && hoveredKey !== item.chave;
+              const isHighlighted = hoveredKey === item.chave;
+
+              return (
+                <button
+                  key={item.chave}
+                  type="button"
+                  onClick={() => onSelectUbm(item)}
+                  onMouseEnter={() => setHoveredKey(item.chave)}
+                  onMouseLeave={() => setHoveredKey(null)}
+                  data-testid={`ubm-bar-${item.chave}`}
+                  title={`${item.nome}: ${fmtNum(item.total)} ativos`}
+                  className={cn(
+                    "group/ubm flex w-full items-center gap-3 rounded-lg px-1.5 py-1 text-left transition-all duration-150 focus:outline-none cursor-pointer",
+                    isHighlighted && "bg-[#182335]/70",
+                    isDimmed ? "opacity-40" : "opacity-100"
+                  )}
+                >
+                  {/* UBM Name */}
+                  <span className="w-[155px] sm:w-[195px] shrink-0 truncate text-right font-sans text-[11px] font-medium text-slate-300 group-hover/ubm:text-white">
+                    {item.nome}
+                  </span>
+
+                  {/* Horizontal Bar + Floating Value Tag */}
+                  <div className="relative flex flex-1 items-center pr-12">
+                    {/* Subtle background track */}
+                    <div className="pointer-events-none absolute inset-y-0 left-0 right-12 flex justify-between">
+                      {xTicks.map((t, idx) => (
+                        <div
+                          key={t}
+                          className={cn(
+                            "h-full border-l",
+                            idx === 0 ? "border-[#263854]" : "border-[#1E2C42]/60 border-dashed"
+                          )}
+                        />
+                      ))}
+                    </div>
+
+                    {/* Bar */}
+                    <div
+                      className={cn(
+                        "relative z-10 h-5 rounded-r-md transition-all duration-200",
+                        isHighlighted && "brightness-110 ring-1 ring-white/40"
+                      )}
+                      style={{
+                        width: `${widthPct}%`,
+                        background: `linear-gradient(90deg, ${barColor}CC 0%, ${barColor} 100%)`,
+                        boxShadow: `0 2px 10px -2px ${barColor}44`,
+                      }}
+                    />
+
+                    {/* Value Tag / Balloon right next to bar */}
+                    <div
+                      className={cn(
+                        "relative z-10 ml-2 flex items-center justify-center rounded-md border px-2 py-0.5 num text-[11px] font-bold leading-tight text-white shadow-sm transition-transform duration-150",
+                        isHighlighted && "scale-105 shadow-md"
+                      )}
+                      style={{
+                        backgroundColor: "#162234",
+                        borderColor: `${barColor}88`,
+                        boxShadow: isHighlighted ? `0 0 12px ${barColor}40` : undefined,
+                      }}
+                    >
+                      {fmtNum(item.total)}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* X-Axis Scale Labels */}
+        <div className="mt-2 flex items-center pl-[167px] sm:pl-[207px] pr-14">
+          <div className="flex flex-1 justify-between num text-[11px] font-medium text-[#64748B]">
+            {xTicks.map((t) => (
+              <span key={t}>{fmtNum(t)}</span>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -1007,6 +1068,17 @@ function DistribuicaoStyledChart({
   onSelectSlice: (item: CountItem) => void;
 }) {
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia("(max-width: 639px)").matches : false
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    setIsMobile(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   const enriched = items.map((x, i) => ({
     ...x,
@@ -1069,12 +1141,14 @@ function DistribuicaoStyledChart({
     );
   };
 
+  const chartHeight = isMobile ? 220 : 330;
+
   return (
     <div className="flex flex-col select-none" data-testid="distribuicao-styled-chart">
-      <div className="relative h-[330px] w-full">
+      <div className={cn("relative w-full", isMobile ? "h-[220px]" : "h-[330px]")}>
         {/* Center Donut Total Label */}
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="num text-3xl font-extrabold text-white">
+          <span className={cn("num font-extrabold text-white", isMobile ? "text-2xl" : "text-3xl")}>
             {fmtNum(totalGeral)}
           </span>
           <span className="mt-0.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
@@ -1082,7 +1156,7 @@ function DistribuicaoStyledChart({
           </span>
         </div>
 
-        <ResponsiveContainer width="100%" height={330}>
+        <ResponsiveContainer width="100%" height={chartHeight}>
           <PieChart>
             <Pie
               data={enriched}
@@ -1090,14 +1164,14 @@ function DistribuicaoStyledChart({
               nameKey="nome"
               cx="50%"
               cy="50%"
-              innerRadius={72}
-              outerRadius={112}
+              innerRadius={isMobile ? 56 : 72}
+              outerRadius={isMobile ? 88 : 112}
               paddingAngle={3}
               stroke="#121B28"
               strokeWidth={2}
               className="cursor-pointer focus:outline-none"
               labelLine={false}
-              label={renderCustomLabel}
+              label={isMobile ? false : renderCustomLabel}
               onMouseEnter={(_: unknown, idx: number) => {
                 if (enriched[idx]) setHoveredKey(enriched[idx].chave);
               }}
@@ -1129,11 +1203,12 @@ function DistribuicaoStyledChart({
 
       {/* Redesigned Legend Footer with Value Tags */}
       <div
-        className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-3 border-t border-[#1E2C42]/80 pt-4 px-2"
+        className="mt-3 grid grid-cols-1 gap-1.5 border-t border-[#1E2C42]/80 pt-3.5 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-x-5 sm:gap-y-3 sm:pt-4 sm:px-2"
         data-testid="distribuicao-legend"
       >
         {enriched.map((x) => {
           const active = hoveredKey === x.chave;
+          const pct = totalGeral > 0 ? Math.round((x.total / totalGeral) * 100) : 0;
           return (
             <button
               key={x.chave}
@@ -1142,28 +1217,35 @@ function DistribuicaoStyledChart({
               onMouseLeave={() => setHoveredKey(null)}
               onClick={() => onSelectSlice(x)}
               className={cn(
-                "inline-flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors cursor-pointer",
+                "flex w-full items-center justify-between gap-2.5 rounded-lg border border-[#1E2C42]/70 bg-[#0F1724]/60 px-3 py-2 text-left transition-colors cursor-pointer sm:inline-flex sm:w-auto sm:justify-start sm:border-transparent sm:bg-transparent sm:px-2.5 sm:py-1.5",
                 active ? "bg-[#182335] text-white" : "text-slate-300 hover:bg-[#182335]/60 hover:text-white"
               )}
             >
-              <span
-                className="size-3.5 shrink-0 rounded-[4px] shadow-xs"
-                style={{
-                  backgroundColor: x.color,
-                  boxShadow: `0 0 0 1px ${x.color}55`,
-                }}
-              />
-              <span className="font-sans text-[13.5px] font-semibold tracking-tight text-slate-200">
-                {x.nome}
+              <span className="flex min-w-0 items-center gap-2.5">
+                <span
+                  className="size-3.5 shrink-0 rounded-[4px] shadow-xs"
+                  style={{
+                    backgroundColor: x.color,
+                    boxShadow: `0 0 0 1px ${x.color}55`,
+                  }}
+                />
+                <span className="truncate font-sans text-xs sm:text-[13.5px] font-semibold tracking-tight text-slate-200">
+                  {x.nome}
+                </span>
               </span>
-              <span
-                className="rounded-md border px-2 py-0.5 num text-xs font-bold text-white"
-                style={{
-                  backgroundColor: "#162234",
-                  borderColor: `${x.color}77`,
-                }}
-              >
-                {fmtNum(x.total)}
+              <span className="flex shrink-0 items-center gap-1.5">
+                <span className="num text-[11px] font-medium text-slate-400 sm:hidden">
+                  {pct}%
+                </span>
+                <span
+                  className="rounded-md border px-2 py-0.5 num text-xs font-bold text-white"
+                  style={{
+                    backgroundColor: "#162234",
+                    borderColor: `${x.color}77`,
+                  }}
+                >
+                  {fmtNum(x.total)}
+                </span>
               </span>
             </button>
           );
@@ -1237,26 +1319,28 @@ function EvolucaoStyledChart({
   const activeIdx = hoveredIdx !== null && rows[hoveredIdx] ? hoveredIdx : null;
   const activeRow = activeIdx !== null ? rows[activeIdx] : null;
 
+  const needsHorizontalScroll = !isAnual && rows.length > 6;
+
   return (
     <div className="flex flex-1 flex-col justify-between select-none" data-testid="evolucao-styled-chart">
       {/* Resumo rápido + alternância Gráfico / Tabela */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="grid flex-1 grid-cols-3 gap-2 min-w-[260px]">
-          <div className="rounded-lg border border-emerald-500/25 bg-[#0F1724] px-2.5 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Inclusões</p>
-            <p className="num mt-0.5 text-base font-bold text-emerald-400">+{fmtNum(totalInc)}</p>
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="grid w-full grid-cols-3 gap-1.5 sm:flex-1 sm:gap-2 sm:min-w-[260px]">
+          <div className="rounded-lg border border-emerald-500/25 bg-[#0F1724] px-2 py-1.5 sm:px-2.5 sm:py-2">
+            <p className="truncate text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-slate-400">Inclusões</p>
+            <p className="num mt-0.5 text-sm sm:text-base font-bold text-emerald-400">+{fmtNum(totalInc)}</p>
           </div>
-          <div className="rounded-lg border border-red-500/25 bg-[#0F1724] px-2.5 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Desligamentos</p>
-            <p className="num mt-0.5 text-base font-bold text-red-400">-{fmtNum(totalDesl)}</p>
+          <div className="rounded-lg border border-red-500/25 bg-[#0F1724] px-2 py-1.5 sm:px-2.5 sm:py-2">
+            <p className="truncate text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-slate-400">Desligam.</p>
+            <p className="num mt-0.5 text-sm sm:text-base font-bold text-red-400">-{fmtNum(totalDesl)}</p>
           </div>
-          <div className="rounded-lg border border-blue-500/25 bg-[#0F1724] px-2.5 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Efetivo / Saldo</p>
-            <div className="mt-0.5 flex items-baseline gap-1.5">
-              <span className="num text-base font-bold text-blue-300">{fmtNum(efetivoAtual)}</span>
+          <div className="rounded-lg border border-blue-500/25 bg-[#0F1724] px-2 py-1.5 sm:px-2.5 sm:py-2">
+            <p className="truncate text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-slate-400">Efetivo</p>
+            <div className="mt-0.5 flex flex-wrap items-baseline gap-1">
+              <span className="num text-sm sm:text-base font-bold text-blue-300">{fmtNum(efetivoAtual)}</span>
               <span
                 className={cn(
-                  "num text-[11px] font-semibold",
+                  "num text-[10px] sm:text-[11px] font-semibold",
                   saldoTotal >= 0 ? "text-emerald-400" : "text-red-400"
                 )}
               >
@@ -1270,7 +1354,7 @@ function EvolucaoStyledChart({
           type="button"
           onClick={() => setDisplayMode((m) => (m === "chart" ? "table" : "chart"))}
           data-testid="evolucao-toggle-mode"
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#24344D] bg-[#0F1724] px-3 text-xs font-medium text-slate-200 transition-colors hover:bg-[#182335] hover:text-white cursor-pointer"
+          className="inline-flex h-10 sm:h-9 w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg border border-[#24344D] bg-[#0F1724] px-3 text-xs font-medium text-slate-200 transition-colors hover:bg-[#182335] hover:text-white cursor-pointer"
         >
           {displayMode === "chart" ? (
             <>
@@ -1285,8 +1369,8 @@ function EvolucaoStyledChart({
       </div>
 
       {displayMode === "table" ? (
-        <div className="max-h-[340px] overflow-y-auto rounded-lg border border-[#1E2C42] bg-[#0F1724]" data-testid="evolucao-table">
-          <table className="w-full text-xs">
+        <div className="max-h-[340px] overflow-auto rounded-lg border border-[#1E2C42] bg-[#0F1724]" data-testid="evolucao-table">
+          <table className="w-full min-w-[440px] text-xs">
             <thead className="sticky top-0 z-10 bg-[#152031] text-[11px] uppercase tracking-wider text-slate-400">
               <tr>
                 <th className="px-3 py-2 text-left font-semibold">Período</th>
@@ -1347,318 +1431,330 @@ function EvolucaoStyledChart({
           </table>
         </div>
       ) : (
-        <div className="flex flex-1 flex-col justify-between gap-3">
-          {/* FAIXA 1: Efetivo ativo acumulado (escala própria, sem sobrepor barras) */}
-          <div className="rounded-lg border border-[#1E2C42]/90 bg-[#0F1724]/75 px-3 pt-2.5 pb-2">
-            <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
-              <span className="inline-flex items-center gap-1.5 font-medium text-blue-300">
-                <span className="size-2 rounded-full bg-blue-400" />
-                Efetivo ativo no período
-              </span>
-              <span
-                className={cn(
-                  "num text-[11px] transition-colors duration-150",
-                  activeRow ? "font-semibold text-blue-200" : "text-slate-400"
-                )}
-              >
-                {activeRow
-                  ? `${getLabel(activeRow)}: ${fmtNum(Number(activeRow.efetivo || 0))} ativos`
-                  : `Atual: ${fmtNum(efetivoAtual)} ativos`}
-              </span>
-            </div>
-
-            <div className="flex">
-              {/* Espaçador alinhado ao eixo Y da faixa inferior */}
-              <div className="w-8 shrink-0 pr-1.5 flex flex-col justify-between text-right num text-[10px] text-[#64748B]" style={{ height: 96 }}>
-                <span>{fmtNum(efDomainMax)}</span>
-                <span>{fmtNum(efDomainMin)}</span>
-              </div>
-
-              <div className="relative flex-1" style={{ height: 96 }}>
-                {/* Faixas verticais interativas por mês para destaque amplo ao passar o cursor */}
-                <div className="absolute inset-0 z-[1] flex">
-                  {rows.map((r, i) => {
-                    const isColHovered = activeIdx === i;
-                    return (
-                      <div
-                        key={getLabel(r)}
-                        onMouseEnter={() => setHoveredIdx(i)}
-                        onMouseLeave={() => setHoveredIdx(null)}
-                        className={cn(
-                          "relative flex-1 h-full rounded-md transition-all duration-150 cursor-pointer",
-                          isColHovered &&
-                            "bg-blue-500/15 ring-1 ring-inset ring-blue-400/45 shadow-[inset_0_0_22px_rgba(96,165,250,0.22)]"
-                        )}
-                      >
-                        {isColHovered && (
-                          <span
-                            aria-hidden="true"
-                            className="pointer-events-none absolute inset-y-1 left-1/2 w-[2px] -translate-x-1/2 rounded-full bg-gradient-to-b from-blue-300/75 via-blue-400/45 to-blue-400/10"
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
+        <div className="flex flex-1 flex-col justify-between gap-2">
+          {needsHorizontalScroll && (
+            <p className="text-[11px] text-slate-400 sm:hidden">
+              Deslize lateralmente para ver todos os meses · toque em um período para destacar
+            </p>
+          )}
+          <div className={cn(needsHorizontalScroll && "overflow-x-auto scrollbar-none -mx-1 px-1")}>
+            <div className={cn("flex flex-col gap-3", needsHorizontalScroll && "min-w-[560px] sm:min-w-0")}>
+              {/* FAIXA 1: Efetivo ativo acumulado (escala própria, sem sobrepor barras) */}
+              <div className="rounded-lg border border-[#1E2C42]/90 bg-[#0F1724]/75 px-3 pt-2.5 pb-2">
+                <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
+                  <span className="inline-flex items-center gap-1.5 font-medium text-blue-300">
+                    <span className="size-2 rounded-full bg-blue-400" />
+                    Efetivo ativo no período
+                  </span>
+                  <span
+                    className={cn(
+                      "num text-[11px] transition-colors duration-150",
+                      activeRow ? "font-semibold text-blue-200" : "text-slate-400"
+                    )}
+                  >
+                    {activeRow
+                      ? `${getLabel(activeRow)}: ${fmtNum(Number(activeRow.efetivo || 0))} ativos`
+                      : `Atual: ${fmtNum(efetivoAtual)} ativos`}
+                  </span>
                 </div>
 
-                {/* Linhas guia discretas */}
-                <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
-                  <div className="border-t border-dashed border-[#1E2C42]/70" />
-                  <div className="border-t border-dashed border-[#1E2C42]/50" />
-                  <div className="border-t border-[#263854]/80" />
-                </div>
+                <div className="flex">
+                  {/* Espaçador alinhado ao eixo Y da faixa inferior */}
+                  <div className="w-8 shrink-0 pr-1.5 flex flex-col justify-between text-right num text-[10px] text-[#64748B]" style={{ height: 96 }}>
+                    <span>{fmtNum(efDomainMax)}</span>
+                    <span>{fmtNum(efDomainMin)}</span>
+                  </div>
 
-                <svg
-                  viewBox="0 0 1000 100"
-                  preserveAspectRatio="none"
-                  className="pointer-events-none absolute inset-0 z-[2] h-full w-full overflow-visible"
-                >
-                  <defs>
-                    <linearGradient id="evolucaoEfetivoGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#60A5FA" stopOpacity={0.32} />
-                      <stop offset="100%" stopColor="#60A5FA" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  {linePoints.length > 1 && (
-                    <>
-                      <polygon points={areaStr} fill="url(#evolucaoEfetivoGrad)" />
-                      <polyline
-                        points={polylineStr}
-                        fill="none"
-                        stroke="#60A5FA"
-                        strokeWidth={2.5}
-                        vectorEffect="non-scaling-stroke"
-                        strokeLinejoin="round"
-                        strokeLinecap="round"
-                      />
-                    </>
-                  )}
-                </svg>
+                  <div className="relative flex-1" style={{ height: 96 }}>
+                    {/* Faixas verticais interativas por mês para destaque amplo ao passar o cursor ou tocar */}
+                    <div className="absolute inset-0 z-[1] flex">
+                      {rows.map((r, i) => {
+                        const isColHovered = activeIdx === i;
+                        return (
+                          <div
+                            key={getLabel(r)}
+                            onMouseEnter={() => setHoveredIdx(i)}
+                            onMouseLeave={() => setHoveredIdx(null)}
+                            onClick={() => setHoveredIdx((prev) => (prev === i ? null : i))}
+                            className={cn(
+                              "relative flex-1 h-full rounded-md transition-all duration-150 cursor-pointer",
+                              isColHovered &&
+                                "bg-blue-500/15 ring-1 ring-inset ring-blue-400/45 shadow-[inset_0_0_22px_rgba(96,165,250,0.22)]"
+                            )}
+                          >
+                            {isColHovered && (
+                              <span
+                                aria-hidden="true"
+                                className="pointer-events-none absolute inset-y-1 left-1/2 w-[2px] -translate-x-1/2 rounded-full bg-gradient-to-b from-blue-300/75 via-blue-400/45 to-blue-400/10"
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
 
-                {/* Pontos e rótulos numéricos alinhados com as colunas abaixo */}
-                {linePoints.map((p, i) => {
-                  const prevVal = i > 0 ? linePoints[i - 1].val : null;
-                  const nextVal = i < linePoints.length - 1 ? linePoints[i + 1].val : null;
-                  const isEdge = i === 0 || i === linePoints.length - 1;
-                  const changed = prevVal === null || p.val !== prevVal || (nextVal !== null && p.val !== nextVal);
-                  const isHovered = activeIdx === i;
-                  const isDimmed = activeIdx !== null && activeIdx !== i;
-                  const showLabel = isAnual || rows.length <= 6 || isEdge || changed || isHovered;
+                    {/* Linhas guia discretas */}
+                    <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+                      <div className="border-t border-dashed border-[#1E2C42]/70" />
+                      <div className="border-t border-dashed border-[#1E2C42]/50" />
+                      <div className="border-t border-[#263854]/80" />
+                    </div>
 
-                  return (
-                    <div
-                      key={getLabel(rows[i])}
-                      onMouseEnter={() => setHoveredIdx(i)}
-                      onMouseLeave={() => setHoveredIdx(null)}
-                      style={{ left: `${p.leftPct}%`, top: `${p.y}%` }}
-                      className={cn(
-                        "absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer transition-opacity duration-150",
-                        isHovered && "z-30",
-                        isDimmed && "opacity-40"
-                      )}
+                    <svg
+                      viewBox="0 0 1000 100"
+                      preserveAspectRatio="none"
+                      className="pointer-events-none absolute inset-0 z-[2] h-full w-full overflow-visible"
                     >
-                      {showLabel && (
-                        <span
+                      <defs>
+                        <linearGradient id="evolucaoEfetivoGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#60A5FA" stopOpacity={0.32} />
+                          <stop offset="100%" stopColor="#60A5FA" stopOpacity={0.0} />
+                        </linearGradient>
+                      </defs>
+                      {linePoints.length > 1 && (
+                        <>
+                          <polygon points={areaStr} fill="url(#evolucaoEfetivoGrad)" />
+                          <polyline
+                            points={polylineStr}
+                            fill="none"
+                            stroke="#60A5FA"
+                            strokeWidth={2.5}
+                            vectorEffect="non-scaling-stroke"
+                            strokeLinejoin="round"
+                            strokeLinecap="round"
+                          />
+                        </>
+                      )}
+                    </svg>
+
+                    {/* Pontos e rótulos numéricos alinhados com as colunas abaixo */}
+                    {linePoints.map((p, i) => {
+                      const prevVal = i > 0 ? linePoints[i - 1].val : null;
+                      const nextVal = i < linePoints.length - 1 ? linePoints[i + 1].val : null;
+                      const isEdge = i === 0 || i === linePoints.length - 1;
+                      const changed = prevVal === null || p.val !== prevVal || (nextVal !== null && p.val !== nextVal);
+                      const isHovered = activeIdx === i;
+                      const isDimmed = activeIdx !== null && activeIdx !== i;
+                      const showLabel = isAnual || rows.length <= 6 || isEdge || changed || isHovered;
+
+                      return (
+                        <div
+                          key={getLabel(rows[i])}
+                          onMouseEnter={() => setHoveredIdx(i)}
+                          onMouseLeave={() => setHoveredIdx(null)}
+                          onClick={() => setHoveredIdx((prev) => (prev === i ? null : i))}
+                          style={{ left: `${p.leftPct}%`, top: `${p.y}%` }}
                           className={cn(
-                            "pointer-events-none absolute rounded border px-1.5 py-0.5 num leading-none transition-all duration-150",
-                            isHovered
-                              ? "-top-7 z-30 scale-[1.15] border-blue-300 bg-blue-600 px-2 py-1 text-[11px] font-extrabold text-white shadow-[0_4px_14px_rgba(59,130,246,0.65)]"
-                              : "-top-6 z-10 border-[#294366] bg-[#131F32] text-[10px] font-bold text-blue-200 shadow-sm"
+                            "absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center cursor-pointer transition-opacity duration-150",
+                            isHovered && "z-30",
+                            isDimmed && "opacity-40"
                           )}
                         >
-                          {fmtNum(p.val)}
-                        </span>
-                      )}
-                      <span
-                        className={cn(
-                          "rounded-full border-2 border-[#0F1724] transition-all duration-150",
-                          isHovered
-                            ? "size-4 bg-white ring-4 ring-blue-400/50 shadow-[0_0_16px_rgba(96,165,250,0.95)]"
-                            : "size-2 bg-blue-400"
-                        )}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* FAIXA 2: Movimentações (Inclusões vs Desligamentos em escala própria) */}
-          <div className="rounded-lg border border-[#1E2C42]/90 bg-[#0F1724]/75 px-3 pt-2.5 pb-2">
-            <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-              <span className="font-medium text-slate-300">Movimentações no período (clique nas barras para listar)</span>
-              <div className="flex items-center gap-3 text-[11px] text-slate-300">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-2.5 rounded-[2px] bg-emerald-500" /> Inclusões
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-2.5 rounded-[2px] bg-red-500" /> Desligamentos
-                </span>
-              </div>
-            </div>
-
-            <div className="flex pt-4">
-              {/* Eixo Y das movimentações */}
-              <div
-                className="w-8 shrink-0 pr-1.5 flex flex-col justify-between text-right num text-[10px] font-medium text-[#64748B]"
-                style={{ height: barPlotHeight }}
-              >
-                {movTicks.map((t) => (
-                  <span key={t} className="leading-none -translate-y-1">
-                    {fmtNum(t)}
-                  </span>
-                ))}
+                          {showLabel && (
+                            <span
+                              className={cn(
+                                "pointer-events-none absolute rounded border px-1.5 py-0.5 num leading-none transition-all duration-150",
+                                isHovered
+                                  ? "-top-7 z-30 scale-[1.15] border-blue-300 bg-blue-600 px-2 py-1 text-[11px] font-extrabold text-white shadow-[0_4px_14px_rgba(59,130,246,0.65)]"
+                                  : "-top-6 z-10 border-[#294366] bg-[#131F32] text-[10px] font-bold text-blue-200 shadow-sm"
+                              )}
+                            >
+                              {fmtNum(p.val)}
+                            </span>
+                          )}
+                          <span
+                            className={cn(
+                              "rounded-full border-2 border-[#0F1724] transition-all duration-150",
+                              isHovered
+                                ? "size-4 bg-white ring-4 ring-blue-400/50 shadow-[0_0_16px_rgba(96,165,250,0.95)]"
+                                : "size-2 bg-blue-400"
+                            )}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
 
-              {/* Área das barras */}
-              <div className="relative flex-1" style={{ height: barPlotHeight }}>
-                <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
-                  {movTicks.map((t, idx) => (
-                    <div
-                      key={t}
-                      className={cn(
-                        "w-full border-t",
-                        idx === movTicks.length - 1 ? "border-[#263854]" : "border-[#1E2C42]/70 border-dashed"
-                      )}
-                    />
-                  ))}
+              {/* FAIXA 2: Movimentações (Inclusões vs Desligamentos em escala própria) */}
+              <div className="rounded-lg border border-[#1E2C42]/90 bg-[#0F1724]/75 px-3 pt-2.5 pb-2">
+                <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                  <span className="font-medium text-slate-300">Movimentações no período (toque nas barras para listar)</span>
+                  <div className="flex items-center gap-3 text-[11px] text-slate-300">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="size-2.5 rounded-[2px] bg-emerald-500" /> Inclusões
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="size-2.5 rounded-[2px] bg-red-500" /> Desligamentos
+                    </span>
+                  </div>
                 </div>
 
-                <div className="relative z-10 flex h-full items-end">
-                  {rows.map((r, i) => {
-                    const inc = Number(r.inclusoes || 0);
-                    const desl = Number(r.desligamentos || 0);
-                    const incH = inc > 0 ? Math.max(8, Math.round((inc / movMaxScale) * barPlotHeight)) : 0;
-                    const deslH = desl > 0 ? Math.max(8, Math.round((desl / movMaxScale) * barPlotHeight)) : 0;
-                    const isColHovered = activeIdx === i;
-                    const isColDimmed = activeIdx !== null && activeIdx !== i;
+                <div className="flex pt-4">
+                  {/* Eixo Y das movimentações */}
+                  <div
+                    className="w-8 shrink-0 pr-1.5 flex flex-col justify-between text-right num text-[10px] font-medium text-[#64748B]"
+                    style={{ height: barPlotHeight }}
+                  >
+                    {movTicks.map((t) => (
+                      <span key={t} className="leading-none -translate-y-1">
+                        {fmtNum(t)}
+                      </span>
+                    ))}
+                  </div>
 
+                  {/* Área das barras */}
+                  <div className="relative flex-1" style={{ height: barPlotHeight }}>
+                    <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+                      {movTicks.map((t, idx) => (
+                        <div
+                          key={t}
+                          className={cn(
+                            "w-full border-t",
+                            idx === movTicks.length - 1 ? "border-[#263854]" : "border-[#1E2C42]/70 border-dashed"
+                          )}
+                        />
+                      ))}
+                    </div>
+
+                    <div className="relative z-10 flex h-full items-end">
+                      {rows.map((r, i) => {
+                        const inc = Number(r.inclusoes || 0);
+                        const desl = Number(r.desligamentos || 0);
+                        const incH = inc > 0 ? Math.max(8, Math.round((inc / movMaxScale) * barPlotHeight)) : 0;
+                        const deslH = desl > 0 ? Math.max(8, Math.round((desl / movMaxScale) * barPlotHeight)) : 0;
+                        const isColHovered = activeIdx === i;
+                        const isColDimmed = activeIdx !== null && activeIdx !== i;
+
+                        return (
+                          <div
+                            key={getLabel(r)}
+                            onMouseEnter={() => setHoveredIdx(i)}
+                            onMouseLeave={() => setHoveredIdx(null)}
+                            className={cn(
+                              "flex h-full flex-1 items-end justify-center gap-1 px-0.5 rounded-t-md transition-all duration-150",
+                              isColHovered &&
+                                "bg-blue-500/15 ring-1 ring-inset ring-blue-400/45 shadow-[inset_0_0_20px_rgba(59,130,246,0.18)]",
+                              isColDimmed ? "opacity-35" : "opacity-100"
+                            )}
+                          >
+                            {/* Barra Inclusões */}
+                            {inc > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => onSelectInclusoes(r)}
+                                title={`${getLabel(r)} · Inclusões: ${fmtNum(inc)}`}
+                                data-testid={`evo-inc-${i}`}
+                                className="group/inc relative flex flex-col items-center justify-end cursor-pointer focus:outline-none"
+                              >
+                                <span
+                                  className={cn(
+                                    "mb-1 num leading-none transition-all duration-150",
+                                    isColHovered
+                                      ? "text-[11px] font-extrabold text-emerald-200 scale-110"
+                                      : "text-[10px] font-bold text-emerald-300 group-hover/inc:text-white"
+                                  )}
+                                >
+                                  {fmtNum(inc)}
+                                </span>
+                                <div
+                                  className={cn(
+                                    "rounded-t transition-all duration-150",
+                                    isAnual ? "w-7 sm:w-9" : "w-3 sm:w-3.5",
+                                    "bg-gradient-to-t from-emerald-600 to-emerald-400 group-hover/inc:brightness-110",
+                                    isColHovered && "brightness-[1.15] shadow-[0_0_12px_rgba(16,185,129,0.5)] scale-x-110"
+                                  )}
+                                  style={{ height: `${incH}px` }}
+                                />
+                              </button>
+                            ) : (
+                              <div
+                                className={cn(
+                                  "rounded-t transition-colors",
+                                  isColHovered ? "bg-slate-500/40" : "bg-[#1E2C42]/50",
+                                  isAnual ? "w-7 sm:w-9" : "w-3 sm:w-3.5"
+                                )}
+                                style={{ height: 3 }}
+                              />
+                            )}
+
+                            {/* Barra Desligamentos */}
+                            {desl > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => onSelectDesligamentos(r)}
+                                title={`${getLabel(r)} · Desligamentos: ${fmtNum(desl)}`}
+                                data-testid={`evo-desl-${i}`}
+                                className="group/desl relative flex flex-col items-center justify-end cursor-pointer focus:outline-none"
+                              >
+                                <span
+                                  className={cn(
+                                    "mb-1 num leading-none transition-all duration-150",
+                                    isColHovered
+                                      ? "text-[11px] font-extrabold text-red-200 scale-110"
+                                      : "text-[10px] font-bold text-red-300 group-hover/desl:text-white"
+                                  )}
+                                >
+                                  {fmtNum(desl)}
+                                </span>
+                                <div
+                                  className={cn(
+                                    "rounded-t transition-all duration-150",
+                                    isAnual ? "w-7 sm:w-9" : "w-3 sm:w-3.5",
+                                    "bg-gradient-to-t from-red-600 to-red-400 group-hover/desl:brightness-110",
+                                    isColHovered && "brightness-[1.15] shadow-[0_0_12px_rgba(239,68,68,0.5)] scale-x-110"
+                                  )}
+                                  style={{ height: `${deslH}px` }}
+                                />
+                              </button>
+                            ) : (
+                              <div
+                                className={cn(
+                                  "rounded-t transition-colors",
+                                  isColHovered ? "bg-slate-500/40" : "bg-[#1E2C42]/50",
+                                  isAnual ? "w-7 sm:w-9" : "w-3 sm:w-3.5"
+                                )}
+                                style={{ height: 3 }}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rótulos do eixo X */}
+                <div className="flex pl-8 pt-1.5">
+                  {rows.map((r, i) => {
+                    const isLblActive = activeIdx === i;
+                    const isLblDimmed = activeIdx !== null && activeIdx !== i;
                     return (
                       <div
                         key={getLabel(r)}
                         onMouseEnter={() => setHoveredIdx(i)}
                         onMouseLeave={() => setHoveredIdx(null)}
-                        className={cn(
-                          "flex h-full flex-1 items-end justify-center gap-1 px-0.5 rounded-t-md transition-all duration-150",
-                          isColHovered &&
-                            "bg-blue-500/15 ring-1 ring-inset ring-blue-400/45 shadow-[inset_0_0_20px_rgba(59,130,246,0.18)]",
-                          isColDimmed ? "opacity-35" : "opacity-100"
-                        )}
+                        onClick={() => setHoveredIdx((prev) => (prev === i ? null : i))}
+                        className="flex-1 text-center min-w-0 px-0.5 cursor-pointer"
                       >
-                        {/* Barra Inclusões */}
-                        {inc > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() => onSelectInclusoes(r)}
-                            title={`${getLabel(r)} · Inclusões: ${fmtNum(inc)}`}
-                            data-testid={`evo-inc-${i}`}
-                            className="group/inc relative flex flex-col items-center justify-end cursor-pointer focus:outline-none"
-                          >
-                            <span
-                              className={cn(
-                                "mb-1 num leading-none transition-all duration-150",
-                                isColHovered
-                                  ? "text-[11px] font-extrabold text-emerald-200 scale-110"
-                                  : "text-[10px] font-bold text-emerald-300 group-hover/inc:text-white"
-                              )}
-                            >
-                              {fmtNum(inc)}
-                            </span>
-                            <div
-                              className={cn(
-                                "rounded-t transition-all duration-150",
-                                isAnual ? "w-7 sm:w-9" : "w-2.5 sm:w-3.5",
-                                "bg-gradient-to-t from-emerald-600 to-emerald-400 group-hover/inc:brightness-110",
-                                isColHovered && "brightness-[1.15] shadow-[0_0_12px_rgba(16,185,129,0.5)] scale-x-110"
-                              )}
-                              style={{ height: `${incH}px` }}
-                            />
-                          </button>
-                        ) : (
-                          <div
-                            className={cn(
-                              "rounded-t transition-colors",
-                              isColHovered ? "bg-slate-500/40" : "bg-[#1E2C42]/50",
-                              isAnual ? "w-7 sm:w-9" : "w-2.5 sm:w-3.5"
-                            )}
-                            style={{ height: 3 }}
-                          />
-                        )}
-
-                        {/* Barra Desligamentos */}
-                        {desl > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() => onSelectDesligamentos(r)}
-                            title={`${getLabel(r)} · Desligamentos: ${fmtNum(desl)}`}
-                            data-testid={`evo-desl-${i}`}
-                            className="group/desl relative flex flex-col items-center justify-end cursor-pointer focus:outline-none"
-                          >
-                            <span
-                              className={cn(
-                                "mb-1 num leading-none transition-all duration-150",
-                                isColHovered
-                                  ? "text-[11px] font-extrabold text-red-200 scale-110"
-                                  : "text-[10px] font-bold text-red-300 group-hover/desl:text-white"
-                              )}
-                            >
-                              {fmtNum(desl)}
-                            </span>
-                            <div
-                              className={cn(
-                                "rounded-t transition-all duration-150",
-                                isAnual ? "w-7 sm:w-9" : "w-2.5 sm:w-3.5",
-                                "bg-gradient-to-t from-red-600 to-red-400 group-hover/desl:brightness-110",
-                                isColHovered && "brightness-[1.15] shadow-[0_0_12px_rgba(239,68,68,0.5)] scale-x-110"
-                              )}
-                              style={{ height: `${deslH}px` }}
-                            />
-                          </button>
-                        ) : (
-                          <div
-                            className={cn(
-                              "rounded-t transition-colors",
-                              isColHovered ? "bg-slate-500/40" : "bg-[#1E2C42]/50",
-                              isAnual ? "w-7 sm:w-9" : "w-2.5 sm:w-3.5"
-                            )}
-                            style={{ height: 3 }}
-                          />
-                        )}
+                        <span
+                          className={cn(
+                            "inline-block max-w-full truncate rounded px-1 py-0.5 font-sans text-[10px] sm:text-[11px] font-medium transition-all duration-150",
+                            isLblActive
+                              ? "bg-blue-500/25 font-bold text-white ring-1 ring-blue-400/50 shadow-[0_0_10px_rgba(59,130,246,0.3)]"
+                              : isLblDimmed
+                                ? "text-slate-500/70"
+                                : "text-slate-400"
+                          )}
+                        >
+                          {getLabel(r)}
+                        </span>
                       </div>
                     );
                   })}
                 </div>
               </div>
-            </div>
-
-            {/* Rótulos do eixo X */}
-            <div className="flex pl-8 pt-1.5">
-              {rows.map((r, i) => {
-                const isLblActive = activeIdx === i;
-                const isLblDimmed = activeIdx !== null && activeIdx !== i;
-                return (
-                  <div
-                    key={getLabel(r)}
-                    onMouseEnter={() => setHoveredIdx(i)}
-                    onMouseLeave={() => setHoveredIdx(null)}
-                    className="flex-1 text-center min-w-0 px-0.5 cursor-pointer"
-                  >
-                    <span
-                      className={cn(
-                        "inline-block max-w-full truncate rounded px-1 py-0.5 font-sans text-[10px] sm:text-[11px] font-medium transition-all duration-150",
-                        isLblActive
-                          ? "bg-blue-500/25 font-bold text-white ring-1 ring-blue-400/50 shadow-[0_0_10px_rgba(59,130,246,0.3)]"
-                          : isLblDimmed
-                            ? "text-slate-500/70"
-                            : "text-slate-400"
-                      )}
-                    >
-                      {getLabel(r)}
-                    </span>
-                  </div>
-                );
-              })}
             </div>
           </div>
         </div>
@@ -1683,7 +1779,7 @@ function EvolucaoStyledChart({
           );
         })() : (
           <span className="text-[11px] text-slate-400">
-            Passe o cursor sobre um período para comparar entradas, saídas e efetivo acumulado.
+            Toque ou passe o cursor sobre um período para comparar entradas, saídas e efetivo acumulado.
           </span>
         )}
       </div>
@@ -1738,14 +1834,16 @@ export default function Dashboard() {
     MEDICO: "rose",
   };
 
+  const visibleCats = cats.length ? cats.filter((c) => c.chave !== "OUTROS" || c.total > 0) : [];
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-400">Visão geral</p>
-          <h2 className="font-heading text-2xl font-extrabold text-white sm:text-3xl">Painel do efetivo temporário</h2>
-          <p className="mt-1 text-sm text-slate-400" data-testid="dashboard-criteria">
-            Efetivo em <span className="num text-slate-200">{fmtDate(ref)}</span> · Movimentações: {periodoTxt} · Alerta de vencimento: {d?.alerta_dias ?? "—"} dias (Cuiabá)
+          <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-blue-400">Visão geral</p>
+          <h2 className="font-heading text-xl font-extrabold text-white sm:text-2xl md:text-3xl">Painel do efetivo temporário</h2>
+          <p className="mt-1 text-xs sm:text-sm leading-relaxed text-slate-400" data-testid="dashboard-criteria">
+            Efetivo em <span className="num text-slate-200">{fmtDate(ref)}</span> · Movimentações: {periodoTxt} · Alerta: {d?.alerta_dias ?? "—"} dias
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1759,7 +1857,7 @@ export default function Dashboard() {
               await q.refetch();
             }}
             disabled={q.isFetching}
-            className="border-[#1E2C42] bg-[#121B28] text-xs text-slate-300 hover:bg-[#182335] hover:text-white"
+            className="h-10 sm:h-8 w-full sm:w-auto justify-center border-[#1E2C42] bg-[#121B28] text-xs text-slate-300 hover:bg-[#182335] hover:text-white"
             data-testid="dashboard-refresh-button"
           >
             <RotateCw className={cn("mr-1.5 size-3.5", q.isFetching && "animate-spin text-blue-400")} />
@@ -1769,9 +1867,10 @@ export default function Dashboard() {
       </div>
       <FiltersBar />
 
-      <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+      <div className="space-y-2.5 sm:space-y-3">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-5">
           <Kpi id="ativos" label="Temporários ativos" value={v(d?.kpis.ativos)} icon={UserCheck} tone="green" sub={`Efetivo em ${fmtDate(ref)}`}
+            className="col-span-2 md:col-span-1"
             isHighlighted={hoveredKpi === "ativos"} isDimmed={hoveredKpi !== null && hoveredKpi !== "ativos"}
             onHoverChange={(h) => setHoveredKpi(h ? "ativos" : null)}
             onClick={() => setDrill({ title: "Temporários ativos", params: { ...base, status: "ATIVO", ativo_em: ref } })} />
@@ -1792,11 +1891,13 @@ export default function Dashboard() {
             onHoverChange={(h) => setHoveredKpi(h ? "sub-judice" : null)}
             onClick={() => setDrill({ title: "Militares sub judice", params: { ...base, status: "ATIVO", sub_judice: "true", ativo_em: ref } })} />
         </div>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-          {(cats.length ? cats.filter((c) => c.chave !== "OUTROS" || c.total > 0) : []).map((c) => {
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-5">
+          {visibleCats.map((c, idx) => {
             const catId = c.chave.toLowerCase().replace(/_/g, "-");
+            const isOddLast = visibleCats.length % 2 === 1 && idx === visibleCats.length - 1;
             return (
               <Kpi key={c.chave} id={catId} label={c.nome} value={fmtNum(c.total)} icon={CAT_ICON[c.chave] ?? Briefcase} tone={CAT_TONE[c.chave] ?? "sky"} sub="Ativos no cargo"
+                className={isOddLast ? "col-span-2 md:col-span-1" : undefined}
                 isHighlighted={hoveredKpi === catId} isDimmed={hoveredKpi !== null && hoveredKpi !== catId}
                 onHoverChange={(h) => setHoveredKpi(h ? catId : null)}
                 onClick={() => setDrill({ title: `${c.nome} — ativos`, params: { ...base, status: "ATIVO", categoria: c.chave, ativo_em: ref } })} />
@@ -1967,36 +2068,38 @@ export default function Dashboard() {
 
         <ChartCard id="faixas-vencimento" glowRgb="245, 158, 11" title="Contratos a vencer por intervalo de dias" desc={`Somente cadastros ativos, relativo a ${fmtDate(d?.data_hoje)}. A data final não desliga automaticamente.`}>
           {d ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={d.faixas_vencimento} margin={{ top: 8 }}>
-                <defs>
-                  <linearGradient id="gv" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#F59E0B" stopOpacity={0.4} /><stop offset="100%" stopColor="#F59E0B" stopOpacity={0} /></linearGradient>
-                </defs>
-                <CartesianGrid stroke="#1E2C42" vertical={false} />
-                <XAxis dataKey="faixa" {...axis} />
-                <YAxis {...axis} allowDecimals={false} />
-                <Tooltip {...tooltipStyle} formatter={(x: number) => [fmtNum(x), "Contratos"]} />
-                <Area type="monotone" dataKey="total" stroke="#F59E0B" fill="url(#gv)" strokeWidth={2}
-                  activeDot={{ r: 6, className: "cursor-pointer", onClick: (_: unknown, ev: unknown) => {
-                    const idx = (ev as { index?: number }).index;
-                    const f = idx !== undefined ? d.faixas_vencimento[idx] : undefined;
-                    if (f) setDrill({
-                      title: `Contratos — ${f.faixa}`,
-                      params: {
-                        ...base,
-                        status: "ATIVO",
-                        faixa_venc: f.faixa,
-                        venc: f.faixa === "Vencidos" ? "vencidos" : undefined,
-                        venc_min_dias: f.min !== null ? f.min : undefined,
-                        venc_max_dias: f.max !== null ? f.max : undefined,
-                      }
-                    });
-                  } }} />
-              </AreaChart>
-            </ResponsiveContainer>
+            <div className="h-[210px] w-full sm:h-[280px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={d.faixas_vencimento} margin={{ top: 8, left: -14, right: 6 }}>
+                  <defs>
+                    <linearGradient id="gv" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#F59E0B" stopOpacity={0.4} /><stop offset="100%" stopColor="#F59E0B" stopOpacity={0} /></linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="#1E2C42" vertical={false} />
+                  <XAxis dataKey="faixa" {...axis} />
+                  <YAxis {...axis} allowDecimals={false} />
+                  <Tooltip {...tooltipStyle} formatter={(x: number) => [fmtNum(x), "Contratos"]} />
+                  <Area type="monotone" dataKey="total" stroke="#F59E0B" fill="url(#gv)" strokeWidth={2}
+                    activeDot={{ r: 6, className: "cursor-pointer", onClick: (_: unknown, ev: unknown) => {
+                      const idx = (ev as { index?: number }).index;
+                      const f = idx !== undefined ? d.faixas_vencimento[idx] : undefined;
+                      if (f) setDrill({
+                        title: `Contratos — ${f.faixa}`,
+                        params: {
+                          ...base,
+                          status: "ATIVO",
+                          faixa_venc: f.faixa,
+                          venc: f.faixa === "Vencidos" ? "vencidos" : undefined,
+                          venc_min_dias: f.min !== null ? f.min : undefined,
+                          venc_max_dias: f.max !== null ? f.max : undefined,
+                        }
+                      });
+                    } }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           ) : <Empty />}
           {d && (
-            <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
               {d.faixas_vencimento.map((f, i) => (
                 <button key={f.faixa} data-testid={`faixa-${i}`}
                   onClick={() => setDrill({
@@ -2010,7 +2113,7 @@ export default function Dashboard() {
                       venc_max_dias: f.max !== null ? f.max : undefined,
                     }
                   })}
-                  className={cn("rounded-lg border px-2 py-1.5 text-left transition-colors hover:bg-[#182335]", i === 0 ? "border-red-500/30" : i === 1 ? "border-amber-500/30" : "border-[#1E2C42]")}>
+                  className={cn("rounded-lg border px-2.5 py-2 text-left transition-colors hover:bg-[#182335]", i === 0 ? "border-red-500/30" : i === 1 ? "border-amber-500/30" : "border-[#1E2C42]")}>
                   <p className="text-[10px] text-slate-400">{f.faixa}</p>
                   <p className={cn("num text-lg font-bold", i === 0 ? "text-red-300" : i === 1 ? "text-amber-300" : "text-white")}>{fmtNum(f.total)}</p>
                 </button>

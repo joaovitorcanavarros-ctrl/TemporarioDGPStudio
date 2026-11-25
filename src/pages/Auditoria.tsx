@@ -142,35 +142,36 @@ export default function Auditoria() {
   };
 
   return (
-    <div className="space-y-5" data-testid="auditoria-page">
+    <div className="space-y-4 sm:space-y-5" data-testid="auditoria-page">
       {/* Page Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-400">Governança e Transparência (Cloud Firestore)</p>
-          <h2 className="font-heading text-2xl font-extrabold text-white sm:text-3xl" data-testid="auditoria-title">
+          <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-blue-400">Governança e Transparência (Cloud Firestore)</p>
+          <h2 className="font-heading text-xl font-extrabold text-white sm:text-2xl md:text-3xl" data-testid="auditoria-title">
             Histórico de Auditoria
           </h2>
-          <p className="text-sm text-slate-400">
+          <p className="mt-1 text-xs sm:text-sm text-slate-400">
             Registro centralizado na nuvem (coleção <span className="font-mono text-slate-300">auditoria</span>) de todas as ações executadas no sistema, compartilhado em tempo real entre todos os administradores.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
           <Button
             variant="outline"
             size="sm"
             onClick={() => void audit.refetch()}
             disabled={audit.isFetching}
-            className="border-[#1E2C42] bg-[#121B28] text-slate-200 hover:bg-[#1A2638]"
+            className="h-10 sm:h-9 justify-center border-[#1E2C42] bg-[#121B28] text-xs text-slate-200 hover:bg-[#1A2638]"
             data-testid="auditoria-refresh-button"
           >
             <RefreshCw className={cn("size-4 mr-1.5", audit.isFetching && "animate-spin text-blue-400")} />
-            {audit.isFetching ? "Sincronizando..." : "Atualizar da Nuvem"}
+            <span className="sm:hidden">{audit.isFetching ? "Sinc..." : "Atualizar"}</span>
+            <span className="hidden sm:inline">{audit.isFetching ? "Sincronizando..." : "Atualizar da Nuvem"}</span>
           </Button>
           <Button
             variant="outline"
             size="sm"
             onClick={handleExportCSV}
-            className="border-[#1E2C42] bg-[#121B28] text-slate-200 hover:bg-[#1A2638]"
+            className="h-10 sm:h-9 justify-center border-[#1E2C42] bg-[#121B28] text-xs text-slate-200 hover:bg-[#1A2638]"
             data-testid="auditoria-export-button"
           >
             <Download className="size-4 mr-1.5 text-blue-400" />
@@ -180,58 +181,58 @@ export default function Auditoria() {
       </div>
 
       {/* KPI Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400">Eventos Carregados (Limite {limite})</span>
-            <History className="size-4 text-blue-400" />
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-4">
+        <div className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-3.5 sm:p-4">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[11px] sm:text-xs text-slate-400">Eventos ({limite})</span>
+            <History className="size-4 shrink-0 text-blue-400" />
           </div>
-          <p className="mt-2 num font-heading text-2xl font-bold text-white" data-testid="auditoria-kpi-total">{itens.length}</p>
+          <p className="mt-1.5 sm:mt-2 num font-heading text-xl sm:text-2xl font-bold text-white" data-testid="auditoria-kpi-total">{itens.length}</p>
         </div>
-        <div className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400">Alterações de Vencimento</span>
-            <Calendar className="size-4 text-amber-400" />
+        <div className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-3.5 sm:p-4">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[11px] sm:text-xs text-slate-400">Vencimentos</span>
+            <Calendar className="size-4 shrink-0 text-amber-400" />
           </div>
-          <p className="mt-2 num font-heading text-2xl font-bold text-amber-300" data-testid="auditoria-kpi-vencimento">{totalVencimento}</p>
+          <p className="mt-1.5 sm:mt-2 num font-heading text-xl sm:text-2xl font-bold text-amber-300" data-testid="auditoria-kpi-vencimento">{totalVencimento}</p>
         </div>
-        <div className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400">Edições, Cadastros & Exclusões</span>
-            <CheckCircle2 className="size-4 text-emerald-400" />
+        <div className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-3.5 sm:p-4">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[11px] sm:text-xs text-slate-400">Edições & Cad.</span>
+            <CheckCircle2 className="size-4 shrink-0 text-emerald-400" />
           </div>
-          <p className="mt-2 num font-heading text-2xl font-bold text-emerald-300" data-testid="auditoria-kpi-edicoes">{totalEdicoes}</p>
+          <p className="mt-1.5 sm:mt-2 num font-heading text-xl sm:text-2xl font-bold text-emerald-300" data-testid="auditoria-kpi-edicoes">{totalEdicoes}</p>
         </div>
-        <div className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400">Desligamentos / Reat.</span>
-            <UserMinus className="size-4 text-red-400" />
+        <div className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-3.5 sm:p-4">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[11px] sm:text-xs text-slate-400">Deslig. / Reat.</span>
+            <UserMinus className="size-4 shrink-0 text-red-400" />
           </div>
-          <p className="mt-2 num font-heading text-2xl font-bold text-red-300" data-testid="auditoria-kpi-deslig">{totalDesligReat}</p>
+          <p className="mt-1.5 sm:mt-2 num font-heading text-xl sm:text-2xl font-bold text-red-300" data-testid="auditoria-kpi-deslig">{totalDesligReat}</p>
         </div>
       </div>
 
       {/* Search and Filters Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#1E2C42] bg-[#121B28] p-4">
-        <div className="relative flex-1 min-w-[240px]">
+      <div className="flex flex-col gap-2.5 rounded-xl border border-[#1E2C42] bg-[#121B28] p-3.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3 sm:p-4">
+        <div className="relative w-full sm:flex-1 sm:min-w-[240px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
           <Input
-            placeholder="Buscar por militar, matrícula, usuário, e-mail ou alteração..."
+            placeholder="Buscar por militar, matrícula, usuário ou alteração..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            className="pl-9 bg-[#0F1724] border-[#1E2C42]"
+            className="h-10 sm:h-9 pl-9 bg-[#0F1724] border-[#1E2C42]"
             data-testid="auditoria-search-input"
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
+          <div className="hidden items-center gap-1.5 text-xs text-slate-400 sm:flex">
             <Filter className="size-3.5" />
             <span>Entidade:</span>
           </div>
           <select
             value={filtroEntidade}
             onChange={(e) => setFiltroEntidade(e.target.value)}
-            className="h-9 rounded-md border border-[#1E2C42] bg-[#0F1724] px-3 text-xs text-slate-200 outline-none focus:border-blue-500"
+            className="h-10 sm:h-9 w-full sm:w-auto rounded-md border border-[#1E2C42] bg-[#0F1724] px-3 text-xs text-slate-200 outline-none focus:border-blue-500"
             data-testid="auditoria-filter-entidade"
           >
             <option value="TODOS">Todas as entidades</option>
@@ -248,7 +249,7 @@ export default function Auditoria() {
           <select
             value={filtroOperacao}
             onChange={(e) => setFiltroOperacao(e.target.value)}
-            className="h-9 rounded-md border border-[#1E2C42] bg-[#0F1724] px-3 text-xs text-slate-200 outline-none focus:border-blue-500"
+            className="h-10 sm:h-9 w-full sm:w-auto rounded-md border border-[#1E2C42] bg-[#0F1724] px-3 text-xs text-slate-200 outline-none focus:border-blue-500"
             data-testid="auditoria-filter-operacao"
           >
             <option value="TODAS">Todas as operações</option>
@@ -262,7 +263,7 @@ export default function Auditoria() {
           <select
             value={String(limite)}
             onChange={(e) => setLimite(Number(e.target.value))}
-            className="h-9 rounded-md border border-[#1E2C42] bg-[#0F1724] px-3 text-xs text-slate-200 outline-none focus:border-blue-500"
+            className="h-10 sm:h-9 w-full sm:w-auto rounded-md border border-[#1E2C42] bg-[#0F1724] px-3 text-xs text-slate-200 outline-none focus:border-blue-500"
             data-testid="auditoria-filter-limit"
             title="Limite de leitura por consulta no Firestore (proteção de cotas)"
           >
@@ -272,9 +273,84 @@ export default function Auditoria() {
         </div>
       </div>
 
-      {/* Audit Log Table */}
+      {/* Audit Log Table & Mobile Cards */}
       <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] overflow-hidden" data-testid="auditoria-table-section">
-        <div className="max-h-[640px] overflow-auto">
+        {/* Mobile card list */}
+        <div className="divide-y divide-[#162234] md:hidden" data-testid="auditoria-mobile-list">
+          {visiveis.length === 0 ? (
+            <div className="px-4 py-10 text-center text-sm text-slate-400">
+              <History className="mx-auto size-8 text-slate-600 mb-2" />
+              {audit.isLoading
+                ? "Carregando histórico de auditoria..."
+                : "Nenhum registro de auditoria encontrado para os filtros atuais."}
+            </div>
+          ) : (
+            visiveis.map((a) => {
+              const badge = getBadge(a.operacao);
+              const Icon = badge.icon;
+              const antesObj = a.detalhes?.antes ?? a.antes;
+              const depoisObj = a.detalhes?.depois ?? a.depois;
+              const changedKeys = Array.from(
+                new Set([
+                  ...(depoisObj ? Object.keys(depoisObj) : []),
+                  ...(antesObj ? Object.keys(antesObj) : []),
+                ])
+              );
+              return (
+                <article key={a.id} className="space-y-2 p-3.5 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] font-semibold", badge.class)}>
+                      <Icon className="size-3" />
+                      {badge.label}
+                    </span>
+                    <span className="num text-[11px] text-slate-400">{fmtDateTime(a.data_hora || a.timestamp)}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-1 text-slate-300">
+                    <span className="inline-flex items-center gap-1.5 font-medium">
+                      <User className="size-3.5 text-slate-400 shrink-0" />
+                      {a.usuario_nome || "Sistema"}
+                    </span>
+                    <span className="capitalize text-slate-400">
+                      {a.entidade}
+                      {a.matricula ? (
+                        a.entidade_id && normEntidade(a.entidade) === "militar" ? (
+                          <> · <Link to={`/temporarios/${a.entidade_id}`} className="num text-blue-400 underline">{a.matricula}</Link></>
+                        ) : (
+                          <> · <span className="num">{a.matricula}</span></>
+                        )
+                      ) : null}
+                    </span>
+                  </div>
+                  {changedKeys.length > 0 ? (
+                    <div className="space-y-1 pt-0.5">
+                      {changedKeys.map((k) => {
+                        const valAntes = antesObj ? antesObj[k] : undefined;
+                        const valDepois = depoisObj ? depoisObj[k] : undefined;
+                        return (
+                          <div key={k} className="flex flex-wrap items-center gap-1.5 rounded border border-[#1E2C42] bg-[#0F1724] px-2 py-1">
+                            <span className="font-semibold text-slate-400">{k}:</span>
+                            {valAntes !== undefined && (
+                              <span className="num text-red-400 line-through decoration-red-500/60">{fmtVal(valAntes)}</span>
+                            )}
+                            {valAntes !== undefined && valDepois !== undefined && <span className="text-slate-500">→</span>}
+                            {valDepois !== undefined && (
+                              <span className={cn("num", valAntes !== undefined ? "font-bold text-emerald-400" : "text-slate-200")}>{fmtVal(valDepois)}</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-slate-500">{a.detalhes?.descricao || "—"}</p>
+                  )}
+                </article>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden max-h-[640px] overflow-auto md:block">
           <Table>
             <TableHeader>
               <TableRow className="border-[#1E2C42] hover:bg-transparent">
@@ -409,14 +485,14 @@ export default function Auditoria() {
 
         {/* Paginação / Carregamento sob demanda */}
         {itens.length >= limite && limite < 150 && (
-          <div className="flex items-center justify-between border-t border-[#1E2C42] bg-[#0F1724]/60 px-4 py-3 text-xs text-slate-400">
+          <div className="flex flex-col gap-2 border-t border-[#1E2C42] bg-[#0F1724]/60 px-4 py-3 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
             <span>Exibindo os últimos {itens.length} registros da nuvem (proteção de cotas ativa).</span>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setLimite((prev) => Math.min(150, prev + 30))}
               disabled={audit.isFetching}
-              className="border-[#1E2C42] bg-[#121B28] text-xs text-blue-300 hover:bg-[#1A2638] hover:text-white"
+              className="h-9 sm:h-8 w-full sm:w-auto justify-center border-[#1E2C42] bg-[#121B28] text-xs text-blue-300 hover:bg-[#1A2638] hover:text-white"
               data-testid="auditoria-load-more"
             >
               Carregar mais registros (+30)

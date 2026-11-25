@@ -97,11 +97,11 @@ function CrudTab({ title, rows, fields, endpoint, invalidateKey, canEdit, canDel
   const visible = rows.filter((r) => !filtro || JSON.stringify(r).toLowerCase().includes(filtro.toLowerCase()));
   return (
     <section className="rounded-xl border border-[#1E2C42] bg-[#121B28]" data-testid={`${testId}-tab`}>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1E2C42] p-4">
+      <div className="flex flex-col gap-2.5 border-b border-[#1E2C42] p-3.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2 sm:p-4">
         <h3 className="font-heading font-bold text-white">{title} <span className="num text-sm text-slate-500">({rows.length})</span></h3>
-        <div className="flex gap-2">
-          <Input placeholder="Filtrar" value={filtro} onChange={(e) => setFiltro(e.target.value)} className="h-8 w-48" data-testid={`${testId}-filter`} />
-          {canEdit && <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => open(null, true)} data-testid={`${testId}-add-button`}><Plus className="size-4" /> Adicionar</Button>}
+        <div className="flex w-full gap-2 sm:w-auto">
+          <Input placeholder="Filtrar" value={filtro} onChange={(e) => setFiltro(e.target.value)} className="h-9 sm:h-8 flex-1 sm:w-48" data-testid={`${testId}-filter`} />
+          {canEdit && <Button size="sm" className="h-9 sm:h-8 shrink-0 bg-blue-600 hover:bg-blue-700" onClick={() => open(null, true)} data-testid={`${testId}-add-button`}><Plus className="size-4" /> Adicionar</Button>}
         </div>
       </div>
       <div className="max-h-[560px] overflow-auto">
@@ -259,23 +259,23 @@ export default function Configuracoes() {
   const crNome = (id: unknown) => (id ? (c?.comandos_regionais ?? []).find((x) => x.id === id)?.nome ?? String(id) : "—");
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-400">Administração</p>
-        <h2 className="font-heading text-2xl font-extrabold text-white sm:text-3xl" data-testid="page-title">Configurações e Usuários</h2>
-        {!admin && <p className="text-sm text-amber-300" data-testid="config-readonly">Somente o perfil Administrador pode alterar configurações. Você está em modo de consulta.</p>}
+        <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-blue-400">Administração</p>
+        <h2 className="font-heading text-xl font-extrabold text-white sm:text-2xl md:text-3xl" data-testid="page-title">Configurações e Usuários</h2>
+        {!admin && <p className="text-xs sm:text-sm text-amber-300" data-testid="config-readonly">Somente o perfil Administrador pode alterar configurações. Você está em modo de consulta.</p>}
       </div>
       <Tabs value={currentTab} onValueChange={(val) => setSearchParams({ tab: val })}>
-        <TabsList className="h-auto flex-wrap justify-start gap-1 p-1">
-          <TabsTrigger value="geral" data-testid="config-tab-geral">Geral</TabsTrigger>
-          <TabsTrigger value="categorias" data-testid="config-tab-categorias">Categorias</TabsTrigger>
-          <TabsTrigger value="cargos" data-testid="config-tab-cargos">Cargos</TabsTrigger>
-          <TabsTrigger value="lotacoes" data-testid="config-tab-lotacoes">Lotações</TabsTrigger>
-          <TabsTrigger value="comandos-regionais" data-testid="config-tab-comandos-regionais">Comandos Regionais</TabsTrigger>
-          <TabsTrigger value="editais" data-testid="config-tab-editais">Editais</TabsTrigger>
-          <TabsTrigger value="motivos" data-testid="config-tab-motivos">Motivos</TabsTrigger>
-          {admin && <TabsTrigger value="usuarios" data-testid="config-tab-usuarios">Usuários</TabsTrigger>}
-          {admin && <TabsTrigger value="auditoria" data-testid="config-tab-auditoria">Auditoria</TabsTrigger>}
+        <TabsList className="flex h-auto w-full max-w-full flex-nowrap justify-start gap-1 overflow-x-auto scrollbar-none p-1 sm:w-fit sm:flex-wrap">
+          <TabsTrigger value="geral" className="shrink-0" data-testid="config-tab-geral">Geral</TabsTrigger>
+          <TabsTrigger value="categorias" className="shrink-0" data-testid="config-tab-categorias">Categorias</TabsTrigger>
+          <TabsTrigger value="cargos" className="shrink-0" data-testid="config-tab-cargos">Cargos</TabsTrigger>
+          <TabsTrigger value="lotacoes" className="shrink-0" data-testid="config-tab-lotacoes">Lotações</TabsTrigger>
+          <TabsTrigger value="comandos-regionais" className="shrink-0" data-testid="config-tab-comandos-regionais">Comandos Regionais</TabsTrigger>
+          <TabsTrigger value="editais" className="shrink-0" data-testid="config-tab-editais">Editais</TabsTrigger>
+          <TabsTrigger value="motivos" className="shrink-0" data-testid="config-tab-motivos">Motivos</TabsTrigger>
+          {admin && <TabsTrigger value="usuarios" className="shrink-0" data-testid="config-tab-usuarios">Usuários</TabsTrigger>}
+          {admin && <TabsTrigger value="auditoria" className="shrink-0" data-testid="config-tab-auditoria">Auditoria</TabsTrigger>}
         </TabsList>
         <TabsContent value="geral" className="mt-4">
           <section className="max-w-lg space-y-3 rounded-xl border border-[#1E2C42] bg-[#121B28] p-5">

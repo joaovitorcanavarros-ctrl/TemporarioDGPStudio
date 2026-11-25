@@ -1109,9 +1109,45 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     return userOut as T;
   }
 
+  if (pathname === "/auth/signup/check" && method === "POST") {
+    const email = (body?.email || "").trim().toLowerCase();
+    if (!email) {
+      throw { status: 400, body: { detail: "Informe um e-mail válido." } };
+    }
+    await sincronizarUsuariosComFirestore(true);
+    let existing = state.usuarios.find((u) => u.email.toLowerCase() === email);
+    if (!existing) {
+      const cloudUser = await buscarUsuarioPorEmailFirestore(email);
+      if (cloudUser) {
+        existing = {
+          id: cloudUser.id,
+          nome: cloudUser.nome || email.split("@")[0],
+          email: cloudUser.email.toLowerCase(),
+          perfil:
+            cloudUser.perfil === "ADMIN" || cloudUser.perfil === "GESTOR"
+              ? cloudUser.perfil
+              : "CONSULTA",
+          ativo: cloudUser.ativo !== false,
+        };
+        state.usuarios.push(existing);
+      }
+    }
+    const isSystemAdmin =
+      email === "admin@cbmmt.mt.gov.br" ||
+      email === "joao1canavarros@gmail.com" ||
+      email === "rodrigues11-30@hotmail.com";
+
+    return {
+      exists: Boolean(existing),
+      isSystemAdmin,
+    } as T;
+  }
+
   if (pathname === "/auth/signup" && method === "POST") {
     const email = (body?.email || "").trim().toLowerCase();
     const nome = (body?.nome || "").trim();
+    const otpVerified = Boolean(body?.otpVerified);
+    const otpVerifiedAt = typeof body?.otpVerifiedAt === "string" ? body.otpVerifiedAt : null;
 
     if (!email || !nome) {
       throw { status: 400, body: { detail: "Preencha todos os campos obrigatórios." } };
@@ -1142,7 +1178,18 @@ export async function handleBackendRequest<T>(method: string, path: string, body
       usuario_nome: newUser.nome,
       usuario_email: newUser.email,
       antes: null,
-      depois: { Nome: newUser.nome, "E-mail": newUser.email, Perfil: newUser.perfil, Ativo: "Sim" },
+      depois: {
+        Nome: newUser.nome,
+        "E-mail": newUser.email,
+        Perfil: newUser.perfil,
+        Ativo: "Sim",
+        ...(otpVerified
+          ? {
+              Origem: "Cadastro Gmail (Verificado via código de 4 dígitos)",
+              ...(otpVerifiedAt ? { "Confirmado em": otpVerifiedAt } : {}),
+            }
+          : { Origem: "Cadastro Direto" }),
+      },
     });
 
     const userOut: UserOut = {
@@ -1156,9 +1203,46 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     return userOut as T;
   }
 
+  if (pathname === "/auth/google/check" && method === "POST") {
+    const email = (body?.email || "").trim().toLowerCase();
+    if (!email) {
+      throw { status: 400, body: { detail: "E-mail da conta Google não recebido." } };
+    }
+    await sincronizarUsuariosComFirestore(true);
+    let existingUser = state.usuarios.find((u) => u.email.toLowerCase() === email);
+    if (!existingUser) {
+      const cloudUser = await buscarUsuarioPorEmailFirestore(email);
+      if (cloudUser) {
+        existingUser = {
+          id: cloudUser.id,
+          nome: cloudUser.nome || email.split("@")[0],
+          email: cloudUser.email.toLowerCase(),
+          perfil:
+            cloudUser.perfil === "ADMIN" || cloudUser.perfil === "GESTOR"
+              ? cloudUser.perfil
+              : "CONSULTA",
+          ativo: cloudUser.ativo !== false,
+        };
+        state.usuarios.push(existingUser);
+      }
+    }
+    const isSystemAdmin =
+      email === "admin@cbmmt.mt.gov.br" ||
+      email === "joao1canavarros@gmail.com" ||
+      email === "rodrigues11-30@hotmail.com";
+
+    return {
+      exists: Boolean(existingUser),
+      ativo: existingUser ? existingUser.ativo !== false : true,
+      isSystemAdmin,
+    } as T;
+  }
+
   if (pathname === "/auth/google" && method === "POST") {
     const email = (body?.email || "").trim().toLowerCase();
     const nome = (body?.nome || "").trim() || email.split("@")[0];
+    const otpVerified = Boolean(body?.otpVerified);
+    const otpVerifiedAt = typeof body?.otpVerifiedAt === "string" ? body.otpVerifiedAt : null;
 
     if (!email) {
       throw { status: 400, body: { detail: "E-mail da conta Google não recebido." } };
@@ -1204,10 +1288,24 @@ export async function handleBackendRequest<T>(method: string, path: string, body
           usuario_nome: user.nome,
           usuario_email: user.email,
           antes: null,
-          depois: { Nome: user.nome, "E-mail": user.email, Perfil: user.perfil, Origem: "Google OAuth" },
+          depois: {
+            Nome: user.nome,
+            "E-mail": user.email,
+            Perfil: user.perfil,
+            Origem: otpVerified
+              ? "Google OAuth (Verificado via código de 4 dígitos)"
+              : "Google OAuth",
+            ...(otpVerifiedAt ? { "Confirmado em": otpVerifiedAt } : {}),
+          },
         });
       }
     } else {
+      if (user.ativo === false) {
+        throw {
+          status: 403,
+          body: { detail: "Sua conta está inativa. Solicite reativação ao administrador da DGP." },
+        };
+      }
       let userModified = false;
       if (!user.nome && nome) {
         user.nome = nome;

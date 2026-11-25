@@ -84,16 +84,16 @@ export default function Desligamentos() {
   }, [ev.data, ev.isError, semana.fim, semana.inicio]);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-red-400">Movimentações</p>
-        <h2 className="font-heading text-2xl font-extrabold text-white sm:text-3xl" data-testid="page-title">Desligamentos e Histórico</h2>
-        <p className="text-sm text-slate-400">Registros desligados permanecem na base para consulta, relatórios e auditoria. O período filtra pela data efetiva do desligamento.</p>
+        <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-red-400">Movimentações</p>
+        <h2 className="font-heading text-xl font-extrabold text-white sm:text-2xl md:text-3xl" data-testid="page-title">Desligamentos e Histórico</h2>
+        <p className="mt-1 text-xs sm:text-sm text-slate-400">Registros desligados permanecem na base para consulta, relatórios e auditoria. O período filtra pela data efetiva do desligamento.</p>
       </div>
       <FiltersBar hideStatus />
       <MilitaresTable variant="desligados" params={{ ...baseParams(filters), status: "DESLIGADO", deslig_ini: ini, deslig_fim: fim }} testId="desligados-table" />
-      <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-5" data-testid="eventos-recentes">
-        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+      <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-4 sm:p-5" data-testid="eventos-recentes">
+        <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-2">
           <h3 className="font-heading font-bold text-white">Últimos desligamentos da semana</h3>
           <span className="text-xs text-slate-400" data-testid="semana-atual-label">
             Semana de {fmtDate(semana.inicio)} a {fmtDate(semana.fim)} · {eventos.length} {eventos.length === 1 ? "desligamento" : "desligamentos"}
@@ -101,17 +101,19 @@ export default function Desligamentos() {
         </div>
         <div className="divide-y divide-[#162234]">
           {eventos.map((e) => (
-            <div key={e.id} className="flex flex-wrap items-center gap-3 py-2.5 text-sm">
-              <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase text-red-300">
-                DESLIGAMENTO
-              </span>
-              <Link to={`/temporarios/${e.militar_id}`} className="font-medium text-slate-100 hover:text-blue-300">{e.nome_completo}</Link>
-              <span className="num text-xs text-slate-400">{e.matricula}</span>
+            <div key={e.id} className="flex flex-col gap-1.5 py-3 text-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 sm:py-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase text-red-300">
+                  DESLIGAMENTO
+                </span>
+                <Link to={`/temporarios/${e.militar_id}`} className="font-medium text-slate-100 hover:text-blue-300">{e.nome_completo}</Link>
+                <span className="num text-xs text-slate-400">{e.matricula}</span>
+              </div>
               <span className="text-xs text-slate-400">
                 Data efetiva {fmtDate(e.data_efetiva)}
                 {(e.motivo_nome ?? e.observacoes) ? ` · ${e.motivo_nome ?? e.observacoes}` : ""}
               </span>
-              <span className="ml-auto text-[11px] text-slate-500">{e.usuario_nome} · {fmtDateTime(e.timestamp)}</span>
+              <span className="text-[11px] text-slate-500 sm:ml-auto">{e.usuario_nome} · {fmtDateTime(e.timestamp)}</span>
             </div>
           ))}
           {eventos.length === 0 && (

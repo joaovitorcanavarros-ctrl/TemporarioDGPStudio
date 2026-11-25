@@ -120,7 +120,7 @@ function SearchableFieldSelect({
           data-testid={testId}
           aria-label={displayLabel}
           className={cn(
-            "flex h-8 w-full min-w-0 items-center justify-between gap-1.5 rounded-lg border border-[#24344D] bg-[#0F1724] py-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none hover:bg-[#142033] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50",
+            "flex h-10 sm:h-8 w-full min-w-0 items-center justify-between gap-1.5 rounded-lg border border-[#24344D] bg-[#0F1724] py-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none hover:bg-[#142033] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50",
             value && allLabel ? "pr-12" : "pr-2"
           )}
         >
@@ -208,7 +208,7 @@ function SearchableFieldSelect({
                       onMouseEnter={() => setActiveIdx(idx)}
                       onClick={() => handleSelect(item.value)}
                       className={cn(
-                        "flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
+                        "flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2.5 sm:py-2 text-left text-sm transition-colors",
                         isSelected
                           ? "bg-blue-500/15 text-blue-200 font-medium"
                           : isActive
@@ -259,7 +259,7 @@ export default function FieldSelect(props: Props) {
   const current = value || (allLabel ? ALL : "");
   return (
     <Select value={current} onValueChange={(v: string) => onChange(v === ALL ? "" : v)} disabled={disabled}>
-      <SelectTrigger data-testid={testId} className={cn("w-full min-w-0 bg-[#0F1724] dark:bg-[#0F1724] hover:bg-[#142033] dark:hover:bg-[#142033] border-[#24344D] text-slate-100", className)}>
+      <SelectTrigger data-testid={testId} className={cn("h-10 sm:h-8 w-full min-w-0 bg-[#0F1724] dark:bg-[#0F1724] hover:bg-[#142033] dark:hover:bg-[#142033] border-[#24344D] text-slate-100", className)}>
         <SelectValue placeholder={placeholder}>
           {(v) => <span className={cn("truncate", !v && "text-muted-foreground")}>{v ? labels[v as string] ?? placeholder : placeholder}</span>}
         </SelectValue>

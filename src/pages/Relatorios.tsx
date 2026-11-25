@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertCircle, BadgeCheck, Download, FileDown, FileText, Loader2, Search, Shield, X } from "lucide-react";
 import { toast } from "sonner";
+import FieldSelect from "@/components/FieldSelect";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -95,13 +96,26 @@ export default function Relatorios() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-400">Consultas oficiais</p>
-        <h2 className="font-heading text-2xl font-extrabold text-white sm:text-3xl" data-testid="page-title">Relatórios</h2>
+        <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-blue-400">Consultas oficiais</p>
+        <h2 className="font-heading text-xl font-extrabold text-white sm:text-2xl md:text-3xl" data-testid="page-title">Relatórios</h2>
       </div>
       <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
-        <nav className="space-y-1 rounded-xl border border-[#1E2C42] bg-[#121B28] p-2" data-testid="report-types">
+        {/* Mobile / Tablet report picker so report content sits immediately above the fold */}
+        <div className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-3 lg:hidden">
+          <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            Tipo de relatório
+          </label>
+          <FieldSelect
+            testId="report-type-mobile"
+            value={tipo}
+            onChange={(v) => v && setTipo(v)}
+            options={TIPOS.map((t) => ({ value: t.id, label: t.label }))}
+          />
+        </div>
+
+        <nav className="hidden space-y-1 rounded-xl border border-[#1E2C42] bg-[#121B28] p-2 lg:block" data-testid="report-types">
           {TIPOS.map((t) => (
             <button key={t.id} onClick={() => setTipo(t.id)} data-testid={`report-type-${t.id}`}
               className={cn("flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors",
@@ -111,19 +125,19 @@ export default function Relatorios() {
           ))}
         </nav>
         <section className="min-w-0 rounded-xl border border-[#1E2C42] bg-[#121B28]" data-testid="report-view">
-          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#1E2C42] p-4">
+          <div className="flex flex-col gap-3 border-b border-[#1E2C42] p-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <h3 className="font-heading text-lg font-bold text-white" data-testid="report-title">{r?.titulo ?? TIPOS.find((t) => t.id === tipo)?.label}</h3>
+              <h3 className="font-heading text-base sm:text-lg font-bold text-white" data-testid="report-title">{r?.titulo ?? TIPOS.find((t) => t.id === tipo)?.label}</h3>
               <p className="text-xs text-slate-400">{r?.descricao}</p>
               {r && <p className="mt-1 text-[11px] text-slate-500">Filtros: {r.filtros} · Gerado em {r.gerado_em} · {r.linhas.length} linha(s)</p>}
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
               <button
                 onClick={handleExportPdf}
                 disabled={!r || r.linhas.length === 0 || gerandoPdf}
                 className={cn(
                   buttonVariants({ variant: "default", size: "sm" }),
-                  "bg-gradient-to-r from-blue-700 to-indigo-700 font-semibold text-white shadow-md hover:from-blue-600 hover:to-indigo-600",
+                  "h-10 sm:h-8 justify-center bg-gradient-to-r from-blue-700 to-indigo-700 font-semibold text-white shadow-md hover:from-blue-600 hover:to-indigo-600",
                   (!r || r.linhas.length === 0 || gerandoPdf) && "pointer-events-none opacity-50"
                 )}
                 data-testid="report-export-pdf"
@@ -132,12 +146,14 @@ export default function Relatorios() {
                 {gerandoPdf ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
-                    Gerando PDF...
+                    <span className="sm:hidden">PDF...</span>
+                    <span className="hidden sm:inline">Gerando PDF...</span>
                   </>
                 ) : (
                   <>
                     <FileDown className="size-4" />
-                    Exportar PDF
+                    <span className="sm:hidden">PDF</span>
+                    <span className="hidden sm:inline">Exportar PDF</span>
                   </>
                 )}
               </button>
@@ -151,7 +167,7 @@ export default function Relatorios() {
                   ];
                   exportFile(`relatorio_${tipo}_${new Date().toISOString().slice(0, 10)}.csv`, "\ufeff" + csvLines.join("\n"));
                 }}
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }), (!r || r.linhas.length === 0) && "pointer-events-none opacity-50")}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-10 sm:h-8 justify-center", (!r || r.linhas.length === 0) && "pointer-events-none opacity-50")}
                 data-testid="report-export-csv"
               >
                 <Download className="size-4" /> CSV
@@ -185,7 +201,7 @@ export default function Relatorios() {
                     toast.error("Não foi possível gerar a planilha Excel.");
                   }
                 }}
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }), (!r || r.linhas.length === 0) && "pointer-events-none opacity-50")}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-10 sm:h-8 justify-center", (!r || r.linhas.length === 0) && "pointer-events-none opacity-50")}
                 data-testid="report-export-xlsx"
               >
                 <Download className="size-4" /> Excel
@@ -205,8 +221,8 @@ export default function Relatorios() {
                     Selecione o <strong>Mês/ano</strong> para visualizar apenas as renovações de contrato ocorridas no período.
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 rounded-lg border border-[#24344D] bg-[#121B28] px-3 py-1.5 shadow-sm">
+                <div className="flex w-full items-center gap-2 sm:w-auto">
+                  <div className="flex w-full items-center gap-2 rounded-lg border border-[#24344D] bg-[#121B28] px-3 py-1.5 shadow-sm sm:w-auto">
                     <label htmlFor="filter-mes-ano" className="text-xs font-semibold text-slate-300 shrink-0">
                       Mês/ano:
                     </label>
@@ -216,7 +232,7 @@ export default function Relatorios() {
                       data-testid="report-renovacao-mes-ano-input"
                       value={mesAno}
                       onChange={(e) => setMesAno(e.target.value)}
-                      className="h-8 w-44 border-[#24344D] bg-[#0F1724] font-sans text-xs text-white [color-scheme:dark] cursor-pointer"
+                      className="h-9 sm:h-8 flex-1 sm:w-44 border-[#24344D] bg-[#0F1724] font-sans text-xs text-white [color-scheme:dark] cursor-pointer"
                     />
                     {mesAno && (
                       <button
@@ -237,7 +253,7 @@ export default function Relatorios() {
 
           {(tipo === "inclusoes" || tipo === "desligamentos" || tipo === "a-vencer" || tipo === "vencidos") && (
             <div className="border-b border-[#1E2C42] bg-[#0E1622]/70 p-4" data-testid={`report-${tipo}-filter`}>
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <div className="space-y-0.5">
                   <div className="text-xs font-bold uppercase tracking-wider text-slate-300">
                     Filtrar por período
@@ -246,25 +262,25 @@ export default function Relatorios() {
                     Defina uma data inicial e/ou final para filtrar os registros do relatório.
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:items-center">
                   <div className="flex items-center gap-1.5 rounded-lg border border-[#24344D] bg-[#121B28] px-2.5 py-1">
-                    <span className="text-xs text-slate-400">De:</span>
+                    <span className="text-xs text-slate-400 shrink-0">De:</span>
                     <Input
                       type="date"
                       data-testid="report-data-inicio-input"
                       value={dataInicio}
                       onChange={(e) => setDataInicio(e.target.value)}
-                      className="h-8 w-36 border-[#24344D] bg-[#0F1724] text-xs text-white [color-scheme:dark]"
+                      className="h-9 sm:h-8 flex-1 sm:w-36 border-[#24344D] bg-[#0F1724] text-xs text-white [color-scheme:dark]"
                     />
                   </div>
                   <div className="flex items-center gap-1.5 rounded-lg border border-[#24344D] bg-[#121B28] px-2.5 py-1">
-                    <span className="text-xs text-slate-400">Até:</span>
+                    <span className="text-xs text-slate-400 shrink-0">Até:</span>
                     <Input
                       type="date"
                       data-testid="report-data-fim-input"
                       value={dataFim}
                       onChange={(e) => setDataFim(e.target.value)}
-                      className="h-8 w-36 border-[#24344D] bg-[#0F1724] text-xs text-white [color-scheme:dark]"
+                      className="h-9 sm:h-8 flex-1 sm:w-36 border-[#24344D] bg-[#0F1724] text-xs text-white [color-scheme:dark]"
                     />
                   </div>
                   {(dataInicio || dataFim) && (
@@ -274,11 +290,12 @@ export default function Relatorios() {
                         setDataInicio("");
                         setDataFim("");
                       }}
-                      className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+                      className="inline-flex h-9 sm:h-8 items-center justify-center gap-1 rounded border border-[#24344D] px-2.5 text-xs text-slate-300 hover:bg-slate-800 hover:text-white transition-colors sm:border-transparent sm:p-1"
                       title="Limpar período"
                       data-testid="report-clear-dates"
                     >
                       <X className="size-3.5" />
+                      <span className="sm:hidden">Limpar datas</span>
                     </button>
                   )}
                 </div>
@@ -397,7 +414,7 @@ export default function Relatorios() {
                       disabled={gerandoPdf}
                       className={cn(
                         buttonVariants({ variant: "default", size: "sm" }),
-                        "bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md hover:from-blue-500 hover:to-indigo-500"
+                        "h-10 sm:h-8 w-full sm:w-auto justify-center bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md hover:from-blue-500 hover:to-indigo-500"
                       )}
                       title="Baixar histórico funcional individual oficial em formato PDF"
                     >

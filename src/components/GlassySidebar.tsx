@@ -13,6 +13,7 @@ import {
   LogOut,
   Settings,
   Users,
+  X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useSystemEntry } from "@/components/SystemEntrySplash";
@@ -34,6 +35,7 @@ export interface GlassySidebarProps {
   categorias?: GlassyCategory[];
   onLogout?: () => void;
   onNavigate?: () => void;
+  onClose?: () => void;
   mobileMode?: boolean;
 }
 
@@ -75,6 +77,7 @@ export default function GlassySidebar({
   categorias = DEFAULT_CATEGORIES,
   onLogout,
   onNavigate,
+  onClose,
   mobileMode = false,
 }: GlassySidebarProps) {
   const [internalExpanded, setInternalExpanded] = useState(true);
@@ -451,6 +454,16 @@ export default function GlassySidebar({
             )}
           </div>
         )}
+        {mobileMode && onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar menu"
+            className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#1E2C42] bg-[#162234]/80 text-slate-300 transition-colors hover:bg-[#1E2C42] hover:text-white active:scale-95 cursor-pointer"
+          >
+            <X className="size-4" />
+          </button>
+        )}
       </div>
 
       {/* 2. MENU CENTRAL (MAIN & WORKSPACE COM TREE-VIEW) */}
@@ -656,7 +669,7 @@ export default function GlassySidebar({
       </nav>
 
       {/* 3. RODAPÉ (CARD DE PERFIL DO USUÁRIO) */}
-      <div className={cn("mt-auto border-t border-[#1E2C42] pt-2.5 pb-3.5", isExpanded ? "px-3" : "px-0")}>
+      <div className={cn("mt-auto border-t border-[#1E2C42] pt-2.5 pb-3.5", mobileMode && "pb-[calc(0.875rem+env(safe-area-inset-bottom,0px))]", isExpanded ? "px-3" : "px-0")}>
         <div
           className="relative flex justify-center"
           onMouseEnter={() => setHoveredItem("__user_profile__")}

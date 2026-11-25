@@ -1,6 +1,6 @@
 import { useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { motion, useMotionValue, useReducedMotion, useSpring } from "motion/react";
+import { AnimatePresence, motion, useMotionValue, useReducedMotion, useSpring } from "motion/react";
 import { useMutation } from "@tanstack/react-query";
 import { AlertCircle, Eye, EyeOff, HelpCircle, Lock, ShieldCheck, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,14 +14,20 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiPost } from "@/lib/api";
-import { loginWithGoogle } from "@/lib/firebase";
+import { loginWithGoogle, logoutFirebase } from "@/lib/firebase";
 import { errMsg } from "@/lib/format";
 import { useMe } from "@/lib/hooks";
 import { beginSession } from "@/lib/session";
 import type { UserOut } from "@/lib/types";
+import GlassyOtpCard, {
+  type PendingOtpSignup,
+  type VerifiedOtpResult,
+} from "@/components/GlassyOtpCard";
 import RotatingText from "@/components/RotatingText";
 import { useSystemEntry } from "@/components/SystemEntrySplash";
 import { cn } from "@/lib/utils";
+
+const GMAIL_DOMAIN_REGEX = /@(gmail|googlemail)\.com$/i;
 
 export default function Login() {
   const me = useMe();
@@ -37,6 +43,9 @@ export default function Login() {
   const [forgotModalOpen, setForgotModalOpen] = useState(false);
   const [erro, setErro] = useState("");
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [signupChecking, setSignupChecking] = useState(false);
+  const [pendingOtpSignup, setPendingOtpSignup] = useState<PendingOtpSignup | null>(null);
+  const [completingOtpSignup, setCompletingOtpSignup] = useState(false);
 
   const reduceMotion = useReducedMotion();
   const logoRotateXRaw = useMotionValue(0);
@@ -81,8 +90,15 @@ export default function Login() {
 
   // Mutation for signup (Criar Conta)
   const signupMut = useMutation({
-    mutationFn: (body: { nome: string; email: string; senha: string }) => apiPost<UserOut>("/auth/signup", body),
+    mutationFn: (body: {
+      nome: string;
+      email: string;
+      senha: string;
+      otpVerified?: boolean;
+      otpVerifiedAt?: string;
+    }) => apiPost<UserOut>("/auth/signup", body),
     onSuccess: async () => {
+      setPendingOtpSignup(null);
       startEntrySplash();
       await beginSession();
       nav("/", { replace: true });
@@ -92,8 +108,15 @@ export default function Login() {
 
   // Mutation for Google login synchronization
   const googleMut = useMutation({
-    mutationFn: (body: { email: string; nome: string; uid: string }) => apiPost<UserOut>("/auth/google", body),
+    mutationFn: (body: {
+      email: string;
+      nome: string;
+      uid: string;
+      otpVerified?: boolean;
+      otpVerifiedAt?: string;
+    }) => apiPost<UserOut>("/auth/google", body),
     onSuccess: async () => {
+      setPendingOtpSignup(null);
       startEntrySplash();
       await beginSession();
       nav("/", { replace: true });
@@ -101,7 +124,7 @@ export default function Login() {
     onError: (e) => setErro(errMsg(e, "Falha ao autenticar com Google")),
   });
 
-  if (me.data) return <Navigate to="/" replace />;
+  if (me.data && !pendingOtpSignup) return <Navigate to="/" replace />;
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,10 +136,13 @@ export default function Login() {
     loginMut.mutate({ email: email.trim(), senha });
   };
 
-  const handleSignupSubmit = (e: React.FormEvent) => {
+  const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro("");
-    if (!nome.trim() || !email.trim() || !senha) {
+    const cleanNome = nome.trim();
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanNome || !cleanEmail || !senha) {
       setErro("Preencha todos os campos obrigatórios.");
       return;
     }
@@ -128,7 +154,36 @@ export default function Login() {
       setErro("A confirmação de senha não confere.");
       return;
     }
-    signupMut.mutate({ nome: nome.trim(), email: email.trim(), senha });
+
+    // Cadastros com @gmail.com exigem apenas o código de 4 dígitos enviado por e-mail
+    // (sem janela do Google nem confirmação no celular). Demais e-mails entram diretamente.
+    if (GMAIL_DOMAIN_REGEX.test(cleanEmail)) {
+      setSignupChecking(true);
+      try {
+        const check = await apiPost<{ exists: boolean; isSystemAdmin: boolean }>(
+          "/auth/signup/check",
+          { email: cleanEmail }
+        );
+        if (check.exists) {
+          setErro("Já existe uma conta cadastrada com este e-mail.");
+          return;
+        }
+        setPendingOtpSignup({
+          source: "signup",
+          email: cleanEmail,
+          nome: cleanNome,
+          senha,
+          isSystemAdmin: check.isSystemAdmin,
+        });
+      } catch (err) {
+        setErro(errMsg(err, "Não foi possível validar o e-mail informado."));
+      } finally {
+        setSignupChecking(false);
+      }
+      return;
+    }
+
+    signupMut.mutate({ nome: cleanNome, email: cleanEmail, senha });
   };
 
   const handleGoogleLogin = async () => {
@@ -136,7 +191,36 @@ export default function Login() {
     setGoogleLoading(true);
     try {
       const gUser = await loginWithGoogle();
-      googleMut.mutate({ email: gUser.email, nome: gUser.name, uid: gUser.user.uid });
+      if (!gUser.email) {
+        setErro("Não foi possível obter o e-mail da conta Google selecionada.");
+        return;
+      }
+
+      const check = await apiPost<{
+        exists: boolean;
+        ativo: boolean;
+        isSystemAdmin: boolean;
+      }>("/auth/google/check", { email: gUser.email });
+
+      if (check.exists) {
+        if (!check.ativo) {
+          await logoutFirebase();
+          setErro("Sua conta está inativa. Solicite reativação ao administrador da DGP.");
+          return;
+        }
+        googleMut.mutate({ email: gUser.email, nome: gUser.name, uid: gUser.user.uid });
+        return;
+      }
+
+      const idToken = await gUser.user.getIdToken();
+      setPendingOtpSignup({
+        source: "google",
+        email: gUser.email,
+        nome: gUser.name,
+        uid: gUser.user.uid,
+        idToken,
+        isSystemAdmin: check.isSystemAdmin,
+      });
     } catch (err: any) {
       console.warn("Google sign-in exception:", err);
       if (err?.code === "auth/popup-closed-by-user") {
@@ -151,7 +235,49 @@ export default function Login() {
     }
   };
 
-  const isPending = loginMut.isPending || signupMut.isPending || googleMut.isPending || googleLoading;
+  const handleCancelOtp = async () => {
+    const wasGoogle = pendingOtpSignup?.source === "google";
+    setPendingOtpSignup(null);
+    setErro("");
+    if (wasGoogle) {
+      await logoutFirebase();
+    }
+  };
+
+  const handleCompleteOtp = async (verified: VerifiedOtpResult) => {
+    if (!pendingOtpSignup) return;
+    setCompletingOtpSignup(true);
+    try {
+      if (pendingOtpSignup.source === "signup") {
+        await signupMut.mutateAsync({
+          nome: pendingOtpSignup.nome,
+          email: pendingOtpSignup.email,
+          senha: pendingOtpSignup.senha || "",
+          otpVerified: true,
+          otpVerifiedAt: verified.verifiedAt,
+        });
+      } else {
+        await googleMut.mutateAsync({
+          email: pendingOtpSignup.email,
+          nome: pendingOtpSignup.nome,
+          uid: pendingOtpSignup.uid || "",
+          otpVerified: true,
+          otpVerifiedAt: verified.verifiedAt,
+        });
+      }
+    } catch {
+      // erro já tratado nos callbacks onError das mutations
+    } finally {
+      setCompletingOtpSignup(false);
+    }
+  };
+
+  const isPending =
+    loginMut.isPending ||
+    signupMut.isPending ||
+    googleMut.isPending ||
+    googleLoading ||
+    signupChecking;
 
   return (
     <div className="relative grid min-h-screen lg:grid-cols-[1.15fr_1fr] bg-gradient-to-br from-[#0B132B] via-[#0A1428] to-[#1F080C] overflow-hidden">
@@ -286,10 +412,25 @@ export default function Login() {
         <div className="pointer-events-none absolute -top-10 right-20 size-48 rounded-full bg-red-600/25 blur-3xl" />
         <div className="pointer-events-none absolute bottom-10 left-10 size-48 rounded-full bg-blue-600/20 blur-3xl" />
 
-        <div
-          className="relative z-10 w-full max-w-md animate-rise space-y-6 rounded-2xl border border-white/12 bg-gradient-to-br from-[#0E1726]/85 via-[#0C1527]/80 to-[#180B12]/85 p-8 sm:p-9 shadow-[0_25px_60px_rgba(0,0,0,0.7)] backdrop-blur-xl ring-1 ring-white/10"
-          data-testid="login-form"
-        >
+        <AnimatePresence mode="wait">
+          {pendingOtpSignup ? (
+            <GlassyOtpCard
+              key="gmail-otp-card"
+              pending={pendingOtpSignup}
+              onCancel={() => void handleCancelOtp()}
+              onContinue={handleCompleteOtp}
+              continuing={completingOtpSignup}
+            />
+          ) : (
+            <motion.div
+              key="login-auth-card"
+              initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduceMotion ? undefined : { opacity: 0, y: -12, scale: 0.985 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+              className="relative z-10 w-full max-w-md space-y-6 rounded-2xl border border-white/12 bg-gradient-to-br from-[#0E1726]/85 via-[#0C1527]/80 to-[#180B12]/85 p-8 sm:p-9 shadow-[0_25px_60px_rgba(0,0,0,0.7)] backdrop-blur-xl ring-1 ring-white/10"
+              data-testid="login-form"
+            >
           {/* Card Header */}
           <div>
             <h2 className="font-heading text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
@@ -338,47 +479,51 @@ export default function Login() {
             </button>
           </div>
 
-          {/* Botão Social Google Oficial */}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleGoogleLogin}
-            disabled={isPending}
-            className="h-11 w-full rounded-xl border border-white/10 bg-[#162032] hover:bg-[#1E2B44] hover:border-white/20 text-slate-100 flex items-center justify-center gap-3 transition-all duration-150 shadow-sm"
-            data-testid="google-login-button"
-          >
-            <svg className="size-4 shrink-0" viewBox="0 0 24 24">
-              <path
-                fill="#4285F4"
-                d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.35 24 12 24z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-              />
-            </svg>
-            <span className="text-sm font-medium">
-              {googleLoading || googleMut.isPending ? "Conectando ao Google..." : "Entrar com Google (Gmail)"}
-            </span>
-          </Button>
+          {/* Botão Social Google Oficial exibido apenas na aba Entrar (evita confirmação pelo celular do Google no cadastro) */}
+          {mode === "login" && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleGoogleLogin}
+                disabled={isPending}
+                className="h-11 w-full rounded-xl border border-white/10 bg-[#162032] hover:bg-[#1E2B44] hover:border-white/20 text-slate-100 flex items-center justify-center gap-3 transition-all duration-150 shadow-sm"
+                data-testid="google-login-button"
+              >
+                <svg className="size-4 shrink-0" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.35 24 12 24z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                  />
+                </svg>
+                <span className="text-sm font-medium">
+                  {googleLoading || googleMut.isPending ? "Conectando ao Google..." : "Entrar com Google (Gmail)"}
+                </span>
+              </Button>
 
-          {/* Divisor Fino e Centralizado */}
-          <div className="relative flex items-center justify-center py-0.5">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-700/60" />
-            </div>
-            <span className="relative bg-[#0E1726] px-3 text-xs tracking-normal text-slate-400">
-              ou com e-mail e senha
-            </span>
-          </div>
+              {/* Divisor Fino e Centralizado */}
+              <div className="relative flex items-center justify-center py-0.5">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-700/60" />
+                </div>
+                <span className="relative bg-[#0E1726] px-3 text-xs tracking-normal text-slate-400">
+                  ou com e-mail e senha
+                </span>
+              </div>
+            </>
+          )}
 
           {/* Formulários */}
           {mode === "login" ? (
@@ -486,12 +631,17 @@ export default function Login() {
                 <Input
                   id="signup-email"
                   type="email"
-                  placeholder="seu.email@cbmmt.mt.gov.br ou gmail"
+                  placeholder="seu.email@gmail.com ou institucional"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="h-10 rounded-xl border-white/10 bg-[#090F1B] px-3.5 text-sm text-slate-100 placeholder:text-slate-500 focus-visible:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500/25 transition-all"
                   data-testid="signup-email-input"
                 />
+                {GMAIL_DOMAIN_REGEX.test(email.trim()) && (
+                  <p className="pt-0.5 text-[11px] text-blue-300/90">
+                    Enviaremos um código de 4 dígitos para confirmar este Gmail.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -569,11 +719,21 @@ export default function Login() {
                 data-testid="signup-submit-button"
               >
                 <UserPlus className="size-4" />
-                <span>{signupMut.isPending ? "Criando conta..." : "Criar minha conta"}</span>
+                <span>
+                  {signupChecking
+                    ? "Verificando e-mail..."
+                    : signupMut.isPending
+                    ? "Criando conta..."
+                    : GMAIL_DOMAIN_REGEX.test(email.trim())
+                    ? "Enviar código de 4 dígitos"
+                    : "Criar minha conta"}
+                </span>
               </Button>
             </form>
           )}
-        </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </section>
 
       {/* Modal Dialog: Esqueceu a Senha */}

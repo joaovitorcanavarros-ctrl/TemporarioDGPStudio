@@ -118,55 +118,56 @@ export default function MilitarDetalhe() {
   };
 
   return (
-    <div className="space-y-5">
-      <Link to="/temporarios" className="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-white" data-testid="detail-back-link"><ArrowLeft className="size-4" /> Temporários</Link>
+    <div className="space-y-4 sm:space-y-5">
+      <Link to="/temporarios" className="inline-flex h-9 items-center gap-1 text-sm text-slate-400 hover:text-white" data-testid="detail-back-link"><ArrowLeft className="size-4" /> Temporários</Link>
       {q.isError && <p className="text-slate-400" data-testid="detail-error">Registro não encontrado ou indisponível.</p>}
       {m && (
-        <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-5" data-testid="militar-detail">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+        <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-4 sm:p-5" data-testid="militar-detail">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
             <div>
               <p className="num text-sm text-blue-300" data-testid="detail-matricula">{m.matricula}</p>
-              <h2 className="font-heading text-2xl font-extrabold text-white" data-testid="detail-nome">{m.nome_completo}</h2>
+              <h2 className="font-heading text-xl sm:text-2xl font-extrabold text-white" data-testid="detail-nome">{m.nome_completo}</h2>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <StatusBadge status={m.status} />
                 <AlertaBadge m={m} />
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap">
               {podeEditar(me.data) && (
                 <>
                   <Button
                     variant="outline"
                     onClick={() => setQuickEdit(m)}
                     data-testid="detail-quick-edit-button"
-                    className="border-blue-500/30 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 hover:text-white"
+                    className="h-10 sm:h-9 justify-center border-blue-500/30 bg-blue-500/10 text-xs sm:text-sm text-blue-300 hover:bg-blue-500/20 hover:text-white"
                   >
                     <Pencil className="size-4" /> Edição Rápida
                   </Button>
-                  <Link to={`/temporarios/${m.id}/editar`} className={buttonVariants({ variant: "outline" })} data-testid="detail-edit-button">
-                    Editar Cadastro Completo
+                  <Link to={`/temporarios/${m.id}/editar`} className={cn(buttonVariants({ variant: "outline" }), "h-10 sm:h-9 justify-center text-xs sm:text-sm")} data-testid="detail-edit-button">
+                    <span className="sm:hidden">Editar Completo</span>
+                    <span className="hidden sm:inline">Editar Cadastro Completo</span>
                   </Link>
                 </>
               )}
               {podeEditar(me.data) && m.status === "ATIVO" && (
-                <Button className="bg-red-600 text-white hover:bg-red-700" onClick={() => setDesl(m)} data-testid="detail-desligar-button"><UserMinus className="size-4" /> Registrar Desligamento</Button>
+                <Button className="h-10 sm:h-9 justify-center bg-red-600 text-xs sm:text-sm text-white hover:bg-red-700" onClick={() => setDesl(m)} data-testid="detail-desligar-button"><UserMinus className="size-4" /> Desligar</Button>
               )}
               {isAdmin(me.data) && m.status === "DESLIGADO" && (
-                <Button className="bg-emerald-600 text-white hover:bg-emerald-700" onClick={() => setReat(m)} data-testid="detail-reativar-button"><RotateCcw className="size-4" /> Reativar Cadastro</Button>
+                <Button className="h-10 sm:h-9 justify-center bg-emerald-600 text-xs sm:text-sm text-white hover:bg-emerald-700" onClick={() => setReat(m)} data-testid="detail-reativar-button"><RotateCcw className="size-4" /> Reativar</Button>
               )}
               {isAdmin(me.data) && (
                 <Button
                   variant="outline"
-                  className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                  className="h-10 sm:h-9 justify-center border-red-500/30 text-xs sm:text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300"
                   onClick={() => setExcluirModalOpen(true)}
                   data-testid="detail-delete-button"
                 >
-                  <Trash2 className="size-4" /> Excluir Cadastro
+                  <Trash2 className="size-4" /> Excluir
                 </Button>
               )}
             </div>
           </div>
-          <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <dl className="mt-5 grid grid-cols-1 gap-3.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
             <Info label="Cargo / função">{m.cargo_nome}</Info>
             <Info label="Categoria">{m.categoria_nome}</Info>
             <Info label="Lotação / UBM">{m.lotacao_nome}</Info>
@@ -212,7 +213,7 @@ export default function MilitarDetalhe() {
       )}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
-        <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-5" data-testid="historico-situacao">
+        <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-4 sm:p-5" data-testid="historico-situacao">
           <h3 className="mb-4 font-heading font-bold text-white">Histórico de situação</h3>
           <ol className="space-y-3 border-l border-[#24344D] pl-4">
             {(h.data?.situacao ?? []).map((s) => (
@@ -231,7 +232,7 @@ export default function MilitarDetalhe() {
             {h.data?.situacao.length === 0 && <li className="text-sm text-slate-500">Sem eventos.</li>}
           </ol>
         </section>
-        <section className="rounded-xl border border-[#1E2C42] bg-[#121B28] p-5" data-testid="historico-alteracoes">
+        <section className="min-w-0 rounded-xl border border-[#1E2C42] bg-[#121B28] p-4 sm:p-5" data-testid="historico-alteracoes">
           <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-heading font-bold text-white">Registro de alterações</h3>
             {isAdmin(me.data) && (h.data?.alteracoes?.length ?? 0) > 0 && (
@@ -327,17 +328,19 @@ export default function MilitarDetalhe() {
                       )}
                     </div>
                   </div>
-                  <table className="mt-2 w-full text-xs">
-                    <tbody>
-                      {Object.entries(a.depois ?? {}).filter(([, v]) => a.antes !== null || (v !== null && v !== "")).map(([k, v]) => (
-                        <tr key={k} className="border-t border-[#162234]">
-                          <td className="py-1 pr-2 text-slate-400">{k}</td>
-                          {a.antes !== null && <td className="py-1 pr-2 text-red-300/80 line-through decoration-red-500/40">{fmtVal(a.antes?.[k])}</td>}
-                          <td className="py-1 text-emerald-300">{fmtVal(v)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div className="mt-2 overflow-x-auto">
+                    <table className="w-full min-w-[260px] text-xs">
+                      <tbody>
+                        {Object.entries(a.depois ?? {}).filter(([, v]) => a.antes !== null || (v !== null && v !== "")).map(([k, v]) => (
+                          <tr key={k} className="border-t border-[#162234]">
+                            <td className="py-1 pr-2 text-slate-400">{k}</td>
+                            {a.antes !== null && <td className="py-1 pr-2 text-red-300/80 line-through decoration-red-500/40">{fmtVal(a.antes?.[k])}</td>}
+                            <td className="py-1 text-emerald-300">{fmtVal(v)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               );
             })}

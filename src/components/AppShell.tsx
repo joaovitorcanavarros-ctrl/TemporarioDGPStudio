@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Link, Navigate, Outlet, useNavigate } from "react-router-dom";
-import { LogOut, Menu, UserPlus } from "lucide-react";
+import { Link, NavLink, Navigate, Outlet, useNavigate } from "react-router-dom";
+import { Calendar, ClipboardList, LayoutGrid, LogOut, Menu, UserPlus, Users } from "lucide-react";
 
 import GlassySidebar from "@/components/GlassySidebar";
 import RealtimeMilitarPopup, { type RealtimeMilitarPopupItem } from "@/components/RealtimeMilitarPopup";
@@ -91,9 +91,16 @@ export default function AppShell() {
     nome: string;
   }[];
 
+  const mobileNavTabs = [
+    { to: "/", label: "Painel", icon: LayoutGrid, end: true },
+    { to: "/temporarios", label: "Efetivo", icon: Users, end: false },
+    { to: "/desligamentos", label: "Saídas", icon: Calendar, end: false },
+    { to: "/relatorios", label: "Relatórios", icon: ClipboardList, end: false },
+  ];
+
   return (
     <FiltersProvider>
-      <div className="min-h-screen bg-[#0B111A]">
+      <div className="min-h-screen overflow-x-clip bg-[#0B111A]">
         {/* Barra Lateral Flutuante Glassmorphism (Glassy SideBar V5) */}
         <GlassySidebar
           isExpanded={!collapsed}
@@ -105,7 +112,11 @@ export default function AppShell() {
 
         {/* Menu Mobile em Gaveta */}
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetContent side="left" className="w-[292px] border-white/10 bg-transparent p-0 shadow-none">
+          <SheetContent
+            side="left"
+            showCloseButton={false}
+            className="w-[min(296px,86vw)] border-white/10 bg-transparent p-0 shadow-none"
+          >
             <SheetTitle className="sr-only">Menu</SheetTitle>
             <GlassySidebar
               mobileMode
@@ -114,6 +125,7 @@ export default function AppShell() {
               categorias={cats}
               onLogout={() => void endSession()}
               onNavigate={() => setMobileOpen(false)}
+              onClose={() => setMobileOpen(false)}
             />
           </SheetContent>
         </Sheet>
@@ -124,7 +136,7 @@ export default function AppShell() {
             collapsed ? "lg:pl-[104px]" : "lg:pl-[312px]"
           )}
         >
-          <header className="sticky top-0 z-20 mx-auto max-w-[1800px] bg-gradient-to-b from-[#0B111A] via-[#0B111A]/90 to-transparent px-4 pt-3 pb-1 sm:px-6 lg:px-6">
+          <header className="sticky top-0 z-20 mx-auto max-w-[1800px] bg-gradient-to-b from-[#0B111A] via-[#0B111A]/90 to-transparent px-3 pt-2 pb-1 sm:px-6 sm:pt-3 lg:px-6">
             <div
               style={{
                 background:
@@ -132,12 +144,13 @@ export default function AppShell() {
                 boxShadow:
                   "0 16px 36px -16px rgba(0, 0, 0, 0.72), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)",
               }}
-              className="flex min-h-[64px] items-center gap-3.5 rounded-2xl border border-[#1E2C42] px-4 py-2.5 backdrop-blur-xl sm:px-5"
+              className="flex min-h-[54px] items-center gap-2 rounded-2xl border border-[#1E2C42] px-2.5 py-2 backdrop-blur-xl sm:min-h-[64px] sm:gap-3.5 sm:px-5 sm:py-2.5"
             >
               <Button
                 variant="ghost"
                 size="icon"
-                className="shrink-0 rounded-xl text-slate-300 hover:bg-[#182335] hover:text-white lg:hidden"
+                aria-label="Abrir menu"
+                className="size-10 shrink-0 rounded-xl text-slate-300 hover:bg-[#182335] hover:text-white lg:hidden"
                 onClick={() => setMobileOpen(true)}
                 data-testid="mobile-menu-button"
               >
@@ -145,40 +158,57 @@ export default function AppShell() {
               </Button>
               <div className="min-w-0 flex-1">
                 <h1
-                  className="truncate font-heading text-[15px] font-extrabold tracking-tight text-white sm:text-[17px]"
+                  className="truncate font-heading text-[14px] font-extrabold tracking-tight text-white sm:text-[17px]"
                   data-testid="system-title"
                 >
-                  Gestão de Bombeiros Militares Temporários
+                  <span className="sm:hidden">BM Temporários · CBMMT</span>
+                  <span className="hidden sm:inline">Gestão de Bombeiros Militares Temporários</span>
                 </h1>
-                <p className="mt-0.5 truncate text-[11.5px] text-slate-400" data-testid="last-update">
-                  <span className="font-medium text-slate-300">Corpo de Bombeiros Militar de Mato Grosso</span>
-                  <span className="mx-1.5 text-slate-600" aria-hidden="true">·</span>
-                  <span>Hoje {fmtDate(meta.data?.data_hoje)}</span>
-                  <span className="mx-1.5 text-slate-600" aria-hidden="true">·</span>
-                  <span>
-                    Última atualização:{" "}
-                    <span className="num text-slate-300">{fmtDateTime(meta.data?.ultima_atualizacao)}</span>
+                <p className="mt-0.5 truncate text-[11px] text-slate-400 sm:text-[11.5px]" data-testid="last-update">
+                  <span className="sm:hidden">
+                    Hoje <span className="num text-slate-300">{fmtDate(meta.data?.data_hoje)}</span>
+                  </span>
+                  <span className="hidden sm:inline">
+                    <span className="font-medium text-slate-300">Corpo de Bombeiros Militar de Mato Grosso</span>
+                    <span className="mx-1.5 text-slate-600" aria-hidden="true">·</span>
+                    <span>Hoje {fmtDate(meta.data?.data_hoje)}</span>
+                    <span className="mx-1.5 text-slate-600" aria-hidden="true">·</span>
+                    <span>
+                      Última atualização:{" "}
+                      <span className="num text-slate-300">{fmtDateTime(meta.data?.ultima_atualizacao)}</span>
+                    </span>
                   </span>
                 </p>
               </div>
               {podeEditar(user) && (
-                <Link
-                  to="/temporarios/novo"
-                  onPointerMove={handleMagneticMove}
-                  onPointerLeave={handleMagneticReset}
-                  onPointerCancel={handleMagneticReset}
-                  className="group relative hidden h-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-blue-500/50 bg-[#162234]/85 px-4 text-xs font-semibold text-blue-100 whitespace-nowrap [transform:translate(var(--magnetic-x,0px),var(--magnetic-y,0px))] transition-[transform,color,border-color,box-shadow] duration-[220ms] ease-[cubic-bezier(.16,1,.3,1)] hover:border-blue-400 hover:text-white hover:shadow-[0_10px_24px_-6px_rgba(37,99,235,0.65)] focus-visible:border-blue-400 focus-visible:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 sm:inline-flex"
-                  data-testid="header-new-button"
-                >
-                  <span className="relative z-10 inline-flex items-center gap-1.5">
+                <>
+                  <Link
+                    to="/temporarios/novo"
+                    aria-label="Novo cadastro"
+                    title="Novo cadastro"
+                    className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-blue-500/50 bg-blue-600/20 text-blue-200 transition-colors active:scale-95 hover:bg-blue-600/30 sm:hidden"
+                    data-testid="header-new-button-mobile"
+                  >
                     <UserPlus className="size-4" />
-                    <span>Novo cadastro</span>
-                  </span>
-                  <span
-                    className="pointer-events-none absolute inset-x-0 bottom-0 h-0 bg-gradient-to-t from-blue-600 to-blue-500 transition-[height] duration-[380ms] ease-[cubic-bezier(.16,1,.3,1)] group-hover:h-full group-focus-visible:h-full"
-                    aria-hidden="true"
-                  />
-                </Link>
+                  </Link>
+                  <Link
+                    to="/temporarios/novo"
+                    onPointerMove={handleMagneticMove}
+                    onPointerLeave={handleMagneticReset}
+                    onPointerCancel={handleMagneticReset}
+                    className="group relative hidden h-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-blue-500/50 bg-[#162234]/85 px-4 text-xs font-semibold text-blue-100 whitespace-nowrap [transform:translate(var(--magnetic-x,0px),var(--magnetic-y,0px))] transition-[transform,color,border-color,box-shadow] duration-[220ms] ease-[cubic-bezier(.16,1,.3,1)] hover:border-blue-400 hover:text-white hover:shadow-[0_10px_24px_-6px_rgba(37,99,235,0.65)] focus-visible:border-blue-400 focus-visible:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 sm:inline-flex"
+                    data-testid="header-new-button"
+                  >
+                    <span className="relative z-10 inline-flex items-center gap-1.5">
+                      <UserPlus className="size-4" />
+                      <span>Novo cadastro</span>
+                    </span>
+                    <span
+                      className="pointer-events-none absolute inset-x-0 bottom-0 h-0 bg-gradient-to-t from-blue-600 to-blue-500 transition-[height] duration-[380ms] ease-[cubic-bezier(.16,1,.3,1)] group-hover:h-full group-focus-visible:h-full"
+                      aria-hidden="true"
+                    />
+                  </Link>
+                </>
               )}
               <div className="hidden h-7 w-px shrink-0 bg-[#1E2C42] md:block" aria-hidden="true" />
               <div className="hidden shrink-0 text-right md:block" data-testid="user-identification">
@@ -191,7 +221,8 @@ export default function AppShell() {
                 variant="ghost"
                 size="icon"
                 title="Sair"
-                className="shrink-0 rounded-xl text-slate-400 transition-colors hover:bg-[#182335] hover:text-white"
+                aria-label="Sair"
+                className="size-10 shrink-0 rounded-xl text-slate-400 transition-colors hover:bg-[#182335] hover:text-white sm:size-9"
                 onClick={() => void endSession()}
                 data-testid="logout-button"
               >
@@ -199,14 +230,65 @@ export default function AppShell() {
               </Button>
             </div>
           </header>
-          <main className="mx-auto max-w-[1800px] px-4 py-5 sm:px-6 lg:px-6">
+          <main className="mx-auto max-w-[1800px] px-3 py-4 pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))] sm:px-6 sm:py-5 lg:px-6 lg:pb-6">
             <Outlet context={{ nav }} />
           </main>
         </div>
+
+        {/* Barra de Navegação Inferior Mobile (Thumb Zone) */}
+        <nav
+          aria-label="Navegação principal mobile"
+          data-testid="mobile-bottom-nav"
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-[#1E2C42] bg-[#0D1522]/95 backdrop-blur-xl pb-safe lg:hidden"
+        >
+          <div className="mx-auto grid h-14 max-w-lg grid-cols-5 items-center px-1">
+            {mobileNavTabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <NavLink
+                  key={tab.to}
+                  to={tab.to}
+                  end={tab.end}
+                  className={({ isActive }) =>
+                    cn(
+                      "flex h-full min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium transition-colors active:scale-95",
+                      isActive ? "text-blue-400" : "text-slate-400 hover:text-slate-200"
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span
+                        className={cn(
+                          "flex h-7 w-10 items-center justify-center rounded-lg transition-colors",
+                          isActive && "bg-blue-500/15 text-blue-400"
+                        )}
+                      >
+                        <Icon className="size-[19px]" />
+                      </span>
+                      <span className="truncate leading-none">{tab.label}</span>
+                    </>
+                  )}
+                </NavLink>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Mais opções do menu"
+              className="flex h-full min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-lg text-[10px] font-medium text-slate-400 transition-colors hover:text-slate-200 active:scale-95 cursor-pointer"
+            >
+              <span className="flex h-7 w-10 items-center justify-center rounded-lg">
+                <Menu className="size-[19px]" />
+              </span>
+              <span className="truncate leading-none">Menu</span>
+            </button>
+          </div>
+        </nav>
+
         <Toaster richColors theme="dark" />
         <RealtimeMilitarPopup items={realtimePopups} onDismiss={handleDismissPopup} />
       </div>
     </FiltersProvider>
   );
 }
-
