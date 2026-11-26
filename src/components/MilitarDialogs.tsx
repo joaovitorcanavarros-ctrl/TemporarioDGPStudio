@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { apiPatch, apiPost } from "@/lib/api";
 import { errMsg, fmtDate } from "@/lib/format";
 import { isAdmin, MILITAR_KEYS, podeEditar, useCatalogos, useMe, useMeta } from "@/lib/hooks";
-import { getInfoContrato, type DesligamentoIn, type Militar, type MilitarRapidoIn, type ReativacaoIn } from "@/lib/types";
+import { getAnoContratoOptions, getInfoContrato, type DesligamentoIn, type Militar, type MilitarRapidoIn, type ReativacaoIn } from "@/lib/types";
 import { RenovacaoFocusModal, type RenovacaoConfirmPayload } from "@/components/RenovacaoPrompt";
 import { cn } from "@/lib/utils";
 
@@ -484,3 +484,121 @@ export function QuickEditDialog({ militar, onClose }: { militar: Militar | null;
     </>
   );
 }
+
+export function CorrigirAnoContratoDialog({ militar, onClose }: { militar: Militar | null; onClose: () => void }) {
+  const me = useMe();
+  const invalidate = useInvalidateMilitares();
+  const infoAtual = getInfoContrato(militar);
+  const [anoSelecionado, setAnoSelecionado] = useState<string>(String(infoAtual.anoContrato));
+  const [vencimento, setVencimento] = useState<string>(militar?.data_vencimento_contrato ?? "");
+  const [erroVenc, setErroVenc] = useState<string>("");
+
+  useEffect(() => {
+    if (militar) {
+      const info = getInfoContrato(militar);
+      setAnoSelecionado(String(info.anoContrato));
+      setVencimento(militar.data_vencimento_contrato ?? "");
+      setErroVenc("");
+    }
+  }, [militar]);
+
+  const mut = useMutation({
+    mutationFn: (b: MilitarRapidoIn) => {
+      if (!podeEditar(me.data)) throw new Error("Seu perfil não tem permissão para editar registros.");
+      return apiPatch<Militar>(`/militares/${militar?.id}/rapido`, b);
+    },
+    onSuccess: (updated) => {
+      const inf = getInfoContrato(updated);
+      toast.success(`Ano do contrato atualizado para ${inf.rotuloCompleto}`);
+      invalidate();
+      onClose();
+    },
+    onError: (e) => toast.error(errMsg(e)),
+  });
+
+  const handleSave = (ev: FormEvent) => {
+    ev.preventDefault();
+    if (!militar) return;
+    if (!vencimento) {
+      setErroVenc("Informe a data de vencimento");
+      return;
+    }
+    if (militar.data_inclusao && vencimento < militar.data_inclusao) {
+      setErroVenc("Anterior à data de inclusão");
+      return;
+    }
+    setErroVenc("");
+
+    const ano = Math.max(1, Math.round(Number(anoSelecionado || 1)));
+    const qtd = Math.max(0, ano - 1);
+    const existingDatas = Array.isArray(militar.renovacoes_datas) ? [...militar.renovacoes_datas] : [];
+    const trimmedDatas = existingDatas.slice(0, qtd);
+    const dataUltima =
+      qtd === 0
+        ? null
+        : trimmedDatas.length > 0
+          ? trimmedDatas[trimmedDatas.length - 1]
+          : (militar.data_ultima_renovacao ?? null);
+
+    mut.mutate({
+      data_vencimento_contrato: vencimento,
+      renovacao_contrato: ano > 1,
+      ano_contrato: ano,
+      ano_contrato_manual: true,
+      qtd_renovacoes: qtd,
+      data_ultima_renovacao: dataUltima,
+      renovacoes_datas: trimmedDatas,
+    });
+  };
+
+  return (
+    <Dialog open={!!militar} onOpenChange={(o) => !o && !mut.isPending && onClose()}>
+      <DialogContent className="glass-dialog border sm:max-w-md" data-testid="corrigir-ano-contrato-dialog">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-white">
+            <BadgeCheck className="size-5 text-cyan-400" /> Corrigir Ano do Contrato
+          </DialogTitle>
+          <DialogDescription className="text-slate-300">
+            Ajuste ou reverta manualmente o ano do contrato e, se desejar, a data de vencimento de{" "}
+            <strong className="text-white">{militar?.nome_completo}</strong>.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSave} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Ano do contrato</Label>
+            <FieldSelect
+              testId="corrigir-ano-contrato-select"
+              value={anoSelecionado}
+              onChange={setAnoSelecionado}
+              options={getAnoContratoOptions(Math.max(infoAtual.anoContrato, Number(anoSelecionado || 1)))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="corrigir-vencimento-input">Vencimento do contrato</Label>
+            <Input
+              id="corrigir-vencimento-input"
+              type="date"
+              value={vencimento}
+              onChange={(e) => {
+                setVencimento(e.target.value);
+                if (erroVenc) setErroVenc("");
+              }}
+              className="[color-scheme:dark]"
+              data-testid="corrigir-ano-vencimento-input"
+            />
+            <Err msg={erroVenc} />
+          </div>
+          <DialogFooter className="mt-4">
+            <Button type="button" variant="outline" onClick={onClose} disabled={mut.isPending} data-testid="corrigir-ano-cancel-button">
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={mut.isPending} className="bg-blue-600 text-white hover:bg-blue-700" data-testid="corrigir-ano-save-button">
+              {mut.isPending ? "Salvando..." : "Salvar Correção"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+

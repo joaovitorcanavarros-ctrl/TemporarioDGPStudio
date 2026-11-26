@@ -175,6 +175,18 @@ export function getInfoContrato(m?: {
     detalheRenovacao,
   };
 }
+
+export function getAnoContratoOptions(currentAno?: number | null): Array<{ value: string; label: string }> {
+  const maxAno = Math.max(8, typeof currentAno === "number" && Number.isFinite(currentAno) ? Math.round(currentAno) : 1);
+  return Array.from({ length: maxAno }, (_, idx) => {
+    const ano = idx + 1;
+    const label =
+      ano === 1
+        ? "1º Ano de Contrato (Inicial — sem renovação)"
+        : `${ano}º Ano de Contrato (${ano - 1}ª renovação)`;
+    return { value: String(ano), label };
+  });
+}
 export interface MilitarPage { items: Militar[]; total: number; page: number; page_size: number }
 export interface MatriculaCheck { existe: boolean; militar_id: string | null; nome_completo: string | null }
 

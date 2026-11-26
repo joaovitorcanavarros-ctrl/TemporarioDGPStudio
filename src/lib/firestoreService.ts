@@ -2376,6 +2376,7 @@ export async function handleBackendRequest<T>(method: string, path: string, body
     const antes: Record<string, unknown> = {};
     const depois: Record<string, unknown> = {};
     let isVencChange = false;
+    const anoAnteriorLabel = `${getInfoContrato(doc).anoContrato}º Ano de Contrato`;
 
     if (b.data_vencimento_contrato && b.data_vencimento_contrato !== doc.data_vencimento_contrato) {
       antes["Data de vencimento"] = doc.data_vencimento_contrato;
@@ -2414,7 +2415,6 @@ export async function handleBackendRequest<T>(method: string, path: string, body
         doc.observacoes = cleanObs;
       }
     }
-    const anoAnteriorLabel = `${getInfoContrato(doc).anoContrato}º Ano de Contrato`;
 
     const isManualAno =
       b.ano_contrato_manual === true &&

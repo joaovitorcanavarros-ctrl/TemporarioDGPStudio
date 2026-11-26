@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, BadgeCheck, Clock, Pencil, RotateCcw, Trash2, UserMinus } from "lucide-react";
-import { DesligamentoDialog, QuickEditDialog, ReativarDialog } from "@/components/MilitarDialogs";
+import { CorrigirAnoContratoDialog, DesligamentoDialog, QuickEditDialog, ReativarDialog } from "@/components/MilitarDialogs";
 import { AlertaBadge, StatusBadge } from "@/components/StatusBadge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -45,6 +45,7 @@ export default function MilitarDetalhe() {
   const [desl, setDesl] = useState<Militar | null>(null);
   const [reat, setReat] = useState<Militar | null>(null);
   const [quickEdit, setQuickEdit] = useState<Militar | null>(null);
+  const [corrigirAno, setCorrigirAno] = useState<Militar | null>(null);
   const [excluirModalOpen, setExcluirModalOpen] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
   const [selectingAlteracoes, setSelectingAlteracoes] = useState(false);
@@ -185,6 +186,18 @@ export default function MilitarDetalhe() {
                   <span className={cn("inline-flex items-center gap-1.5 font-semibold", info.renovado ? "text-cyan-300" : "text-slate-300")}>
                     {info.renovado && <BadgeCheck className="size-3.5 text-cyan-400" />}
                     <span>{info.rotuloCompleto}</span>
+                    {podeEditar(me.data) && (
+                      <button
+                        type="button"
+                        onClick={() => setCorrigirAno(m)}
+                        title="Corrigir ou reverter ano do contrato"
+                        data-testid="detail-corrigir-ano-button"
+                        className="ml-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-slate-400 transition-colors hover:bg-white/[0.08] hover:text-cyan-300 cursor-pointer"
+                      >
+                        <Pencil className="size-3" />
+                        <span>Corrigir</span>
+                      </button>
+                    )}
                   </span>
                 </Info>
               );
@@ -351,6 +364,7 @@ export default function MilitarDetalhe() {
       <DesligamentoDialog militar={desl} onClose={() => setDesl(null)} />
       <ReativarDialog militar={reat} onClose={() => setReat(null)} />
       <QuickEditDialog militar={quickEdit} onClose={() => setQuickEdit(null)} />
+      <CorrigirAnoContratoDialog militar={corrigirAno} onClose={() => setCorrigirAno(null)} />
 
       <Dialog open={excluirModalOpen} onOpenChange={setExcluirModalOpen}>
         <DialogContent className="glass-dialog border text-white sm:max-w-md">
