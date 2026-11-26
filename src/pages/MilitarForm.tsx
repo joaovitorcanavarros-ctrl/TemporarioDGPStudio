@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ApiError, apiGet, apiPost, apiPut } from "@/lib/api";
 import { errMsg, fmtDate, qs } from "@/lib/format";
 import { podeEditar, useCatalogos, useMe, useMeta } from "@/lib/hooks";
-import { getInfoContrato, type MatriculaCheck, type Militar, type MilitarIn } from "@/lib/types";
+import { getAnoContratoOptions, getInfoContrato, type MatriculaCheck, type Militar, type MilitarIn } from "@/lib/types";
 import { RenovacaoFocusModal, type RenovacaoConfirmPayload } from "@/components/RenovacaoPrompt";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +37,7 @@ const schema = z
     motivo_desligamento_id: z.string().optional(),
     documento_desligamento: z.string().max(120).optional(),
     renovacao_contrato: z.boolean().optional(),
+    ano_contrato: z.string().optional(),
   })
   .superRefine((v, ctx) => {
     if (v.data_inclusao && v.data_vencimento_contrato && v.data_vencimento_contrato < v.data_inclusao)
@@ -53,7 +54,7 @@ type F = z.infer<typeof schema>;
 const EMPTY: F = {
   matricula: "", nome_completo: "", cargo_id: "", lotacao_id: "", comando_regional_id: "", edital_id: "", data_inclusao: "", data_vencimento_contrato: "",
   status: "ATIVO", doe_incorporacao: "", sub_judice: "NAO", observacoes: "", data_desligamento: "", motivo_desligamento_id: "", documento_desligamento: "",
-  renovacao_contrato: false,
+  renovacao_contrato: false, ano_contrato: "1",
 };
 
 function Field({ label, error, children, req, className }: { label: string; error?: string; children: ReactNode; req?: boolean; className?: string }) {
@@ -81,6 +82,7 @@ export default function MilitarForm() {
     decidedForDate: string;
     payload: RenovacaoConfirmPayload;
   } | null>(null);
+  const [anoContratoTouched, setAnoContratoTouched] = useState(false);
 
   const canEdit = podeEditar(me.data);
   const atual = useQuery({ queryKey: ["militar", id], queryFn: () => apiGet<Militar>(`/militares/${id}`), enabled: editing && canEdit });
@@ -98,6 +100,7 @@ export default function MilitarForm() {
         rawCrId && rawCrId !== "cr_adm" && (!crList || crList.some((cr) => cr.id === rawCrId))
           ? rawCrId
           : "";
+      const infoAtual = getInfoContrato(m);
       form.reset({
         matricula: m.matricula, nome_completo: m.nome_completo, cargo_id: m.cargo_id, lotacao_id: m.lotacao_id,
         comando_regional_id: validCrId,
@@ -105,16 +108,19 @@ export default function MilitarForm() {
         data_inclusao: m.data_inclusao, data_vencimento_contrato: m.data_vencimento_contrato, status: m.status,
         doe_incorporacao: m.doe_incorporacao ?? "", sub_judice: m.sub_judice ? "SIM" : "NAO", observacoes: m.observacoes ?? "", data_desligamento: m.data_desligamento ?? "",
         motivo_desligamento_id: m.motivo_desligamento_id ?? "", documento_desligamento: m.documento_desligamento ?? "",
-        renovacao_contrato: Boolean(m.renovacao_contrato),
+        renovacao_contrato: infoAtual.renovado,
+        ano_contrato: String(infoAtual.anoContrato),
       });
       setRenovDecision(null);
       setRenovModalOpen(false);
       setPendingSubmitOutro(null);
+      setAnoContratoTouched(false);
     }
   }, [atual.data, cat.data?.lotacoes, cat.data?.comandos_regionais, form]);
 
   const watchedInclusao = form.watch("data_inclusao") ?? "";
   const watchedVencimento = form.watch("data_vencimento_contrato") ?? "";
+  const watchedAnoContrato = Math.max(1, Math.round(Number(form.watch("ano_contrato") || 1)));
   const originalVencimento = atual.data?.data_vencimento_contrato ?? "";
   const originalInfo = getInfoContrato(atual.data);
   const vencRegister = form.register("data_vencimento_contrato");
@@ -174,9 +180,27 @@ export default function MilitarForm() {
       const existingDatas = Array.isArray(atual.data.renovacoes_datas) ? [...atual.data.renovacoes_datas] : [];
       const activeDecision = decisionOverride ?? renovDecision;
       const dateChanged = Boolean(originalVencimento && v.data_vencimento_contrato !== originalVencimento);
+      const selectedAnoForm = Math.max(1, Math.round(Number(v.ano_contrato || originalInfo.anoContrato || 1)));
+      const manualOverrideBySelect =
+        anoContratoTouched &&
+        (!activeDecision ||
+          activeDecision.decidedForDate !== v.data_vencimento_contrato ||
+          selectedAnoForm !== activeDecision.payload.anoContrato);
       anoContratoManual = Boolean(atual.data.ano_contrato_manual);
 
-      if (dateChanged && activeDecision && activeDecision.decidedForDate === v.data_vencimento_contrato) {
+      if (manualOverrideBySelect) {
+        anoContrato = selectedAnoForm;
+        isRenovado = anoContrato > 1;
+        qtdRenovacoes = Math.max(0, anoContrato - 1);
+        anoContratoManual = true;
+        renovacoesDatas = existingDatas.slice(0, qtdRenovacoes);
+        dataUltimaRenovacao =
+          qtdRenovacoes === 0
+            ? null
+            : renovacoesDatas.length > 0
+              ? renovacoesDatas[renovacoesDatas.length - 1]
+              : (atual.data.data_ultima_renovacao ?? null);
+      } else if (dateChanged && activeDecision && activeDecision.decidedForDate === v.data_vencimento_contrato) {
         isRenovado = activeDecision.payload.isRenovacao;
         anoContrato = activeDecision.payload.anoContrato;
         qtdRenovacoes = activeDecision.payload.qtdRenovacoes;
@@ -189,9 +213,31 @@ export default function MilitarForm() {
           existingDatas.sort();
           renovacoesDatas = existingDatas;
         } else {
-          dataUltimaRenovacao = atual.data.data_ultima_renovacao ?? null;
-          renovacoesDatas = existingDatas;
+          anoContratoManual = Boolean(
+            activeDecision.payload.anoContratoManual ||
+            anoContrato !== originalInfo.anoContrato ||
+            atual.data.ano_contrato_manual
+          );
+          renovacoesDatas = existingDatas.slice(0, qtdRenovacoes);
+          dataUltimaRenovacao =
+            qtdRenovacoes === 0
+              ? null
+              : renovacoesDatas.length > 0
+                ? renovacoesDatas[renovacoesDatas.length - 1]
+                : (atual.data.data_ultima_renovacao ?? null);
         }
+      } else if (selectedAnoForm !== originalInfo.anoContrato) {
+        anoContrato = selectedAnoForm;
+        isRenovado = anoContrato > 1;
+        qtdRenovacoes = Math.max(0, anoContrato - 1);
+        anoContratoManual = true;
+        renovacoesDatas = existingDatas.slice(0, qtdRenovacoes);
+        dataUltimaRenovacao =
+          qtdRenovacoes === 0
+            ? null
+            : renovacoesDatas.length > 0
+              ? renovacoesDatas[renovacoesDatas.length - 1]
+              : (atual.data.data_ultima_renovacao ?? null);
       } else {
         isRenovado = originalInfo.renovado;
         anoContrato = originalInfo.anoContrato;
@@ -229,11 +275,16 @@ export default function MilitarForm() {
 
   const submit = (outro: boolean) =>
     form.handleSubmit((v) => {
+      const selectedAnoForm = Math.max(1, Math.round(Number(v.ano_contrato || originalInfo.anoContrato || 1)));
+      const isDateReducedWithManualYear =
+        Boolean(originalVencimento && v.data_vencimento_contrato < originalVencimento) &&
+        (anoContratoTouched || selectedAnoForm !== originalInfo.anoContrato);
       if (
         editing &&
         originalVencimento &&
         v.data_vencimento_contrato !== originalVencimento &&
-        renovDecision?.decidedForDate !== v.data_vencimento_contrato
+        renovDecision?.decidedForDate !== v.data_vencimento_contrato &&
+        !isDateReducedWithManualYear
       ) {
         setPendingSubmitOutro(outro);
         setRenovModalOpen(true);
@@ -352,12 +403,16 @@ export default function MilitarForm() {
                   void vencRegister.onBlur(ev);
                   if (!editing || !originalVencimento) return;
                   const val = ev.target.value;
+                  const isDateReducedWithManualYear =
+                    val < originalVencimento &&
+                    (anoContratoTouched || watchedAnoContrato !== originalInfo.anoContrato);
                   if (
                     val &&
                     /^\d{4}-\d{2}-\d{2}$/.test(val) &&
                     val !== originalVencimento &&
                     (!watchedInclusao || val >= watchedInclusao) &&
-                    renovDecision?.decidedForDate !== val
+                    renovDecision?.decidedForDate !== val &&
+                    !isDateReducedWithManualYear
                   ) {
                     setPendingSubmitOutro(null);
                     setRenovModalOpen(true);
@@ -374,7 +429,7 @@ export default function MilitarForm() {
                         <strong className="num text-cyan-300">{fmtDate(renovDecision.payload.dataRenovacao)}</strong>)
                       </span>
                     ) : (
-                      <span>Ajuste de data confirmado (sem nova renovação)</span>
+                      <span>Ajuste confirmado ({renovDecision.payload.anoContrato}º Ano de Contrato)</span>
                     )}
                   </span>
                   <button
@@ -390,6 +445,29 @@ export default function MilitarForm() {
                 </div>
               )}
             </Field>
+            {editing && (
+              <Field label="Ano do contrato" className="sm:col-span-2">
+                <Controller
+                  control={form.control}
+                  name="ano_contrato"
+                  render={({ field }) => (
+                    <FieldSelect
+                      testId="select-ano-contrato"
+                      value={field.value || String(originalInfo.anoContrato)}
+                      onChange={(val) => {
+                        field.onChange(val);
+                        setAnoContratoTouched(true);
+                        form.setValue("renovacao_contrato", Number(val) > 1, { shouldDirty: true });
+                      }}
+                      options={getAnoContratoOptions(Math.max(originalInfo.anoContrato, watchedAnoContrato))}
+                    />
+                  )}
+                />
+                <p className="text-[11px] text-slate-400">
+                  Permite corrigir ou reverter manualmente o ano e a contagem de renovações do contrato.
+                </p>
+              </Field>
+            )}
           </div>
         </section>
 
@@ -438,7 +516,7 @@ export default function MilitarForm() {
             </Button>
           )}
           <Button type="button" variant="outline" onClick={() => nav(-1)} className="h-10 sm:h-9" data-testid="cancel-button">Cancelar</Button>
-          <Button type="button" variant="ghost" onClick={() => { form.reset(editing ? undefined : EMPTY); setDup(null); }} className="h-10 sm:h-9" data-testid="clear-button">
+          <Button type="button" variant="ghost" onClick={() => { form.reset(editing ? undefined : EMPTY); setDup(null); setRenovDecision(null); setAnoContratoTouched(false); }} className="h-10 sm:h-9" data-testid="clear-button">
             <Eraser className="size-4" /> Limpar
           </Button>
         </div>
@@ -459,12 +537,21 @@ export default function MilitarForm() {
           initialSelection={
             renovDecision && renovDecision.decidedForDate === watchedVencimento
               ? Boolean(renovDecision.payload.dataRenovacao)
-              : true
+              : undefined
+          }
+          initialAnoAjuste={
+            renovDecision && renovDecision.decidedForDate === watchedVencimento && !renovDecision.payload.dataRenovacao
+              ? renovDecision.payload.anoContrato
+              : anoContratoTouched
+                ? watchedAnoContrato
+                : undefined
           }
           onConfirm={(payload) => {
             const decision = { decidedForDate: watchedVencimento, payload };
             setRenovDecision(decision);
+            setAnoContratoTouched(Boolean(payload.anoContratoManual));
             form.setValue("renovacao_contrato", payload.isRenovacao, { shouldDirty: true });
+            form.setValue("ano_contrato", String(payload.anoContrato), { shouldDirty: true });
             if (pendingSubmitOutro !== null) {
               const outro = pendingSubmitOutro;
               setPendingSubmitOutro(null);

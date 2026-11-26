@@ -3,7 +3,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { ArrowRight, BadgeCheck, Calendar, CheckCircle2, X, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fmtDate } from "@/lib/format";
-import { addDaysToIsoDate, getInfoContrato } from "@/lib/types";
+import { addDaysToIsoDate, getAnoContratoOptions, getInfoContrato } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export interface RenovacaoConfirmPayload {
@@ -12,6 +12,8 @@ export interface RenovacaoConfirmPayload {
   qtdRenovacoes: number;
   /** Novo ano de contrato após confirmar */
   anoContrato: number;
+  /** Indica se o ano do contrato foi ajustado/revertido manualmente */
+  anoContratoManual?: boolean;
   /** Data exata da renovação (vencimento anterior + 1 dia) */
   dataRenovacao: string | null;
 }
@@ -25,6 +27,7 @@ interface RenovacaoFocusModalProps {
   previousRenovado: boolean;
   previousQtdRenovacoes: number;
   initialSelection?: boolean;
+  initialAnoAjuste?: number;
   onConfirm: (payload: RenovacaoConfirmPayload) => void;
 }
 
@@ -78,16 +81,42 @@ export function RenovacaoFocusModal({
   dataVencimentoNova,
   previousRenovado,
   previousQtdRenovacoes,
-  initialSelection = true,
+  initialSelection,
+  initialAnoAjuste,
   onConfirm,
 }: RenovacaoFocusModalProps) {
-  const [escolhaSim, setEscolhaSim] = useState<boolean>(initialSelection);
+  const isDateReduced = Boolean(
+    dataVencimentoAnterior &&
+    dataVencimentoNova &&
+    dataVencimentoNova < dataVencimentoAnterior
+  );
+  const anoAnterior = previousRenovado ? Math.max(2, previousQtdRenovacoes + 1) : 1;
+
+  // Quando a data é reduzida (ex.: 2028 -> 2027), sugere o ano compatível com a nova vigência.
+  const infoNovaVigencia = getInfoContrato({
+    data_inclusao: dataInclusao,
+    data_vencimento_contrato: dataVencimentoNova,
+    renovacao_contrato: null,
+  });
+  const defaultAnoAjuste =
+    typeof initialAnoAjuste === "number" && initialAnoAjuste >= 1
+      ? Math.round(initialAnoAjuste)
+      : isDateReduced
+        ? Math.min(anoAnterior, infoNovaVigencia.anoContrato)
+        : anoAnterior;
+
+  const resolvedInitialSelection =
+    initialSelection !== undefined ? initialSelection : !isDateReduced;
+
+  const [escolhaSim, setEscolhaSim] = useState<boolean>(resolvedInitialSelection);
+  const [anoAjuste, setAnoAjuste] = useState<number>(defaultAnoAjuste);
 
   useEffect(() => {
     if (open) {
-      setEscolhaSim(initialSelection);
+      setEscolhaSim(resolvedInitialSelection);
+      setAnoAjuste(defaultAnoAjuste);
     }
-  }, [open, initialSelection]);
+  }, [open, resolvedInitialSelection, defaultAnoAjuste]);
 
   const preview = computeRenovacaoPreview({
     dataInclusao,
@@ -97,20 +126,25 @@ export function RenovacaoFocusModal({
     previousQtdRenovacoes,
   });
 
+  const anoOptions = getAnoContratoOptions(Math.max(anoAnterior, anoAjuste, preview.anoContrato));
+
   const handleConfirm = () => {
     if (escolhaSim) {
       onConfirm({
         isRenovacao: true,
         qtdRenovacoes: preview.qtdRenovacoes,
         anoContrato: preview.anoContrato,
+        anoContratoManual: false,
         dataRenovacao: preview.dataRenovacao || null,
       });
     } else {
-      const anoMantido = previousRenovado ? Math.max(2, previousQtdRenovacoes + 1) : 1;
+      const anoEscolhido = Math.max(1, Math.round(anoAjuste));
+      const isManualCorrection = anoEscolhido !== anoAnterior || isDateReduced;
       onConfirm({
-        isRenovacao: previousRenovado,
-        qtdRenovacoes: previousRenovado ? previousQtdRenovacoes : 0,
-        anoContrato: anoMantido,
+        isRenovacao: anoEscolhido > 1,
+        qtdRenovacoes: Math.max(0, anoEscolhido - 1),
+        anoContrato: anoEscolhido,
+        anoContratoManual: isManualCorrection,
         dataRenovacao: null,
       });
     }
@@ -222,7 +256,7 @@ export function RenovacaoFocusModal({
                   )}
                 >
                   <XCircle className={cn("size-4 shrink-0", !escolhaSim ? "text-slate-200" : "text-slate-500")} />
-                  <span>Não, apenas ajuste de data</span>
+                  <span>Não, ajuste ou correção</span>
                 </button>
               </div>
             </div>
@@ -247,11 +281,36 @@ export function RenovacaoFocusModal({
                   </div>
                 </dl>
               ) : (
-                <p className="text-xs leading-relaxed text-slate-400" data-testid="renovacao-preview-nao">
-                  {previousRenovado
-                    ? `Apenas a data será ajustada. O vínculo mantém o registro anterior (${previousQtdRenovacoes}ª renovação).`
-                    : "Apenas a data será ajustada, mantendo o contrato inicial (1º Ano de Contrato)."}
-                </p>
+                <div className="space-y-3" data-testid="renovacao-preview-nao">
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="renovacao-ano-ajuste"
+                      className="block text-xs font-medium text-slate-300"
+                    >
+                      Ano do contrato após este ajuste
+                    </label>
+                    <select
+                      id="renovacao-ano-ajuste"
+                      value={String(anoAjuste)}
+                      onChange={(e) => setAnoAjuste(Number(e.target.value))}
+                      data-testid="renovacao-ano-ajuste-select"
+                      className="h-9 w-full rounded-lg border border-white/[0.12] bg-[#060B15]/85 px-3 text-sm text-slate-100 outline-none focus:border-cyan-400/60 focus:ring-2 focus:ring-cyan-400/20 [color-scheme:dark]"
+                    >
+                      {anoOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value} className="bg-[#0A1221] text-slate-100">
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="text-xs leading-relaxed text-slate-400">
+                    {anoAjuste !== anoAnterior
+                      ? `O ano do contrato será corrigido de ${anoAnterior}º Ano para ${anoAjuste}º Ano de Contrato${anoAjuste === 1 ? " (sem renovações)" : ` (${anoAjuste - 1}ª renovação)`}.`
+                      : previousRenovado
+                        ? `Apenas a data será ajustada. O vínculo mantém o registro anterior (${anoAnterior}º Ano de Contrato).`
+                        : "Apenas a data será ajustada, mantendo o contrato inicial (1º Ano de Contrato)."}
+                  </p>
+                </div>
               )}
             </div>
 
